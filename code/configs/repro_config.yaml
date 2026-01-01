@@ -1,0 +1,139 @@
+# Collapse Model reproducibility config
+# All paths/settings can be overridden by environment variables (see REPRODUCE.md)
+
+paths:
+  # Root of this reproduction package (defaults to the repro/ directory).
+  # Override via env: export COLLAPSE_REPRO_ROOT=/path/to/repro
+  repro_root: null
+
+  # Where raw datasets are cached / downloaded to.
+  # Override via env: export COLLAPSE_DATA_DIR=/path/to/data
+  data_dir: ./data_cache
+
+  # Where extracted feature matrices live (.npz per dataset/probe).
+  feature_cache: ./data_cache/features
+
+  # Where experiment CSV/JSON outputs are written.
+  results_dir: ./results
+
+  # Where regenerated figures are saved.
+  figures_dir: ./figures
+
+# ── Compute ──────────────────────────────────────────────────────
+compute:
+  device: auto          # auto | cuda | cpu
+  num_workers: 4
+  random_seed: 42
+  bootstrap_resamples: 10000   # paper uses B=10,000
+
+# ── Experiment subsets ───────────────────────────────────────────
+# Each block is one paper table/figure. Set `enabled: false` to skip.
+experiments:
+
+  # ── Theory validation (§4.1) ──────────────────────────────────
+  e1a_synthetic:
+    enabled: true
+    script: experiment_e1_theorem.py
+    description: "E1a 280-pair synthetic grid (Tab 1, R²=0.9994)"
+    expected_runtime_min: 2
+
+  e1a_ind:
+    enabled: true
+    script: run_e1_bootstrap.py
+    description: "E1a-Ind 120 non-principal-angle pairs + bootstrap CIs (Tab e1a_ind, Tab bootstrap_ci)"
+    expected_runtime_min: 5
+
+  # ── Real-data validation (§4.2) ───────────────────────────────
+  e1b_real:
+    enabled: true
+    script: run_e1b_expanded.py
+    description: "E1b 30 real pairs (Tab e1b)"
+    expected_runtime_min: 15
+
+  e1c_realscale:
+    enabled: true
+    script: run_e1c_expanded.py
+    description: "E1c 57-pair multi-domain validation (Tab e1c)"
+    expected_runtime_min: 30
+
+  e1d_clip_dino:
+    enabled: true
+    script: run_exp1_clip_dino_expand.py
+    description: "E1d CLIP/DINO expansion to 427 total pairs (Tab e1d, Tab bimodal)"
+    expected_runtime_min: 60
+    requires_gpu: true        # CLIP/DINO feature extraction is heavy on CPU
+
+  channel_independence:
+    enabled: true
+    script: run_independence_n32.py
+    description: "Channel independence (Bonferroni, §2 last paragraph)"
+    expected_runtime_min: 5
+
+  # ── Compression application (§5) ──────────────────────────────
+  feature_extraction_m43:
+    enabled: true
+    script: extract_features_m50.py
+    description: "Pre-extract ResNet-50 features for M=43 stress test"
+    expected_runtime_min: 45
+    requires_gpu: true
+
+  e6_compression_m14:
+    enabled: true
+    script: run_compression_v2.py
+    description: "Compression at M=14 vision pool (Appendix Tab compression)"
+    expected_runtime_min: 20
+
+  e8_scale_m43:
+    enabled: true
+    script: run_e8_scale_m50.py
+    description: "M=43 scale stress test, retention column (Tab scale)"
+    expected_runtime_min: 30
+
+  e9_fair_lp:
+    enabled: true
+    script: run_e9_fair_lp.py
+    description: "Fair subspace-projection LP for M=43 (Tab scale, LP cols)"
+    expected_runtime_min: 60
+
+  p1a_modern_baselines:
+    enabled: true
+    script: run_p1a_modern_baselines.py
+    description: "Modern baseline comparison: Vendi/DomainDiverse/Centroid-FF (Tab p1a_modern)"
+    expected_runtime_min: 90
+
+  p2e_hybrid:
+    enabled: true
+    script: run_p2e_hybrid.py
+    description: "Two-signal hybrid Cen→Col / Col→Cen (Appendix Tab p2e_hybrid)"
+    expected_runtime_min: 90
+
+  # ── Auxiliary tables/figures ──────────────────────────────────
+  e4_cross_probe:
+    enabled: false       # cited as Appendix only, lower priority
+    script: experiment_e4_domain_map.py
+    description: "Cross-probe consistency (Appendix E4)"
+    expected_runtime_min: 30
+
+  e5_target_conditioned:
+    enabled: false       # cited as Appendix only
+    script: experiment_e5_joint_matrix.py
+    description: "Target-conditioned M=10 selection (Appendix E5)"
+    expected_runtime_min: 30
+
+  e7_knn:
+    enabled: true
+    script: run_e7_knn_validation.py
+    description: "kNN downstream validation (Appendix E7, footnote in §5)"
+    expected_runtime_min: 20
+
+  ablation_256:
+    enabled: true
+    script: compute_ablation_256.py
+    description: "Spearman ablation on 256 vision pairs (Appendix Tab ablation)"
+    expected_runtime_min: 5
+
+  hero_scatter_figure:
+    enabled: true
+    script: gen_hero_scatter.py
+    description: "Fig hero_scatter (predicted vs actual r_eff for 427 pairs)"
+    expected_runtime_min: 1

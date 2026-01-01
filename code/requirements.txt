@@ -1,0 +1,19 @@
+# Collapse Model reproducibility requirements
+# Pinned upper bounds match the versions used to produce paper numbers
+# (April 2026). Lower bounds are the minimum where APIs are stable.
+
+torch>=2.0,<2.6
+torchvision>=0.15,<0.21
+numpy>=1.24,<2.1
+scipy>=1.10,<1.14
+scikit-learn>=1.2,<1.6
+timm>=0.9,<1.1
+open_clip_torch>=2.20,<2.30
+sentence-transformers>=2.2,<3.1     # SBERT text encoders
+medmnist>=2.2,<3.1                  # BloodMNIST/DermaMNIST/PathMNIST
+datasets>=2.14,<3.0                 # HuggingFace datasets (text)
+tqdm>=4.65,<5.0
+pandas>=2.0,<2.3
+matplotlib>=3.7,<3.10
+seaborn>=0.12,<0.14
+PyYAML>=6.0,<7.0                    # required by run_all.py orchestrator
