@@ -82,14 +82,13 @@ We address this \emph{label-free data-pool compression} problem
 by deriving the \textbf{Collapse Model}, a closed-form bridge
 between spectral geometry and compression decisions.
 The model predicts the merged effective rank ($\reff$) from a
-$2{\times}2$ Gram-block eigenstructure decomposed into three SVD
-channels (energy ratio~$\gamma$, directional alignment~$\alpha$,
-intrinsic dimension~\UID), yielding an explicit superadditivity
-threshold $\rho_c(\alpha,\gamma)$ that drives a greedy
-compression algorithm using only \emph{per-dataset summary
-statistics}---suitable for privacy-constrained or streaming settings
-where features cannot be shared.
-Across 427 real feature-matrix pairs from 5 encoder families and
+$2{\times}2$ Gram-block eigenstructure via two compression-relevant
+SVD channels (energy ratio~$\gamma$, directional alignment~$\alpha$),
+yielding an explicit superadditivity threshold $\rho_c(\alpha,\gamma)$
+that drives a greedy compression algorithm using only
+\emph{per-dataset summary statistics}---suitable for
+privacy-constrained or streaming settings where features cannot be
+shared. Across 427 real feature-matrix pairs from 5 encoder families and
 2 modalities the formula attains Pearson $r{=}0.97$.
 Collapse-guided compression is near-optimal (${\leq}1\%$ regret
 vs.\ exhaustive search), matches the closest published
@@ -261,6 +260,14 @@ The \textbf{U-space Intrinsic Dimension (\UID)} via the Two-NN estimator:
 where $\mu_1,\mu_2$ are geodesic distances to the nearest and second-nearest neighbors
 on the unit sphere $S^{k-1}$ (L2-normalized $U_k$ rows).
 
+\textbf{Role of each channel.}
+$\gamma$ and $\alpha$ enter the merged-rank prediction formula
+(Sec.~\ref{sec:method}) and drive the compression algorithm.
+\UID\ characterizes the intrinsic geometry of individual datasets
+and is used for encoder diagnostics (Sec.~\ref{sec:e1d}) but
+does \emph{not} appear in the prediction formula; it is included
+here to complete the orthogonal decomposition of representation space.
+
 \textbf{Independence.}
 Pairwise Spearman tests (Bonferroni-corrected, $n{=}15$ per probe) detect
 no significant correlation among the three channels on ResNet-50 or
@@ -417,6 +424,13 @@ On real data the formula acts as a systematic upper bound;
 a single multiplicative constant $c$ restores quantitative accuracy and
 follows a universal regression $c{=}0.946{-}0.175\log(N/\reff)$
 across encoder families (Appendix~\ref{app:calibration}).
+Because this is a \emph{one-parameter} linear model in the
+observable $\log(N/\reff)$, a reliable estimate of $c$ requires
+only $5$--$10$ labeled pairs per encoder family---a negligible
+overhead compared to the cost of computing frozen-encoder features.
+In privacy-constrained settings where even summary statistics from
+a single reference pair are available, the per-encoder $c$ can be
+estimated without exposing any raw features.
 The same three channels also bound linear-probe transfer loss
 (Appendix~\ref{app:proof_prop1}): low $\SAk$ implies \emph{high} merge
 gain and \emph{high} transfer loss simultaneously.
@@ -559,7 +573,15 @@ a black-box surprise (full mechanism in Appendix~\ref{app:bimodal}).
 pairs, all in $\gamma\notin[0.5,2]$---exactly the energy-imbalance
 boundary of Corollary~\ref{cor:superadd}.
 (iv)~\textbf{Cross-modal transfer}: 171 SBERT text pairs
-(98.8\% superadditive, $r{=}0.793$) confirm the formula is modality-agnostic.
+(98.8\% superadditive, ranking $r{=}0.793$) confirm that the
+formula's \emph{ordinal} predictions are modality-agnostic.
+Absolute calibration, however, requires modality-specific tuning:
+the vision universal regression
+($c{=}0.946{-}0.175\log(N/\reff)$, Appendix~\ref{app:calibration})
+explains $R^2{=}0.96$ of vision variance but only $R^2{=}0.08$ of
+SBERT variance, indicating that text encoders have a qualitatively
+different spectral bias.
+A text-specific calibration is left for future work.
 
 \textbf{Loop closure.}
 Steps 1--3 together establish that the Collapse Model is mathematically
@@ -701,12 +723,15 @@ The effect size is small in absolute LP units but consistent in direction
 and statistically separable from seed noise---a pattern indicating
 a genuine subspace-quality effect rather than a tail of the random
 distribution.
-At $k{=}10$ ($4{\times}$ compression) the Random baseline already
-achieves $90.8\%$ retention, so LP differences become negligible
-($\Delta{=}{-}0.0011$, within noise).
-The retention$\to$LP coupling verifies the paper's core hypothesis:
-preserving the spectral structure of the full pool preserves its
-downstream discriminative capacity.
+At $k{=}10$ ($4{\times}$ compression) the effect reverses
+($\Delta{=}{-}0.0011$, within seed noise): random selection already
+achieves $90.8\%$ retention, saturating the $\reff$ ceiling so that
+$\alpha$-channel steering adds nothing (Corollary~\ref{cor:superadd});
+the residual LP signal shifts to \emph{centroid coverage}
+(Table~\ref{tab:p1a_modern}).
+This sign reversal identifies Collapse's operating regime:
+a high-compression tool ($k{\leq}7$, ${\geq}5.7{\times}$) rather
+than a near-full-budget selector.
 
 A controlled \emph{clone-attack} stress test
 (Appendix~\ref{app:rsum_regime}) confirms the failure mode of
@@ -763,15 +788,36 @@ Random ($\mu{\pm}\sigma$) & $71.0{\pm}15.5$ & $0.7492$ & $78.1{\pm}20.1$ & $0.75
 \end{tabular}\normalsize
 \end{table}
 
-\textbf{Two-signal discovery.}
-LP-relevant diversity decomposes into two orthogonal axes:
-(\emph{a})~\emph{spectral retention}---Collapse, $r_A{+}r_B$, Max-$\reff$, Vendi-Greedy
-all converge to $116$--$117\%$ retention; and
-(\emph{b})~\emph{centroid coverage}---Centroid-FF and DomainDiverse excel at larger $k$
-at a $17$--$22$\,pp retention cost.
-The \textbf{Requires} column highlights Collapse's niche: summary-statistics-only access,
-with $\alpha$-channel redundancy detection unavailable to $r_A{+}r_B$ ($+25.5\%$; Appendix~\ref{app:rsum_regime}).
-A Cen$\to$Col hybrid composing both signals is in Appendix~\ref{app:p2e_hybrid}.
+\paragraph{Two-signal decomposition and practical selection guide.}
+Table~\ref{tab:p1a_modern} reveals that LP-relevant diversity decomposes
+into two \emph{orthogonal} axes, each captured by a distinct family of
+methods:
+
+\begin{itemize}[leftmargin=1.2em,itemsep=2pt]
+  \item \textbf{Spectral retention} (SR): Collapse, $r_A{+}r_B$,
+    Max-$\reff$, and Vendi-Greedy all converge to
+    $116$--$117\%$ retention---maximizing the entropy of the
+    merged singular-value spectrum.
+    This signal dominates at \emph{high compression ratios}
+    ($k{\leq}7$, i.e., ${\geq}5.7{\times}$), where spectral steering
+    determines which $k$ datasets cover the most directions.
+  \item \textbf{Centroid coverage} (CC): Centroid-FF and DomainDiverse
+    achieve higher LP at $k{\geq}7$ by spreading dataset
+    \emph{mean embeddings} across semantic space, at a
+    $17$--$22$\,pp retention cost.
+    This signal dominates at \emph{low compression ratios}
+    ($k$ near $M$), where random selection already saturates
+    spectral diversity and distributional breadth becomes the
+    bottleneck.
+\end{itemize}
+
+\noindent\textbf{Practical guide.}
+\emph{High compression} ($k{\leq}0.2M$, ${\geq}5{\times}$): use
+Collapse (preferred when $\SAk{>}0.5$, rejecting clones $+25.5\%$;
+Appendix~\ref{app:rsum_regime}) or $r_A{+}r_B$ on clean pools.
+\emph{Low compression} ($k{>}0.2M$): use Centroid-FF or DomainDiverse.
+\emph{Unknown regime}: the Cen$\to$Col hybrid
+(Appendix~\ref{app:p2e_hybrid}) dominates on both SR and LP.
 
 \paragraph{Ablation.}
 On 256 vision pairs, the full model attains Spearman $\rho{=}0.966$
