@@ -1,25 +1,24 @@
-# Controlled-Overlap Two-Stage Experiment
+# 受控重叠两阶段实验
 
-## Setup
+## 实验设置
 
-- Frozen features: ResNet-50, 1,000 cached samples per dataset.
-- Candidate pool size: 500 samples.
-- Candidate sources: 9 source datasets plus variants of the three highest-rank sources.
-- Controlled sample overlap: 0%, 25%, 50%, 75%, and 100%.
-- Stage-1 budget: select 3 pools.
-- Stage-1 methods: Collapse, rank-only (`r_sum`), Centroid-FF, full-feature merged-rank
-  Oracle, and 5 random selections.
-- Stage 2: 256-dimensional shared adapter, 600 steps, 3 seeds, evaluated by ridge probes
-  on DTD, EuroSAT, Flowers102, Oxford Pets, and Food101.
-- Server: Ascend 910B4, NPU 7.
+- 冻结特征：ResNet-50，每个数据集缓存 1,000 个样本。
+- 候选数据池大小：500 个样本。
+- 候选来源：9 个源数据集，以及有效秩最高的三个源数据集的变体。
+- 受控样本重叠率：0%、25%、50%、75% 和 100%。
+- 第一阶段预算：选择 3 个数据池。
+- 第一阶段方法：Collapse、仅使用秩的 `r_sum`、Centroid-FF、使用完整特征的合并有效秩
+  Oracle，以及 5 组随机选择。
+- 第二阶段：256 维共享适配器，训练 600 步，使用 3 个随机种子，并通过岭回归探针在
+  DTD、EuroSAT、Flowers102、Oxford Pets 和 Food101 上评估。
+- 服务器：Ascend 910B4，使用 NPU 7。
 
-## Stage-1 Results
+## 第一阶段结果
 
-At overlap levels from 25% through 100%, the full-feature Oracle selected three distinct
-families: STL-10, CIFAR-100, and CIFAR-10. Collapse and rank-only selection both retained
-a duplicated family.
+当重叠率从 25% 增加到 100% 时，使用完整特征的 Oracle 始终选择三个不同的数据族：
+STL-10、CIFAR-100 和 CIFAR-10。Collapse 和仅使用秩的方法都保留了一个重复数据族。
 
-| Overlap | Collapse merged rank | Rank-only | Oracle | Collapse regret |
+| 重叠率 | Collapse 合并有效秩 | 仅使用秩 | Oracle | Collapse 相对 Oracle 的遗憾值 |
 |---:|---:|---:|---:|---:|
 | 0% | 884.34 | 886.57 | 886.57 | 2.23 |
 | 25% | 832.73 | 832.18 | 876.82 | 44.09 |
@@ -27,14 +26,14 @@ a duplicated family.
 | 75% | 718.51 | 713.31 | 876.69 | 158.17 |
 | 100% | 657.82 | 650.49 | 876.69 | 218.87 |
 
-Alignment made Collapse slightly less sensitive to increasing overlap than rank-only
-selection, but the compact predictor did not prevent duplicate-family selection.
+相较于仅使用秩的选择，对齐信息使 Collapse 对重叠率增加的敏感程度略低，但紧凑摘要预测器
+仍然无法避免选择重复数据族。
 
-## Stage-2 Results
+## 第二阶段结果
 
-Mean accuracy over 3 seeds and 5 target datasets:
+以下为 3 个随机种子和 5 个目标数据集上的平均准确率：
 
-| Overlap | Collapse | Rank-only | Centroid-FF | Oracle | Random mean |
+| 重叠率 | Collapse | 仅使用秩 | Centroid-FF | Oracle | 随机选择均值 |
 |---:|---:|---:|---:|---:|---:|
 | 0% | 0.6305 | 0.6363 | 0.6272 | 0.6292 | 0.6337 |
 | 25% | 0.6420 | 0.6379 | 0.6261 | 0.6470 | 0.6355 |
@@ -42,34 +41,32 @@ Mean accuracy over 3 seeds and 5 target datasets:
 | 75% | 0.6353 | 0.6428 | 0.6257 | 0.6325 | 0.6300 |
 | 100% | 0.6362 | 0.6438 | 0.6257 | 0.6325 | 0.6279 |
 
-Exploratory paired comparisons over overlap, seed, and target units:
+在重叠率、随机种子和目标任务组成的实验单元上，探索性配对比较结果如下：
 
-- Collapse minus rank-only: -0.0051, paired t-test p = 0.077.
-- Collapse minus Centroid-FF: +0.0095, p = 0.00059.
-- Collapse minus full-rank Oracle: +0.0009, p = 0.742.
-- Collapse minus the mean random selection: +0.0042, p = 0.070.
+- Collapse 减去仅使用秩的方法：-0.0051，配对 t 检验 p = 0.077。
+- Collapse 减去 Centroid-FF：+0.0095，p = 0.00059。
+- Collapse 减去完整谱 Oracle：+0.0009，p = 0.742。
+- Collapse 减去随机选择均值：+0.0042，p = 0.070。
 
-Across all method-overlap cells, merged effective rank had only moderate association with
-Stage-2 accuracy: Spearman rho = 0.438 and Pearson r = 0.480.
+在所有“方法—重叠率”组合中，合并有效秩与第二阶段准确率仅呈中等程度的相关性：
+Spearman rho = 0.438，Pearson r = 0.480。
 
-These p-values are exploratory. The 75 paired units reuse targets and overlap-derived pools,
-so they are not independent evidence of cross-dataset generalization.
+上述 p 值仅用于探索性分析。75 个配对实验单元重复使用了目标数据集和由不同重叠率构造的
+数据池，因此它们并不是相互独立的，不能作为跨数据集泛化能力的独立证据。
 
-## Interpretation
+## 结果解释
 
-The result supports the two-stage architecture but not a strong claim for the compact
-Collapse selector. Spectral pre-screening and downstream validation optimize different
-quantities. In this controlled collection, Collapse did not beat rank-only selection and
-did not reproduce the full-feature Oracle's redundancy avoidance. Stage 2 was necessary
-because maximizing merged effective rank did not consistently maximize adapter accuracy.
+实验结果支持两阶段框架，但不支持对紧凑 Collapse 选择器作出强主张。谱预筛选和下游验证
+所优化的目标并不相同。在当前受控候选集合中，Collapse 没有优于仅使用秩的方法，也没有
+复现完整特征 Oracle 的冗余规避能力。第二阶段不可省略，因为最大化合并有效秩并不能稳定地
+最大化适配器准确率。
 
-The next experiment should test a richer bucketed spectrum or low-rank sketch as the
-Stage-1 representation. Further expansion of the four-summary selector is not justified
-unless it improves shortlist recall on held-out natural pools.
+下一步实验应将第一阶段表示升级为更丰富的分桶谱摘要或低秩 sketch。除非四摘要选择器能够
+在留出的自然数据池上提高候选短名单的召回率，否则没有充分理由继续扩大该选择器的实验规模。
 
-## Files
+## 文件说明
 
-- `screening_manifest.json`: exact candidate families and selections.
-- `screening_results.csv`: Stage-1 metrics for every overlap and method.
-- `adaptation_results.csv`: per-overlap, method, seed, and target accuracy.
-- `screen.log` and `adapt.log`: server execution logs.
+- `screening_manifest.json`：精确记录候选数据族及其选择结果。
+- `screening_results.csv`：每个重叠率和方法的第一阶段指标。
+- `adaptation_results.csv`：每个重叠率、方法、随机种子和目标任务的准确率。
+- `screen.log` 和 `adapt.log`：服务器执行日志。
