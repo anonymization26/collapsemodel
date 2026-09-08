@@ -1,0 +1,8 @@
+WARNING:root:No pretrained weights loaded for model 'ViT-B-32'. Model initialized randomly.
+variant=clip_b32 device=npu:4 model_load=14.241s
+[W902 09:18:40.676705319 compiler_depend.ts:24] Warning: CAUTION: The operator aten::_transform_bias_rescale_qkv is currently not supported on the NPU backend. Now this operator will fallback to run on the CPU and may have performance implications. Please try to update your CANN version. (function operator())
+cifar10: shape=(5000, 512) seconds=24.938 rate=200.50/s sha256=12c23420040ae9412cd00adc51d3c89a7831386d21f41a464a6ed1bf77236d56
+cifar100: shape=(5000, 512) seconds=28.861 rate=173.24/s sha256=e18754d50a915a12e4e3ea8942c761d9045011c8acd71a3f49d3dfc6fa4e0a67
+dtd: shape=(1880, 512) seconds=14.243 rate=131.99/s sha256=74ac6b6eb0a5cfa69afbb214ce0faa94c463410dd259f87f7a4a2735957524c9
+eurosat: shape=(5000, 512) seconds=27.572 rate=181.34/s sha256=a590c020ff740b0237bf4c0075b341ddb2ac8ee7e297d43174a7ba952bfe815f
+svhn: shape=(5000, 512) seconds=27.292 rate=183.20/s sha256=a0b704a95626b5b4511619518e9e2642769b14dc092989ee008910a975705f2d

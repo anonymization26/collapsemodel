@@ -1,0 +1,5 @@
+variant=vit_b16 device=npu:6 model_load=1.747s
+[W905 12:12:52.198307865 compiler_depend.ts:24] Warning: CAUTION: The operator aten::_transform_bias_rescale_qkv is currently not supported on the NPU backend. Now this operator will fallback to run on the CPU and may have performance implications. Please try to update your CANN version. (function operator())
+cifar10: shape=(5000, 768) seconds=139.980 rate=35.72/s sha256=e6f37313b69e51d31fdf921f95c0d233d646b196c8fdaf20332a64b2c079b888
+pathmnist: shape=(5000, 768) seconds=140.365 rate=35.62/s sha256=76b26481d39dc7650c909e822f97d5546eb1c2f4b3298b1aef1f93beadac2e5f
+rendered_sst2: shape=(5000, 768) seconds=140.275 rate=35.64/s sha256=151d1a7ccc405791e634a8d31c50b5579d88a5c0cef3165d9dcdbd05182c7aeb

@@ -1,0 +1,470 @@
+{
+  "started_utc": "2026-09-02T01:26:43.653344+00:00",
+  "finished_utc": "2026-09-02T01:32:03.401441+00:00",
+  "encoder": "clip_b32",
+  "feature_dir": "/data/Paper06/features/two_stage_official_n5000",
+  "sample_tag": "5000",
+  "datasets": [
+    "cifar10",
+    "cifar100",
+    "dtd",
+    "eurosat",
+    "svhn"
+  ],
+  "pool_size": 250,
+  "pools_per_dataset": 4,
+  "construction_seeds": [
+    20260910,
+    20260911,
+    20260912,
+    20260913,
+    20260914,
+    20260915,
+    20260916,
+    20260917,
+    20260918,
+    20260919
+  ],
+  "overlaps": [
+    0.0,
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    1.0
+  ],
+  "budgets": [
+    3,
+    5,
+    8,
+    10
+  ],
+  "top_k": 20,
+  "n_random": 0,
+  "include_full_rank": false,
+  "shard_index": 0,
+  "shard_count": 1,
+  "assigned_collections": [
+    [
+      20260910,
+      0.0
+    ],
+    [
+      20260910,
+      0.1
+    ],
+    [
+      20260910,
+      0.25
+    ],
+    [
+      20260910,
+      0.5
+    ],
+    [
+      20260910,
+      0.75
+    ],
+    [
+      20260910,
+      1.0
+    ],
+    [
+      20260911,
+      0.0
+    ],
+    [
+      20260911,
+      0.1
+    ],
+    [
+      20260911,
+      0.25
+    ],
+    [
+      20260911,
+      0.5
+    ],
+    [
+      20260911,
+      0.75
+    ],
+    [
+      20260911,
+      1.0
+    ],
+    [
+      20260912,
+      0.0
+    ],
+    [
+      20260912,
+      0.1
+    ],
+    [
+      20260912,
+      0.25
+    ],
+    [
+      20260912,
+      0.5
+    ],
+    [
+      20260912,
+      0.75
+    ],
+    [
+      20260912,
+      1.0
+    ],
+    [
+      20260913,
+      0.0
+    ],
+    [
+      20260913,
+      0.1
+    ],
+    [
+      20260913,
+      0.25
+    ],
+    [
+      20260913,
+      0.5
+    ],
+    [
+      20260913,
+      0.75
+    ],
+    [
+      20260913,
+      1.0
+    ],
+    [
+      20260914,
+      0.0
+    ],
+    [
+      20260914,
+      0.1
+    ],
+    [
+      20260914,
+      0.25
+    ],
+    [
+      20260914,
+      0.5
+    ],
+    [
+      20260914,
+      0.75
+    ],
+    [
+      20260914,
+      1.0
+    ],
+    [
+      20260915,
+      0.0
+    ],
+    [
+      20260915,
+      0.1
+    ],
+    [
+      20260915,
+      0.25
+    ],
+    [
+      20260915,
+      0.5
+    ],
+    [
+      20260915,
+      0.75
+    ],
+    [
+      20260915,
+      1.0
+    ],
+    [
+      20260916,
+      0.0
+    ],
+    [
+      20260916,
+      0.1
+    ],
+    [
+      20260916,
+      0.25
+    ],
+    [
+      20260916,
+      0.5
+    ],
+    [
+      20260916,
+      0.75
+    ],
+    [
+      20260916,
+      1.0
+    ],
+    [
+      20260917,
+      0.0
+    ],
+    [
+      20260917,
+      0.1
+    ],
+    [
+      20260917,
+      0.25
+    ],
+    [
+      20260917,
+      0.5
+    ],
+    [
+      20260917,
+      0.75
+    ],
+    [
+      20260917,
+      1.0
+    ],
+    [
+      20260918,
+      0.0
+    ],
+    [
+      20260918,
+      0.1
+    ],
+    [
+      20260918,
+      0.25
+    ],
+    [
+      20260918,
+      0.5
+    ],
+    [
+      20260918,
+      0.75
+    ],
+    [
+      20260918,
+      1.0
+    ],
+    [
+      20260919,
+      0.0
+    ],
+    [
+      20260919,
+      0.1
+    ],
+    [
+      20260919,
+      0.25
+    ],
+    [
+      20260919,
+      0.5
+    ],
+    [
+      20260919,
+      0.75
+    ],
+    [
+      20260919,
+      1.0
+    ]
+  ],
+  "rows": 1200,
+  "result_sha256": "8b417007ede0c31318631bce52a6535c282dd64598aad1bd6737f78e4bb31f09",
+  "script_sha256": "65b3365b1a0e23b3be237b0876b2d94e9e71ca2b5c826c2d358194e4377926ef",
+  "classic_script_sha256": "2a8e31402929799401c25fa6f25b1d685f02c32d6d15dc0d4b850378696c54e5",
+  "feature_metadata": {
+    "cifar10": {
+      "started_utc": "2026-09-02T01:18:37.760439+00:00",
+      "finished_utc": "2026-09-02T01:19:03.860814+00:00",
+      "variant": "clip_b32",
+      "checkpoint": "/data/Paper06/manual_weights/ViT-B-32.pt",
+      "preprocess": "Compose(\n    Resize(size=224, interpolation=bicubic, max_size=None, antialias=True)\n    CenterCrop(size=(224, 224))\n    MaybeConvertMode()\n    MaybeToTensor()\n    Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))\n)",
+      "preprocess_sha256": "c4c7c2276f27ec1b7f9e45f1f76dde5176ca32a245eafeadd607a3c7f4c1660e",
+      "dataset": "cifar10",
+      "split": "train",
+      "source": "/data/67/paper18/archive/scripts/data/cifar-10-batches-py",
+      "source_samples": 50000,
+      "requested_samples": 5000,
+      "sample_seed": 20260902,
+      "sampling": "deterministic_proportional_stratified",
+      "saved_labels_for_audit_only": true,
+      "feature_shape": [
+        5000,
+        512
+      ],
+      "feature_dtype": "float32",
+      "index_dtype": "int64",
+      "inference_seconds": 24.938152782619,
+      "images_per_second": 200.4960047997148,
+      "model_load_seconds": 14.240948781371117,
+      "peak_allocated_mb": 744.5869140625,
+      "peak_reserved_mb": 826.0,
+      "device": "npu:4",
+      "batch_size": 64,
+      "workers": 4,
+      "torch_version": "2.6.0+cpu",
+      "python_version": "3.10.12",
+      "script_sha256": "1a355698c9749780d56737370eff87df608c0b3d5bf732803a578498b1760bf0",
+      "encoder_loader_sha256": "53cd670916952e78ea29c2f19270bd0cf315e1d44a2b15f19dd982985b1796a4",
+      "feature_file_sha256": "12c23420040ae9412cd00adc51d3c89a7831386d21f41a464a6ed1bf77236d56"
+    },
+    "cifar100": {
+      "started_utc": "2026-09-02T01:19:03.877719+00:00",
+      "finished_utc": "2026-09-02T01:19:34.070845+00:00",
+      "variant": "clip_b32",
+      "checkpoint": "/data/Paper06/manual_weights/ViT-B-32.pt",
+      "preprocess": "Compose(\n    Resize(size=224, interpolation=bicubic, max_size=None, antialias=True)\n    CenterCrop(size=(224, 224))\n    MaybeConvertMode()\n    MaybeToTensor()\n    Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))\n)",
+      "preprocess_sha256": "c4c7c2276f27ec1b7f9e45f1f76dde5176ca32a245eafeadd607a3c7f4c1660e",
+      "dataset": "cifar100",
+      "split": "train",
+      "source": "/data/67/paper18/archive/scripts/data/cifar-100-python",
+      "source_samples": 50000,
+      "requested_samples": 5000,
+      "sample_seed": 20260902,
+      "sampling": "deterministic_proportional_stratified",
+      "saved_labels_for_audit_only": true,
+      "feature_shape": [
+        5000,
+        512
+      ],
+      "feature_dtype": "float32",
+      "index_dtype": "int64",
+      "inference_seconds": 28.86103892326355,
+      "images_per_second": 173.24393668897798,
+      "model_load_seconds": 14.240948781371117,
+      "peak_allocated_mb": 744.5869140625,
+      "peak_reserved_mb": 826.0,
+      "device": "npu:4",
+      "batch_size": 64,
+      "workers": 4,
+      "torch_version": "2.6.0+cpu",
+      "python_version": "3.10.12",
+      "script_sha256": "1a355698c9749780d56737370eff87df608c0b3d5bf732803a578498b1760bf0",
+      "encoder_loader_sha256": "53cd670916952e78ea29c2f19270bd0cf315e1d44a2b15f19dd982985b1796a4",
+      "feature_file_sha256": "e18754d50a915a12e4e3ea8942c761d9045011c8acd71a3f49d3dfc6fa4e0a67"
+    },
+    "dtd": {
+      "started_utc": "2026-09-02T01:19:34.087736+00:00",
+      "finished_utc": "2026-09-02T01:19:48.377965+00:00",
+      "variant": "clip_b32",
+      "checkpoint": "/data/Paper06/manual_weights/ViT-B-32.pt",
+      "preprocess": "Compose(\n    Resize(size=224, interpolation=bicubic, max_size=None, antialias=True)\n    CenterCrop(size=(224, 224))\n    MaybeConvertMode()\n    MaybeToTensor()\n    Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))\n)",
+      "preprocess_sha256": "c4c7c2276f27ec1b7f9e45f1f76dde5176ca32a245eafeadd607a3c7f4c1660e",
+      "dataset": "dtd",
+      "split": "train1",
+      "source": "/data/67/paper18/archive/scripts/data/dtd/dtd",
+      "source_samples": 1880,
+      "requested_samples": 5000,
+      "sample_seed": 20260902,
+      "sampling": "deterministic_proportional_stratified",
+      "saved_labels_for_audit_only": true,
+      "feature_shape": [
+        1880,
+        512
+      ],
+      "feature_dtype": "float32",
+      "index_dtype": "int64",
+      "inference_seconds": 14.243437180295587,
+      "images_per_second": 131.99061267323856,
+      "model_load_seconds": 14.240948781371117,
+      "peak_allocated_mb": 744.5869140625,
+      "peak_reserved_mb": 826.0,
+      "device": "npu:4",
+      "batch_size": 64,
+      "workers": 4,
+      "torch_version": "2.6.0+cpu",
+      "python_version": "3.10.12",
+      "script_sha256": "1a355698c9749780d56737370eff87df608c0b3d5bf732803a578498b1760bf0",
+      "encoder_loader_sha256": "53cd670916952e78ea29c2f19270bd0cf315e1d44a2b15f19dd982985b1796a4",
+      "feature_file_sha256": "74ac6b6eb0a5cfa69afbb214ce0faa94c463410dd259f87f7a4a2735957524c9"
+    },
+    "eurosat": {
+      "started_utc": "2026-09-02T01:19:48.386263+00:00",
+      "finished_utc": "2026-09-02T01:20:16.158522+00:00",
+      "variant": "clip_b32",
+      "checkpoint": "/data/Paper06/manual_weights/ViT-B-32.pt",
+      "preprocess": "Compose(\n    Resize(size=224, interpolation=bicubic, max_size=None, antialias=True)\n    CenterCrop(size=(224, 224))\n    MaybeConvertMode()\n    MaybeToTensor()\n    Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))\n)",
+      "preprocess_sha256": "c4c7c2276f27ec1b7f9e45f1f76dde5176ca32a245eafeadd607a3c7f4c1660e",
+      "dataset": "eurosat",
+      "split": "full",
+      "source": "/data/67/paper18/datasets_v2/canonical_20260722T191500/eurosat/2750",
+      "source_samples": 27000,
+      "requested_samples": 5000,
+      "sample_seed": 20260902,
+      "sampling": "deterministic_proportional_stratified",
+      "saved_labels_for_audit_only": true,
+      "feature_shape": [
+        5000,
+        512
+      ],
+      "feature_dtype": "float32",
+      "index_dtype": "int64",
+      "inference_seconds": 27.572039119899273,
+      "images_per_second": 181.34313455225745,
+      "model_load_seconds": 14.240948781371117,
+      "peak_allocated_mb": 744.5869140625,
+      "peak_reserved_mb": 826.0,
+      "device": "npu:4",
+      "batch_size": 64,
+      "workers": 4,
+      "torch_version": "2.6.0+cpu",
+      "python_version": "3.10.12",
+      "script_sha256": "1a355698c9749780d56737370eff87df608c0b3d5bf732803a578498b1760bf0",
+      "encoder_loader_sha256": "53cd670916952e78ea29c2f19270bd0cf315e1d44a2b15f19dd982985b1796a4",
+      "feature_file_sha256": "a590c020ff740b0237bf4c0075b341ddb2ac8ee7e297d43174a7ba952bfe815f"
+    },
+    "svhn": {
+      "started_utc": "2026-09-02T01:20:16.176126+00:00",
+      "finished_utc": "2026-09-02T01:20:43.965348+00:00",
+      "variant": "clip_b32",
+      "checkpoint": "/data/Paper06/manual_weights/ViT-B-32.pt",
+      "preprocess": "Compose(\n    Resize(size=224, interpolation=bicubic, max_size=None, antialias=True)\n    CenterCrop(size=(224, 224))\n    MaybeConvertMode()\n    MaybeToTensor()\n    Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))\n)",
+      "preprocess_sha256": "c4c7c2276f27ec1b7f9e45f1f76dde5176ca32a245eafeadd607a3c7f4c1660e",
+      "dataset": "svhn",
+      "split": "train",
+      "source": "/data/67/paper14/hf_cache/datasets/svhn/cropped_digits/0.0.0/f9e1717d73324ebbc1ece84267ccd80d0aca0690/svhn-train.arrow",
+      "source_samples": 73257,
+      "requested_samples": 5000,
+      "sample_seed": 20260902,
+      "sampling": "deterministic_proportional_stratified",
+      "saved_labels_for_audit_only": true,
+      "feature_shape": [
+        5000,
+        512
+      ],
+      "feature_dtype": "float32",
+      "index_dtype": "int64",
+      "inference_seconds": 27.2919418271631,
+      "images_per_second": 183.20425976518843,
+      "model_load_seconds": 14.240948781371117,
+      "peak_allocated_mb": 744.5869140625,
+      "peak_reserved_mb": 826.0,
+      "device": "npu:4",
+      "batch_size": 64,
+      "workers": 4,
+      "torch_version": "2.6.0+cpu",
+      "python_version": "3.10.12",
+      "script_sha256": "1a355698c9749780d56737370eff87df608c0b3d5bf732803a578498b1760bf0",
+      "encoder_loader_sha256": "53cd670916952e78ea29c2f19270bd0cf315e1d44a2b15f19dd982985b1796a4",
+      "feature_file_sha256": "a0b704a95626b5b4511619518e9e2642769b14dc092989ee008910a975705f2d"
+    }
+  }
+}

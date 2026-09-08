@@ -1,0 +1,150 @@
+{
+  "created_utc": "2026-09-07T06:20:41.382369+00:00",
+  "pid": 4010295,
+  "script_sha256": "b7db316c14175a7636ee2da594d114bc61f3bcac8449c577bbffd75119019a97",
+  "encoder": "dinov2_b14",
+  "source_dir": "/data/Paper06/features/two_stage_source_splits_n5000",
+  "sources": [
+    "cifar10",
+    "cifar100",
+    "cifar100_coarse",
+    "fashion_mnist",
+    "mnist",
+    "rendered_sst2",
+    "stl10",
+    "svhn",
+    "tiny_imagenet",
+    "usps"
+  ],
+  "source_domains": {
+    "cifar10": "general_vision",
+    "cifar100": "general_vision",
+    "cifar100_coarse": "general_vision",
+    "fashion_mnist": "digits_characters",
+    "mnist": "digits_characters",
+    "rendered_sst2": "rendered_text",
+    "stl10": "general_vision",
+    "svhn": "digits_characters",
+    "tiny_imagenet": "general_vision",
+    "usps": "digits_characters"
+  },
+  "source_families": {
+    "cifar10": "cifar10",
+    "cifar100": "cifar100_shared_images",
+    "cifar100_coarse": "cifar100_shared_images",
+    "fashion_mnist": "fashion_mnist",
+    "mnist": "handwritten_digits",
+    "rendered_sst2": "rendered_sst2",
+    "stl10": "stl10",
+    "svhn": "svhn",
+    "tiny_imagenet": "tiny_imagenet",
+    "usps": "handwritten_digits"
+  },
+  "excluded_source_domains": [
+    "medical"
+  ],
+  "targets": [
+    "beans",
+    "dtd",
+    "eurosat",
+    "flowers102",
+    "food101",
+    "gtsrb",
+    "oxford_pets"
+  ],
+  "cache_samples": 5000,
+  "stage1_samples": 1000,
+  "sample_seed": 20260905,
+  "top_k": 20,
+  "shortlist_sizes": [
+    3,
+    5
+  ],
+  "summary_preprocessing_seconds": 6.546227620914578,
+  "selections": {
+    "3": {
+      "rank_only": [
+        "tiny_imagenet",
+        "cifar100_coarse",
+        "cifar100"
+      ],
+      "facility_subspace": [
+        "cifar100_coarse",
+        "usps",
+        "cifar10"
+      ],
+      "kcenter_subspace": [
+        "tiny_imagenet",
+        "rendered_sst2",
+        "usps"
+      ],
+      "dpp_subspace": [
+        "tiny_imagenet",
+        "cifar100_coarse",
+        "cifar10"
+      ],
+      "pool_vendi_subspace": [
+        "tiny_imagenet",
+        "rendered_sst2",
+        "usps"
+      ],
+      "full_merged_rank": [
+        "tiny_imagenet",
+        "cifar100",
+        "stl10"
+      ]
+    },
+    "5": {
+      "rank_only": [
+        "tiny_imagenet",
+        "cifar100_coarse",
+        "cifar100",
+        "cifar10",
+        "stl10"
+      ],
+      "facility_subspace": [
+        "cifar100_coarse",
+        "usps",
+        "cifar10",
+        "rendered_sst2",
+        "fashion_mnist"
+      ],
+      "kcenter_subspace": [
+        "tiny_imagenet",
+        "rendered_sst2",
+        "usps",
+        "fashion_mnist",
+        "stl10"
+      ],
+      "dpp_subspace": [
+        "tiny_imagenet",
+        "cifar100_coarse",
+        "cifar10",
+        "stl10",
+        "cifar100"
+      ],
+      "pool_vendi_subspace": [
+        "tiny_imagenet",
+        "rendered_sst2",
+        "usps",
+        "stl10",
+        "fashion_mnist"
+      ],
+      "full_merged_rank": [
+        "tiny_imagenet",
+        "cifar100",
+        "stl10",
+        "cifar100_coarse",
+        "cifar10"
+      ]
+    }
+  },
+  "selection_seconds_to_max_shortlist": {
+    "rank_only": 3.819912672042847e-05,
+    "facility_subspace": 0.0003982912749052048,
+    "kcenter_subspace": 0.00037019141018390656,
+    "dpp_subspace": 0.0022136252373456955,
+    "pool_vendi_subspace": 0.002939850091934204,
+    "full_merged_rank": 3.4321948513388634
+  }
+}

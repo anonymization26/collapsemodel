@@ -1,0 +1,26 @@
+{
+  "created_utc": "2026-09-02T01:50:47.358649+00:00",
+  "encoders": [
+    "clip_b32",
+    "dinov2_b14",
+    "resnet50",
+    "vit_b16"
+  ],
+  "rows": 4800,
+  "source_manifests": [
+    "controlled_stopping_clip_b32_shard0of1.json",
+    "controlled_stopping_dinov2_b14_shard0of1.json",
+    "controlled_stopping_resnet50_shard0of2.json",
+    "controlled_stopping_resnet50_shard1of2.json",
+    "controlled_stopping_vit_b16_shard0of1.json"
+  ],
+  "controlled_script_sha256": "65b3365b1a0e23b3be237b0876b2d94e9e71ca2b5c826c2d358194e4377926ef",
+  "classic_script_sha256": "2a8e31402929799401c25fa6f25b1d685f02c32d6d15dc0d4b850378696c54e5",
+  "collapse_method": "collapse",
+  "win_tie_loss_tolerance": "abs(delta) <= 1e-6 * max(abs(rank_reff), 1)",
+  "merged_result_sha256": "ba40f8d10e5f4908b85de8c96ba456083bc61ffe9a0a0b6ebf8892ec12d06c36",
+  "summary_sha256": "77c0aa92a4bdeb5b4ce10982ac883c469967b765f5cef35dcf78ff6aa133e2ce",
+  "pairwise_sha256": "a50309fe3ec044880771a45abdf64e62477126323c221414df9535f65f105434",
+  "alignment_sha256": "c95ac08bc74e6a6b74bf27007dcd7dd3c5ed848536b72967501b94a82f102103",
+  "decision_sha256": "e8115636602486b18e898910790184e669c9fd2cf30a3502b2c03054b30b2e2c"
+}

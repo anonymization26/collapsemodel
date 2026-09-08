@@ -128,7 +128,12 @@ def run_adapt(args):
     duplicate_sources = manifest["duplicate_sources"]
     device = torch.device(args.device)
     rows = []
-    for key, config in manifest["configs"].items():
+    configs = list(manifest["configs"].items())
+    configs = [
+        item for index, item in enumerate(configs)
+        if index % args.shard_count == args.shard_index
+    ]
+    for key, config in configs:
         methods = config["methods"]
         collapse_selected = methods["collapse"]["selected"]
         rank_selected = methods["r_sum"]["selected"]
@@ -143,7 +148,8 @@ def run_adapt(args):
         method_names += sorted(name for name in methods if name.startswith("random_"))
         for method in method_names:
             selected = methods[method]["selected"]
-            for adapter_seed in range(args.n_adapter_seeds):
+            seed_stop = args.adapter_seed_start + args.n_adapter_seeds
+            for adapter_seed in range(args.adapter_seed_start, seed_stop):
                 current = core.adapt_one(
                     selected, pools, targets, device, adapter_seed, args.steps,
                 )
@@ -161,7 +167,8 @@ def run_adapt(args):
     if not rows:
         print("No configurations selected for adaptation.")
         return
-    with (args.out_dir / "large_adaptation_results.csv").open("w", newline="") as handle:
+    output_path = args.out_dir / args.output_name
+    with output_path.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader(); writer.writerows(rows)
 
@@ -177,9 +184,18 @@ def parse_args():
     parser.add_argument("--n-duplicate-sources", type=int, default=6)
     parser.add_argument("--n-random", type=int, default=5)
     parser.add_argument("--n-adapter-seeds", type=int, default=3)
+    parser.add_argument("--adapter-seed-start", type=int, default=0)
+    parser.add_argument("--shard-index", type=int, default=0)
+    parser.add_argument("--shard-count", type=int, default=1)
+    parser.add_argument("--output-name", default="large_adaptation_results.csv")
     parser.add_argument("--steps", type=int, default=600)
     parser.add_argument("--run-agreements", action="store_true")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.shard_count < 1:
+        parser.error("--shard-count must be at least 1")
+    if not 0 <= args.shard_index < args.shard_count:
+        parser.error("--shard-index must be in [0, shard-count)")
+    return args
 
 
 if __name__ == "__main__":

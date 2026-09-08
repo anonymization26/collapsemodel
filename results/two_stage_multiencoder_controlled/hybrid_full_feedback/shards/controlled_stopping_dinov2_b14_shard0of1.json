@@ -1,0 +1,470 @@
+{
+  "started_utc": "2026-09-02T01:26:43.823998+00:00",
+  "finished_utc": "2026-09-02T01:35:31.528043+00:00",
+  "encoder": "dinov2_b14",
+  "feature_dir": "/data/Paper06/features/two_stage_official_n5000",
+  "sample_tag": "5000",
+  "datasets": [
+    "cifar10",
+    "cifar100",
+    "dtd",
+    "eurosat",
+    "svhn"
+  ],
+  "pool_size": 250,
+  "pools_per_dataset": 4,
+  "construction_seeds": [
+    20260910,
+    20260911,
+    20260912,
+    20260913,
+    20260914,
+    20260915,
+    20260916,
+    20260917,
+    20260918,
+    20260919
+  ],
+  "overlaps": [
+    0.0,
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    1.0
+  ],
+  "budgets": [
+    3,
+    5,
+    8,
+    10
+  ],
+  "top_k": 20,
+  "n_random": 0,
+  "include_full_rank": false,
+  "shard_index": 0,
+  "shard_count": 1,
+  "assigned_collections": [
+    [
+      20260910,
+      0.0
+    ],
+    [
+      20260910,
+      0.1
+    ],
+    [
+      20260910,
+      0.25
+    ],
+    [
+      20260910,
+      0.5
+    ],
+    [
+      20260910,
+      0.75
+    ],
+    [
+      20260910,
+      1.0
+    ],
+    [
+      20260911,
+      0.0
+    ],
+    [
+      20260911,
+      0.1
+    ],
+    [
+      20260911,
+      0.25
+    ],
+    [
+      20260911,
+      0.5
+    ],
+    [
+      20260911,
+      0.75
+    ],
+    [
+      20260911,
+      1.0
+    ],
+    [
+      20260912,
+      0.0
+    ],
+    [
+      20260912,
+      0.1
+    ],
+    [
+      20260912,
+      0.25
+    ],
+    [
+      20260912,
+      0.5
+    ],
+    [
+      20260912,
+      0.75
+    ],
+    [
+      20260912,
+      1.0
+    ],
+    [
+      20260913,
+      0.0
+    ],
+    [
+      20260913,
+      0.1
+    ],
+    [
+      20260913,
+      0.25
+    ],
+    [
+      20260913,
+      0.5
+    ],
+    [
+      20260913,
+      0.75
+    ],
+    [
+      20260913,
+      1.0
+    ],
+    [
+      20260914,
+      0.0
+    ],
+    [
+      20260914,
+      0.1
+    ],
+    [
+      20260914,
+      0.25
+    ],
+    [
+      20260914,
+      0.5
+    ],
+    [
+      20260914,
+      0.75
+    ],
+    [
+      20260914,
+      1.0
+    ],
+    [
+      20260915,
+      0.0
+    ],
+    [
+      20260915,
+      0.1
+    ],
+    [
+      20260915,
+      0.25
+    ],
+    [
+      20260915,
+      0.5
+    ],
+    [
+      20260915,
+      0.75
+    ],
+    [
+      20260915,
+      1.0
+    ],
+    [
+      20260916,
+      0.0
+    ],
+    [
+      20260916,
+      0.1
+    ],
+    [
+      20260916,
+      0.25
+    ],
+    [
+      20260916,
+      0.5
+    ],
+    [
+      20260916,
+      0.75
+    ],
+    [
+      20260916,
+      1.0
+    ],
+    [
+      20260917,
+      0.0
+    ],
+    [
+      20260917,
+      0.1
+    ],
+    [
+      20260917,
+      0.25
+    ],
+    [
+      20260917,
+      0.5
+    ],
+    [
+      20260917,
+      0.75
+    ],
+    [
+      20260917,
+      1.0
+    ],
+    [
+      20260918,
+      0.0
+    ],
+    [
+      20260918,
+      0.1
+    ],
+    [
+      20260918,
+      0.25
+    ],
+    [
+      20260918,
+      0.5
+    ],
+    [
+      20260918,
+      0.75
+    ],
+    [
+      20260918,
+      1.0
+    ],
+    [
+      20260919,
+      0.0
+    ],
+    [
+      20260919,
+      0.1
+    ],
+    [
+      20260919,
+      0.25
+    ],
+    [
+      20260919,
+      0.5
+    ],
+    [
+      20260919,
+      0.75
+    ],
+    [
+      20260919,
+      1.0
+    ]
+  ],
+  "rows": 1200,
+  "result_sha256": "c60439fd6d3673a668b5d27b9852bf32d3fae7caaf2ed73d6deaac1e2faf7e2e",
+  "script_sha256": "65b3365b1a0e23b3be237b0876b2d94e9e71ca2b5c826c2d358194e4377926ef",
+  "classic_script_sha256": "2a8e31402929799401c25fa6f25b1d685f02c32d6d15dc0d4b850378696c54e5",
+  "feature_metadata": {
+    "cifar10": {
+      "started_utc": "2026-09-02T01:18:25.348988+00:00",
+      "finished_utc": "2026-09-02T01:18:38.329616+00:00",
+      "variant": "dinov2_b14",
+      "checkpoint": "/root/.cache/torch/hub/checkpoints/dinov2_vitb14_pretrain.pth",
+      "preprocess": "Compose(\n    Resize(size=256, interpolation=bicubic, max_size=None, antialias=True)\n    CenterCrop(size=(224, 224))\n    ToTensor()\n    Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))\n)",
+      "preprocess_sha256": "26184559c02d24bb9e3bfc740fea07c88c8f7f2fb942b67cfa4ad9fc5a6577b8",
+      "dataset": "cifar10",
+      "split": "train",
+      "source": "/data/67/paper18/archive/scripts/data/cifar-10-batches-py",
+      "source_samples": 50000,
+      "requested_samples": 5000,
+      "sample_seed": 20260902,
+      "sampling": "deterministic_proportional_stratified",
+      "saved_labels_for_audit_only": true,
+      "feature_shape": [
+        5000,
+        768
+      ],
+      "feature_dtype": "float32",
+      "index_dtype": "int64",
+      "inference_seconds": 11.822830164805055,
+      "images_per_second": 422.9105831938883,
+      "model_load_seconds": 2.832497650757432,
+      "peak_allocated_mb": 945.642578125,
+      "peak_reserved_mb": 1122.0,
+      "device": "npu:5",
+      "batch_size": 64,
+      "workers": 4,
+      "torch_version": "2.6.0+cpu",
+      "python_version": "3.10.12",
+      "script_sha256": "1a355698c9749780d56737370eff87df608c0b3d5bf732803a578498b1760bf0",
+      "encoder_loader_sha256": "53cd670916952e78ea29c2f19270bd0cf315e1d44a2b15f19dd982985b1796a4",
+      "feature_file_sha256": "4511e9953261a14953284d7598636c4e7be4a7e12c75d2eb040e82b77f826356"
+    },
+    "cifar100": {
+      "started_utc": "2026-09-02T01:18:38.353365+00:00",
+      "finished_utc": "2026-09-02T01:18:49.349217+00:00",
+      "variant": "dinov2_b14",
+      "checkpoint": "/root/.cache/torch/hub/checkpoints/dinov2_vitb14_pretrain.pth",
+      "preprocess": "Compose(\n    Resize(size=256, interpolation=bicubic, max_size=None, antialias=True)\n    CenterCrop(size=(224, 224))\n    ToTensor()\n    Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))\n)",
+      "preprocess_sha256": "26184559c02d24bb9e3bfc740fea07c88c8f7f2fb942b67cfa4ad9fc5a6577b8",
+      "dataset": "cifar100",
+      "split": "train",
+      "source": "/data/67/paper18/archive/scripts/data/cifar-100-python",
+      "source_samples": 50000,
+      "requested_samples": 5000,
+      "sample_seed": 20260902,
+      "sampling": "deterministic_proportional_stratified",
+      "saved_labels_for_audit_only": true,
+      "feature_shape": [
+        5000,
+        768
+      ],
+      "feature_dtype": "float32",
+      "index_dtype": "int64",
+      "inference_seconds": 9.845485711470246,
+      "images_per_second": 507.8469611890118,
+      "model_load_seconds": 2.832497650757432,
+      "peak_allocated_mb": 945.642578125,
+      "peak_reserved_mb": 1122.0,
+      "device": "npu:5",
+      "batch_size": 64,
+      "workers": 4,
+      "torch_version": "2.6.0+cpu",
+      "python_version": "3.10.12",
+      "script_sha256": "1a355698c9749780d56737370eff87df608c0b3d5bf732803a578498b1760bf0",
+      "encoder_loader_sha256": "53cd670916952e78ea29c2f19270bd0cf315e1d44a2b15f19dd982985b1796a4",
+      "feature_file_sha256": "c64f28e8f0e51be5f1f9800c59e010fdbcf27c1b371db7b6c8166a86f598a37e"
+    },
+    "dtd": {
+      "started_utc": "2026-09-02T01:18:49.372041+00:00",
+      "finished_utc": "2026-09-02T01:18:55.740823+00:00",
+      "variant": "dinov2_b14",
+      "checkpoint": "/root/.cache/torch/hub/checkpoints/dinov2_vitb14_pretrain.pth",
+      "preprocess": "Compose(\n    Resize(size=256, interpolation=bicubic, max_size=None, antialias=True)\n    CenterCrop(size=(224, 224))\n    ToTensor()\n    Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))\n)",
+      "preprocess_sha256": "26184559c02d24bb9e3bfc740fea07c88c8f7f2fb942b67cfa4ad9fc5a6577b8",
+      "dataset": "dtd",
+      "split": "train1",
+      "source": "/data/67/paper18/archive/scripts/data/dtd/dtd",
+      "source_samples": 1880,
+      "requested_samples": 5000,
+      "sample_seed": 20260902,
+      "sampling": "deterministic_proportional_stratified",
+      "saved_labels_for_audit_only": true,
+      "feature_shape": [
+        1880,
+        768
+      ],
+      "feature_dtype": "float32",
+      "index_dtype": "int64",
+      "inference_seconds": 6.301735540851951,
+      "images_per_second": 298.3305135248245,
+      "model_load_seconds": 2.832497650757432,
+      "peak_allocated_mb": 945.642578125,
+      "peak_reserved_mb": 1122.0,
+      "device": "npu:5",
+      "batch_size": 64,
+      "workers": 4,
+      "torch_version": "2.6.0+cpu",
+      "python_version": "3.10.12",
+      "script_sha256": "1a355698c9749780d56737370eff87df608c0b3d5bf732803a578498b1760bf0",
+      "encoder_loader_sha256": "53cd670916952e78ea29c2f19270bd0cf315e1d44a2b15f19dd982985b1796a4",
+      "feature_file_sha256": "ff9a0fb1039554c3c250e821b567725875161177d1e7b77a67daa495a61481ee"
+    },
+    "eurosat": {
+      "started_utc": "2026-09-02T01:18:55.753000+00:00",
+      "finished_utc": "2026-09-02T01:19:06.093581+00:00",
+      "variant": "dinov2_b14",
+      "checkpoint": "/root/.cache/torch/hub/checkpoints/dinov2_vitb14_pretrain.pth",
+      "preprocess": "Compose(\n    Resize(size=256, interpolation=bicubic, max_size=None, antialias=True)\n    CenterCrop(size=(224, 224))\n    ToTensor()\n    Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))\n)",
+      "preprocess_sha256": "26184559c02d24bb9e3bfc740fea07c88c8f7f2fb942b67cfa4ad9fc5a6577b8",
+      "dataset": "eurosat",
+      "split": "full",
+      "source": "/data/67/paper18/datasets_v2/canonical_20260722T191500/eurosat/2750",
+      "source_samples": 27000,
+      "requested_samples": 5000,
+      "sample_seed": 20260902,
+      "sampling": "deterministic_proportional_stratified",
+      "saved_labels_for_audit_only": true,
+      "feature_shape": [
+        5000,
+        768
+      ],
+      "feature_dtype": "float32",
+      "index_dtype": "int64",
+      "inference_seconds": 10.147885862737894,
+      "images_per_second": 492.713464423121,
+      "model_load_seconds": 2.832497650757432,
+      "peak_allocated_mb": 945.642578125,
+      "peak_reserved_mb": 1122.0,
+      "device": "npu:5",
+      "batch_size": 64,
+      "workers": 4,
+      "torch_version": "2.6.0+cpu",
+      "python_version": "3.10.12",
+      "script_sha256": "1a355698c9749780d56737370eff87df608c0b3d5bf732803a578498b1760bf0",
+      "encoder_loader_sha256": "53cd670916952e78ea29c2f19270bd0cf315e1d44a2b15f19dd982985b1796a4",
+      "feature_file_sha256": "b97a30b04d58b1eac8b3d5a07af9106c27aa15e14c9d95a04734705c3ce302af"
+    },
+    "svhn": {
+      "started_utc": "2026-09-02T01:19:06.116379+00:00",
+      "finished_utc": "2026-09-02T01:19:19.351608+00:00",
+      "variant": "dinov2_b14",
+      "checkpoint": "/root/.cache/torch/hub/checkpoints/dinov2_vitb14_pretrain.pth",
+      "preprocess": "Compose(\n    Resize(size=256, interpolation=bicubic, max_size=None, antialias=True)\n    CenterCrop(size=(224, 224))\n    ToTensor()\n    Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))\n)",
+      "preprocess_sha256": "26184559c02d24bb9e3bfc740fea07c88c8f7f2fb942b67cfa4ad9fc5a6577b8",
+      "dataset": "svhn",
+      "split": "train",
+      "source": "/data/67/paper14/hf_cache/datasets/svhn/cropped_digits/0.0.0/f9e1717d73324ebbc1ece84267ccd80d0aca0690/svhn-train.arrow",
+      "source_samples": 73257,
+      "requested_samples": 5000,
+      "sample_seed": 20260902,
+      "sampling": "deterministic_proportional_stratified",
+      "saved_labels_for_audit_only": true,
+      "feature_shape": [
+        5000,
+        768
+      ],
+      "feature_dtype": "float32",
+      "index_dtype": "int64",
+      "inference_seconds": 12.058711655437946,
+      "images_per_second": 414.6379930848766,
+      "model_load_seconds": 2.832497650757432,
+      "peak_allocated_mb": 945.642578125,
+      "peak_reserved_mb": 1122.0,
+      "device": "npu:5",
+      "batch_size": 64,
+      "workers": 4,
+      "torch_version": "2.6.0+cpu",
+      "python_version": "3.10.12",
+      "script_sha256": "1a355698c9749780d56737370eff87df608c0b3d5bf732803a578498b1760bf0",
+      "encoder_loader_sha256": "53cd670916952e78ea29c2f19270bd0cf315e1d44a2b15f19dd982985b1796a4",
+      "feature_file_sha256": "9a457ad5d99f32c34b98c280faabb23d6e0d568f52350360f14a4053aee2fdf7"
+    }
+  }
+}

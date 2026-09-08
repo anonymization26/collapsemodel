@@ -1,0 +1,20 @@
+WARNING:root:No pretrained weights loaded for model 'ViT-B-32'. Model initialized randomly.
+variant=clip_b32 device=npu:7 model_load=12.047s
+[W905 12:13:02.859651035 compiler_depend.ts:24] Warning: CAUTION: The operator aten::_transform_bias_rescale_qkv is currently not supported on the NPU backend. Now this operator will fallback to run on the CPU and may have performance implications. Please try to update your CANN version. (function operator())
+cifar10: shape=(5000, 512) seconds=26.722 rate=187.11/s sha256=5139d83d97a247fb402b385f8520cdf5830b2deac06bab28c2c557122e841e21
+pathmnist: shape=(5000, 512) seconds=26.303 rate=190.09/s sha256=757dd65cb59c1481fc0105e85044229b3068df792d9a1dc85d15d00b5a6106b3
+rendered_sst2: shape=(5000, 512) seconds=30.030 rate=166.50/s sha256=b9cea04483608eb9ee470ad6cfaeaef90704a51a4d81c2ff3b86069be47f8e30
+/root/.cache/torch/hub/facebookresearch_dinov2_main/dinov2/layers/swiglu_ffn.py:51: UserWarning: xFormers is not available (SwiGLU)
+  warnings.warn("xFormers is not available (SwiGLU)")
+/root/.cache/torch/hub/facebookresearch_dinov2_main/dinov2/layers/attention.py:33: UserWarning: xFormers is not available (Attention)
+  warnings.warn("xFormers is not available (Attention)")
+/root/.cache/torch/hub/facebookresearch_dinov2_main/dinov2/layers/block.py:40: UserWarning: xFormers is not available (Block)
+  warnings.warn("xFormers is not available (Block)")
+variant=dinov2_b14 device=npu:7 model_load=2.789s
+cifar10: shape=(5000, 768) seconds=11.131 rate=449.21/s sha256=fd7d057521885927b5f11827891f50aeb8e64e063fd7fb0c36409d177ee2dca6
+pathmnist: shape=(5000, 768) seconds=9.657 rate=517.76/s sha256=669e483182f6fabc4931c69b8f5b216fbcf347b361f73d542a8c5b3dcaac6732
+rendered_sst2: shape=(5000, 768) seconds=13.657 rate=366.10/s sha256=ee3fb66cf9afb4584536af0fbdb1684aa1fd6e7a7b339e3d55194c416db56f16
+variant=resnet50 device=npu:7 model_load=1.387s
+cifar10: shape=(5000, 2048) seconds=10.813 rate=462.40/s sha256=650d93e6ea3c544df9034dfd985a4f23bf98480e82e1bf51c0fada49ffd4c0ed
+pathmnist: shape=(5000, 2048) seconds=7.577 rate=659.93/s sha256=4d4dccdab30179a2474e1d6f5d4cfeefe08c829c9f65a5e4ff8f4b0806ac7b4b
+rendered_sst2: shape=(5000, 2048) seconds=13.341 rate=374.79/s sha256=69466570223412105855e145da35a8b85814a891b30f61749dfc2c1d80289fe4
