@@ -1,0 +1,598 @@
+{
+  "seed": 20260831,
+  "pool_size": 500,
+  "k": 3,
+  "top_k": 20,
+  "duplicate_sources": [
+    "stl10",
+    "cifar100",
+    "cifar10"
+  ],
+  "overlaps": {
+    "0.00": {
+      "family": {
+        "cifar10": "cifar10",
+        "cifar100": "cifar100",
+        "fashion_mnist": "fashion_mnist",
+        "mnist": "mnist",
+        "stl10": "stl10",
+        "svhn": "svhn",
+        "bloodmnist": "bloodmnist",
+        "dermamnist": "dermamnist",
+        "pathmnist": "pathmnist",
+        "stl10__overlap_000": "stl10",
+        "cifar100__overlap_000": "cifar100",
+        "cifar10__overlap_000": "cifar10"
+      },
+      "methods": {
+        "collapse": {
+          "selected": [
+            "stl10__overlap_000",
+            "cifar100",
+            "cifar100__overlap_000"
+          ],
+          "merged_reff": 884.3416137695312,
+          "unique_families": 2,
+          "duplicate_count": 1,
+          "regret_vs_oracle": 2.23101806640625
+        },
+        "r_sum": {
+          "selected": [
+            "stl10__overlap_000",
+            "stl10",
+            "cifar100"
+          ],
+          "merged_reff": 886.5726318359375,
+          "unique_families": 2,
+          "duplicate_count": 1,
+          "regret_vs_oracle": 0.0
+        },
+        "centroid_ff": {
+          "selected": [
+            "stl10__overlap_000",
+            "pathmnist",
+            "fashion_mnist"
+          ],
+          "merged_reff": 701.8408203125,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 184.7318115234375
+        },
+        "oracle": {
+          "selected": [
+            "stl10__overlap_000",
+            "cifar100",
+            "stl10"
+          ],
+          "merged_reff": 886.5726318359375,
+          "unique_families": 2,
+          "duplicate_count": 1,
+          "regret_vs_oracle": 0.0
+        },
+        "random_0": {
+          "selected": [
+            "bloodmnist",
+            "cifar100",
+            "mnist"
+          ],
+          "merged_reff": 640.4091186523438,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 246.16351318359375
+        },
+        "random_1": {
+          "selected": [
+            "cifar100__overlap_000",
+            "stl10__overlap_000",
+            "svhn"
+          ],
+          "merged_reff": 811.3008422851562,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 75.27178955078125
+        },
+        "random_2": {
+          "selected": [
+            "cifar100__overlap_000",
+            "mnist",
+            "stl10"
+          ],
+          "merged_reff": 789.0455322265625,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 97.527099609375
+        },
+        "random_3": {
+          "selected": [
+            "bloodmnist",
+            "mnist",
+            "stl10"
+          ],
+          "merged_reff": 666.2691650390625,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 220.303466796875
+        },
+        "random_4": {
+          "selected": [
+            "bloodmnist",
+            "stl10",
+            "stl10__overlap_000"
+          ],
+          "merged_reff": 776.2086181640625,
+          "unique_families": 2,
+          "duplicate_count": 1,
+          "regret_vs_oracle": 110.364013671875
+        }
+      }
+    },
+    "0.25": {
+      "family": {
+        "cifar10": "cifar10",
+        "cifar100": "cifar100",
+        "fashion_mnist": "fashion_mnist",
+        "mnist": "mnist",
+        "stl10": "stl10",
+        "svhn": "svhn",
+        "bloodmnist": "bloodmnist",
+        "dermamnist": "dermamnist",
+        "pathmnist": "pathmnist",
+        "stl10__overlap_025": "stl10",
+        "cifar100__overlap_025": "cifar100",
+        "cifar10__overlap_025": "cifar10"
+      },
+      "methods": {
+        "collapse": {
+          "selected": [
+            "stl10__overlap_025",
+            "cifar100",
+            "cifar100__overlap_025"
+          ],
+          "merged_reff": 832.7320556640625,
+          "unique_families": 2,
+          "duplicate_count": 1,
+          "regret_vs_oracle": 44.09222412109375
+        },
+        "r_sum": {
+          "selected": [
+            "stl10__overlap_025",
+            "stl10",
+            "cifar100"
+          ],
+          "merged_reff": 832.1771240234375,
+          "unique_families": 2,
+          "duplicate_count": 1,
+          "regret_vs_oracle": 44.64715576171875
+        },
+        "centroid_ff": {
+          "selected": [
+            "stl10__overlap_025",
+            "pathmnist",
+            "fashion_mnist"
+          ],
+          "merged_reff": 702.482666015625,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 174.34161376953125
+        },
+        "oracle": {
+          "selected": [
+            "stl10__overlap_025",
+            "cifar100",
+            "cifar10"
+          ],
+          "merged_reff": 876.8242797851562,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 0.0
+        },
+        "random_0": {
+          "selected": [
+            "cifar100",
+            "cifar100__overlap_025",
+            "svhn"
+          ],
+          "merged_reff": 712.7847900390625,
+          "unique_families": 2,
+          "duplicate_count": 1,
+          "regret_vs_oracle": 164.03948974609375
+        },
+        "random_1": {
+          "selected": [
+            "bloodmnist",
+            "mnist",
+            "stl10"
+          ],
+          "merged_reff": 666.2691650390625,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 210.55511474609375
+        },
+        "random_2": {
+          "selected": [
+            "cifar10__overlap_025",
+            "mnist",
+            "pathmnist"
+          ],
+          "merged_reff": 625.26953125,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 251.55474853515625
+        },
+        "random_3": {
+          "selected": [
+            "cifar100__overlap_025",
+            "cifar10__overlap_025",
+            "stl10__overlap_025"
+          ],
+          "merged_reff": 871.9107666015625,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 4.91351318359375
+        },
+        "random_4": {
+          "selected": [
+            "cifar100",
+            "cifar10__overlap_025",
+            "dermamnist"
+          ],
+          "merged_reff": 720.101318359375,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 156.72296142578125
+        }
+      }
+    },
+    "0.50": {
+      "family": {
+        "cifar10": "cifar10",
+        "cifar100": "cifar100",
+        "fashion_mnist": "fashion_mnist",
+        "mnist": "mnist",
+        "stl10": "stl10",
+        "svhn": "svhn",
+        "bloodmnist": "bloodmnist",
+        "dermamnist": "dermamnist",
+        "pathmnist": "pathmnist",
+        "stl10__overlap_050": "stl10",
+        "cifar100__overlap_050": "cifar100",
+        "cifar10__overlap_050": "cifar10"
+      },
+      "methods": {
+        "collapse": {
+          "selected": [
+            "stl10",
+            "cifar100",
+            "cifar100__overlap_050"
+          ],
+          "merged_reff": 776.0143432617188,
+          "unique_families": 2,
+          "duplicate_count": 1,
+          "regret_vs_oracle": 100.671142578125
+        },
+        "r_sum": {
+          "selected": [
+            "stl10",
+            "stl10__overlap_050",
+            "cifar100"
+          ],
+          "merged_reff": 773.1787719726562,
+          "unique_families": 2,
+          "duplicate_count": 1,
+          "regret_vs_oracle": 103.5067138671875
+        },
+        "centroid_ff": {
+          "selected": [
+            "stl10",
+            "pathmnist",
+            "fashion_mnist"
+          ],
+          "merged_reff": 702.545654296875,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 174.13983154296875
+        },
+        "oracle": {
+          "selected": [
+            "stl10",
+            "cifar100",
+            "cifar10"
+          ],
+          "merged_reff": 876.6854858398438,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 0.0
+        },
+        "random_0": {
+          "selected": [
+            "cifar10",
+            "dermamnist",
+            "mnist"
+          ],
+          "merged_reff": 609.7294921875,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 266.95599365234375
+        },
+        "random_1": {
+          "selected": [
+            "cifar100__overlap_050",
+            "cifar10__overlap_050",
+            "stl10__overlap_050"
+          ],
+          "merged_reff": 873.8012084960938,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 2.88427734375
+        },
+        "random_2": {
+          "selected": [
+            "cifar100",
+            "dermamnist",
+            "stl10__overlap_050"
+          ],
+          "merged_reff": 766.724853515625,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 109.96063232421875
+        },
+        "random_3": {
+          "selected": [
+            "fashion_mnist",
+            "mnist",
+            "svhn"
+          ],
+          "merged_reff": 553.2670288085938,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 323.41845703125
+        },
+        "random_4": {
+          "selected": [
+            "bloodmnist",
+            "cifar100",
+            "stl10"
+          ],
+          "merged_reff": 793.2510986328125,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 83.43438720703125
+        }
+      }
+    },
+    "0.75": {
+      "family": {
+        "cifar10": "cifar10",
+        "cifar100": "cifar100",
+        "fashion_mnist": "fashion_mnist",
+        "mnist": "mnist",
+        "stl10": "stl10",
+        "svhn": "svhn",
+        "bloodmnist": "bloodmnist",
+        "dermamnist": "dermamnist",
+        "pathmnist": "pathmnist",
+        "stl10__overlap_075": "stl10",
+        "cifar100__overlap_075": "cifar100",
+        "cifar10__overlap_075": "cifar10"
+      },
+      "methods": {
+        "collapse": {
+          "selected": [
+            "stl10",
+            "cifar100",
+            "cifar100__overlap_075"
+          ],
+          "merged_reff": 718.51123046875,
+          "unique_families": 2,
+          "duplicate_count": 1,
+          "regret_vs_oracle": 158.17425537109375
+        },
+        "r_sum": {
+          "selected": [
+            "stl10",
+            "stl10__overlap_075",
+            "cifar100"
+          ],
+          "merged_reff": 713.3104248046875,
+          "unique_families": 2,
+          "duplicate_count": 1,
+          "regret_vs_oracle": 163.37506103515625
+        },
+        "centroid_ff": {
+          "selected": [
+            "stl10",
+            "pathmnist",
+            "fashion_mnist"
+          ],
+          "merged_reff": 702.545654296875,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 174.13983154296875
+        },
+        "oracle": {
+          "selected": [
+            "stl10",
+            "cifar100",
+            "cifar10"
+          ],
+          "merged_reff": 876.6854858398438,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 0.0
+        },
+        "random_0": {
+          "selected": [
+            "cifar100",
+            "dermamnist",
+            "mnist"
+          ],
+          "merged_reff": 617.3101806640625,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 259.37530517578125
+        },
+        "random_1": {
+          "selected": [
+            "cifar10__overlap_075",
+            "dermamnist",
+            "mnist"
+          ],
+          "merged_reff": 609.0736083984375,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 267.61187744140625
+        },
+        "random_2": {
+          "selected": [
+            "cifar10__overlap_075",
+            "stl10",
+            "stl10__overlap_075"
+          ],
+          "merged_reff": 688.7857055664062,
+          "unique_families": 2,
+          "duplicate_count": 1,
+          "regret_vs_oracle": 187.8997802734375
+        },
+        "random_3": {
+          "selected": [
+            "bloodmnist",
+            "cifar10__overlap_075",
+            "pathmnist"
+          ],
+          "merged_reff": 623.7927856445312,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 252.8927001953125
+        },
+        "random_4": {
+          "selected": [
+            "cifar10__overlap_075",
+            "fashion_mnist",
+            "stl10"
+          ],
+          "merged_reff": 805.474853515625,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 71.21063232421875
+        }
+      }
+    },
+    "1.00": {
+      "family": {
+        "cifar10": "cifar10",
+        "cifar100": "cifar100",
+        "fashion_mnist": "fashion_mnist",
+        "mnist": "mnist",
+        "stl10": "stl10",
+        "svhn": "svhn",
+        "bloodmnist": "bloodmnist",
+        "dermamnist": "dermamnist",
+        "pathmnist": "pathmnist",
+        "stl10__overlap_100": "stl10",
+        "cifar100__overlap_100": "cifar100",
+        "cifar10__overlap_100": "cifar10"
+      },
+      "methods": {
+        "collapse": {
+          "selected": [
+            "stl10",
+            "cifar100",
+            "cifar100__overlap_100"
+          ],
+          "merged_reff": 657.8173828125,
+          "unique_families": 2,
+          "duplicate_count": 1,
+          "regret_vs_oracle": 218.86810302734375
+        },
+        "r_sum": {
+          "selected": [
+            "stl10",
+            "stl10__overlap_100",
+            "cifar100"
+          ],
+          "merged_reff": 650.4869384765625,
+          "unique_families": 2,
+          "duplicate_count": 1,
+          "regret_vs_oracle": 226.19854736328125
+        },
+        "centroid_ff": {
+          "selected": [
+            "stl10",
+            "pathmnist",
+            "fashion_mnist"
+          ],
+          "merged_reff": 702.545654296875,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 174.13983154296875
+        },
+        "oracle": {
+          "selected": [
+            "stl10",
+            "cifar100",
+            "cifar10"
+          ],
+          "merged_reff": 876.6854858398438,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 0.0
+        },
+        "random_0": {
+          "selected": [
+            "cifar100",
+            "stl10",
+            "svhn"
+          ],
+          "merged_reff": 816.12841796875,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 60.55706787109375
+        },
+        "random_1": {
+          "selected": [
+            "mnist",
+            "stl10",
+            "svhn"
+          ],
+          "merged_reff": 693.6737060546875,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 183.01177978515625
+        },
+        "random_2": {
+          "selected": [
+            "cifar10",
+            "fashion_mnist",
+            "svhn"
+          ],
+          "merged_reff": 686.9829711914062,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 189.7025146484375
+        },
+        "random_3": {
+          "selected": [
+            "dermamnist",
+            "mnist",
+            "svhn"
+          ],
+          "merged_reff": 494.5155029296875,
+          "unique_families": 3,
+          "duplicate_count": 0,
+          "regret_vs_oracle": 382.16998291015625
+        },
+        "random_4": {
+          "selected": [
+            "bloodmnist",
+            "cifar100",
+            "cifar100__overlap_100"
+          ],
+          "merged_reff": 511.4868469238281,
+          "unique_families": 2,
+          "duplicate_count": 1,
+          "regret_vs_oracle": 365.1986389160156
+        }
+      }
+    }
+  }
+}
