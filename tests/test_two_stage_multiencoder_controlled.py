@@ -1,4 +1,5 @@
 import importlib.util
+import argparse
 import sys
 import unittest
 from pathlib import Path
@@ -75,6 +76,28 @@ class ControlledCollectionTests(unittest.TestCase):
         self.assertEqual(controlled.binary_auc(labels, scores), 1.0)
         self.assertEqual(controlled.average_precision(labels, scores), 1.0)
 
+    def test_parent_detection_uses_only_matched_same_dataset_negatives(self):
+        names = [
+            "a__alias", "a__pool0", "a__pool1",
+            "b__alias", "b__pool0", "b__pool1",
+        ]
+        similarity = np.eye(len(names))
+        similarity[0, 1] = similarity[1, 0] = 0.9
+        similarity[0, 2] = similarity[2, 0] = 0.2
+        similarity[3, 4] = similarity[4, 3] = 0.8
+        similarity[3, 5] = similarity[5, 3] = 0.1
+        families = {name: name.split("__")[0] for name in names}
+        metrics = controlled.matched_parent_detection(
+            similarity,
+            names,
+            families,
+            {"a__alias": "a__pool0", "b__alias": "b__pool0"},
+        )
+        self.assertEqual(metrics["parent_matched_auroc"], 1.0)
+        self.assertEqual(metrics["parent_matched_auprc"], 1.0)
+        self.assertEqual(metrics["parent_top1_accuracy"], 1.0)
+        self.assertEqual(metrics["parent_mean_reciprocal_rank"], 1.0)
+
     def test_summary_only_selector_uses_fixed_size_pool_sketches(self):
         pools, _, _, _, _ = controlled.make_collection(
             self.features, self.indices, pool_size=10, pools_per_dataset=3,
@@ -91,6 +114,10 @@ class ControlledCollectionTests(unittest.TestCase):
         )
         self.assertEqual(len(selected), 5)
         self.assertEqual(len(set(selected)), 5)
+        summaries, *_ = summary_only.complete_pool_summaries(pools, top_k=3)
+        selected = controlled.classic.rank_l_gram_greedy(summaries, 5)
+        self.assertEqual(len(selected), 5)
+        self.assertEqual(len(set(selected)), 5)
 
     def test_sketch_statistics_handles_rank_deficiency(self):
         sketch = np.ones((20, 12), dtype=np.float32)
@@ -101,6 +128,30 @@ class ControlledCollectionTests(unittest.TestCase):
         self.assertGreater(nuclear, 0.0)
         self.assertEqual(subspace.shape, (1, 12))
         self.assertTrue(np.isfinite(subspace).all())
+
+    def test_summary_run_reports_rank_l_and_matched_protocol(self):
+        args = argparse.Namespace(
+            pool_size=10,
+            pools_per_dataset=3,
+            top_k=3,
+            budgets=[3],
+            encoder="test",
+        )
+        zero_rows = summary_only.run_collection(
+            args, self.features, self.indices, seed=31, overlap=0.0,
+        )
+        self.assertIn("rank_l_gram", {row["method"] for row in zero_rows})
+        self.assertTrue(all(
+            np.isnan(float(row["alignment_parent_matched_auroc"]))
+            for row in zero_rows
+        ))
+        overlap_rows = summary_only.run_collection(
+            args, self.features, self.indices, seed=31, overlap=0.5,
+        )
+        self.assertTrue(all(
+            np.isfinite(float(row["alignment_parent_matched_auroc"]))
+            for row in overlap_rows
+        ))
 
 
 if __name__ == "__main__":

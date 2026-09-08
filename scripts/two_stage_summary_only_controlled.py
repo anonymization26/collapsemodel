@@ -33,50 +33,50 @@ def pool_summaries(
     dict[str, np.ndarray],
     dict[str, np.ndarray],
 ]:
-    """Create summaries sufficient for a weighted low-rank aggregate sketch."""
+    """Compatibility view of coherent statistics derived from rank-L sketches."""
+
+    _, ranks, nuclear, subspaces, sketches = complete_pool_summaries(features, top_k)
+    return ranks, nuclear, subspaces, sketches
+
+
+def complete_pool_summaries(
+    features: dict[str, np.ndarray], top_k: int,
+) -> tuple[
+    dict[str, classic.GramSketch],
+    dict[str, float],
+    dict[str, float],
+    dict[str, np.ndarray],
+    dict[str, np.ndarray],
+]:
+    """Create one internally consistent rank-L Gram summary per pool."""
 
     ranks: dict[str, float] = {}
     nuclear: dict[str, float] = {}
     subspaces: dict[str, np.ndarray] = {}
     sketches: dict[str, np.ndarray] = {}
-    for name, matrix in features.items():
-        _, singular, vh = np.linalg.svd(matrix, full_matrices=False)
-        probabilities = singular / max(float(singular.sum()), 1e-12)
-        ranks[name] = float(np.exp(-np.sum(
-            probabilities * np.log(np.maximum(probabilities, 1e-12))
-        )))
-        nuclear[name] = float(singular.sum())
-        count = min(top_k, len(singular))
-        subspaces[name] = vh[:count].astype(np.float32)
-        sketches[name] = (
-            singular[:count, None] * vh[:count]
-        ).astype(np.float32)
-    return ranks, nuclear, subspaces, sketches
+    summaries = classic.pool_gram_sketches(features, top_k)
+    for name, summary in summaries.items():
+        rank, mass, subspace = sketch_statistics(summary.factor, top_k)
+        ranks[name] = rank
+        nuclear[name] = mass
+        subspaces[name] = subspace
+        sketches[name] = summary.factor
+    return summaries, ranks, nuclear, subspaces, sketches
 
 
 def sketch_statistics(sketch: np.ndarray, top_k: int) -> tuple[float, float, np.ndarray]:
     matrix = sketch.astype(np.float64, copy=False)
-    gram = matrix @ matrix.T
-    values, left_vectors = np.linalg.eigh((gram + gram.T) / 2.0)
-    order = np.argsort(values)[::-1]
-    singular = np.sqrt(np.maximum(values[order], 0.0))
-    left_vectors = left_vectors[:, order]
+    _, singular, vh = np.linalg.svd(matrix, full_matrices=False)
     tolerance = max(
-        float(singular[0])
-        * np.sqrt(np.finfo(np.float64).eps)
-        * max(matrix.shape),
-        1e-12,
-    )
+        float(singular[0]) * np.finfo(np.float64).eps * max(matrix.shape) * 8.0,
+        np.finfo(np.float64).tiny,
+    ) if singular.size else 0.0
     positive = singular > tolerance
     singular = singular[positive]
-    left_vectors = left_vectors[:, positive]
+    vh = vh[positive]
     if singular.size == 0:
         return 0.0, 0.0, np.zeros((0, matrix.shape[1]), dtype=np.float64)
-    vh = (left_vectors.T @ matrix) / singular[:, None]
-    probabilities = singular / max(float(singular.sum()), 1e-12)
-    effective_rank = float(np.exp(-np.sum(
-        probabilities * np.log(np.maximum(probabilities, 1e-12))
-    )))
+    effective_rank = classic.effective_rank_from_singular_values(singular)
     return effective_rank, float(singular.sum()), vh[: min(top_k, len(vh))]
 
 
@@ -118,11 +118,13 @@ def collapse_sketch_sequence(
 
 def summary_bytes(dimension: int, top_k: int) -> dict[str, int]:
     return {
-        "rank_only": 4,
-        "collapse_sketch": 4 * (2 + top_k + top_k * dimension),
-        "dpp_subspace": 4 * (1 + top_k * dimension),
-        "facility_subspace": 4 * (top_k * dimension),
-        "lineage_oracle": 4,
+        "rank_only": 8,
+        "rank_l_gram": 8 * (top_k * dimension + 3),
+        "collapse_sketch": 8 * (top_k * dimension),
+        "dpp_subspace": 8 * (1 + top_k * dimension),
+        "facility_subspace": 8 * (top_k * dimension),
+        "agglomerative_subspace": 8 * (top_k * dimension),
+        "lineage_deduplicated_rank": 8,
     }
 
 
@@ -153,14 +155,24 @@ def run_collection(
     )
     names = sorted(pools)
     stats_started = time.perf_counter()
-    ranks, nuclear, subspaces, sketches = pool_summaries(pools, args.top_k)
+    summaries, ranks, nuclear, subspaces, sketches = complete_pool_summaries(
+        pools, args.top_k,
+    )
     similarity = classic.similarity_matrix(
         pools, names, "subspace", {}, subspaces,
     )
     statistics_seconds = time.perf_counter() - stats_started
-    alignment_auroc, alignment_auprc = common.alignment_detection(
-        similarity, names, lineage,
+    designated_parent_alignment = common.matched_parent_detection(
+        similarity, names, dataset_family, alias_parent,
     )
+    if overlap > 0.0:
+        global_alignment_auroc, global_alignment_auprc = common.alignment_detection(
+            similarity, names, lineage,
+        )
+        matched_alignment = designated_parent_alignment
+    else:
+        global_alignment_auroc = global_alignment_auprc = float("nan")
+        matched_alignment = {key: float("nan") for key in designated_parent_alignment}
     max_budget = max(args.budgets)
 
     sequences: dict[str, tuple[list[str], float]] = {}
@@ -173,6 +185,11 @@ def run_collection(
         "rank_only",
         lambda: sorted(ranks, key=lambda name: (-ranks[name], name))[:max_budget],
     )
+    rank_l_started = time.perf_counter()
+    rank_l_order, rank_l_diagnostics = classic.rank_l_gram_greedy(
+        summaries, max_budget, return_diagnostics=True,
+    )
+    sequences["rank_l_gram"] = rank_l_order, time.perf_counter() - rank_l_started
     timed(
         "collapse_sketch",
         lambda: collapse_sketch_sequence(
@@ -188,8 +205,12 @@ def run_collection(
         lambda: classic.facility_location(similarity, names, max_budget),
     )
     timed(
-        "lineage_oracle",
-        lambda: common.lineage_oracle_sequence(ranks, lineage, max_budget),
+        "agglomerative_subspace",
+        lambda: classic.agglomerative_medoids(similarity, names, max_budget),
+    )
+    timed(
+        "lineage_deduplicated_rank",
+        lambda: common.lineage_deduplicated_rank_sequence(ranks, lineage, max_budget),
     )
 
     rank_order = sequences["rank_only"][0]
@@ -221,9 +242,33 @@ def run_collection(
                 "selection_seconds_for_max_budget": selection_seconds,
                 "metric_seconds": time.perf_counter() - metric_started,
                 "shared_statistics_seconds": statistics_seconds,
-                "alignment_duplicate_auroc": alignment_auroc,
-                "alignment_duplicate_auprc": alignment_auprc,
+                "alignment_global_lineage_auroc": global_alignment_auroc,
+                "alignment_global_lineage_auprc": global_alignment_auprc,
+                "alignment_parent_matched_auroc": matched_alignment["parent_matched_auroc"],
+                "alignment_parent_matched_auprc": matched_alignment["parent_matched_auprc"],
+                "alignment_parent_top1_accuracy": matched_alignment["parent_top1_accuracy"],
+                "alignment_parent_mean_reciprocal_rank": matched_alignment[
+                    "parent_mean_reciprocal_rank"
+                ],
+                "alignment_parent_ground_truth_defined": overlap > 0.0,
+                "alignment_zero_overlap_designated_parent_top1_accuracy": (
+                    designated_parent_alignment["parent_top1_accuracy"]
+                    if overlap == 0.0 else float("nan")
+                ),
                 "collapse_differs_from_rank": collapse_order[:budget] != rank_order[:budget],
+                "rank_l_differs_from_rank": rank_l_order[:budget] != rank_order[:budget],
+                "rank_l_certified_steps": sum(
+                    int(item["certified_exact_greedy_choice"])
+                    for item in rank_l_diagnostics[:budget]
+                ),
+                "rank_l_all_steps_certified": all(
+                    bool(item["certified_exact_greedy_choice"])
+                    for item in rank_l_diagnostics[:budget]
+                ),
+                "rank_l_max_chosen_log_error_bound": max(
+                    float(item["log_error_bound"])
+                    for item in rank_l_diagnostics[:budget]
+                ),
             })
 
     for row in rows:
@@ -231,8 +276,10 @@ def run_collection(
         rank_reff = float(metrics_by_key[("rank_only", budget)]["merged_reff"])
         collapse_reff = float(metrics_by_key[("collapse_sketch", budget)]["merged_reff"])
         dpp_reff = float(metrics_by_key[("dpp_subspace", budget)]["merged_reff"])
+        rank_l_reff = float(metrics_by_key[("rank_l_gram", budget)]["merged_reff"])
         row["collapse_minus_rank_reff"] = collapse_reff - rank_reff
         row["dpp_minus_rank_reff"] = dpp_reff - rank_reff
+        row["rank_l_minus_rank_reff"] = rank_l_reff - rank_reff
         row["collection_seconds"] = time.perf_counter() - collection_started
     return rows
 
@@ -327,8 +374,10 @@ def main() -> None:
         "top_k": args.top_k,
         "n_random": 0,
         "include_full_rank": False,
-        "collapse_method": "collapse_sketch",
-        "collapse_mode": "summary_only_weighted_topk_sketch",
+        "primary_method": "rank_l_gram",
+        "legacy_collapse_method": "collapse_sketch",
+        "rank_l_mode": "direct_composable_psd_factor_with_tail_bounds",
+        "collapse_mode": "legacy_summary_only_weighted_topk_sketch",
         "full_features_used_for_selection": False,
         "full_features_used_for_evaluation_only": True,
         "bytes_per_pool": summary_bytes(dimension, args.top_k),

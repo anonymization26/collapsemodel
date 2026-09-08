@@ -178,18 +178,32 @@ def merge(args: argparse.Namespace) -> None:
     inventory_fields = list(inventory_rows[0])
     write_csv(args.out_dir / "method_resource_inventory.csv", inventory_fields, inventory_rows)
 
-    full_by_config = {
+    available_methods = set(rows_by_method)
+    reference_method = next(
+        (
+            method for method in [
+                "exhaustive_merged_rank_oracle",
+                "exact_merged_rank_greedy",
+                "full_merged_rank",
+            ]
+            if method in available_methods
+        ),
+        None,
+    )
+    if reference_method is None:
+        raise ValueError("no exact-score or exhaustive merged-rank reference is available")
+    reference_by_config = {
         config: float(rows[0]["merged_reff"])
         for (config, method), rows in rows_by_config_method.items()
-        if method == "full_merged_rank"
+        if method == reference_method
     }
     rank_by_config = {
         config: float(rows[0]["merged_reff"])
         for (config, method), rows in rows_by_config_method.items()
         if method == "rank_only"
     }
-    if set(full_by_config) != set(configs) or set(rank_by_config) != set(configs):
-        raise ValueError("full_merged_rank or rank_only is missing from some configs")
+    if set(reference_by_config) != set(configs) or set(rank_by_config) != set(configs):
+        raise ValueError(f"{reference_method} or rank_only is missing from some configs")
 
     summary_rows = []
     for method in sorted(rows_by_method):
@@ -204,7 +218,7 @@ def merge(args: argparse.Namespace) -> None:
             value = float(values.mean())
             config_values.append(value)
             config_duplicates.append(float(duplicates.mean()))
-            gaps.append(full_by_config[config] - value)
+            gaps.append(reference_by_config[config] - value)
             wins_vs_rank.append(value > rank_by_config[config] + 1e-10)
         summary_rows.append({
             "method": method,
@@ -213,9 +227,10 @@ def merge(args: argparse.Namespace) -> None:
             "merged_reff_mean": float(np.mean(config_values)),
             "merged_reff_config_std": float(np.std(config_values, ddof=1)),
             "duplicate_count_mean": float(np.mean(config_duplicates)),
-            "gap_vs_full_merged_greedy_mean": float(np.mean(gaps)),
-            "relative_gap_vs_full_merged_greedy_mean": float(np.mean([
-                gap / max(full_by_config[config], 1e-12)
+            "reference_method": reference_method,
+            "gap_vs_reference_mean": float(np.mean(gaps)),
+            "relative_gap_vs_reference_mean": float(np.mean([
+                gap / max(reference_by_config[config], 1e-12)
                 for config, gap in zip(configs, gaps)
             ])),
             "config_win_rate_vs_rank_only": float(np.mean(wins_vs_rank)),
@@ -240,7 +255,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prefix", default="classic_screening")
     parser.add_argument("--shard-count", type=int, required=True)
     parser.add_argument("--expected-configs", type=int, default=24)
-    parser.add_argument("--expected-rows-per-config", type=int, default=120)
+    parser.add_argument("--expected-rows-per-config", type=int)
     return parser.parse_args()
 
 

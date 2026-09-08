@@ -11,7 +11,7 @@ shift
 
 PROJECT_ROOT="${PROJECT_ROOT:-/home/67/collapsemodel-two-stage}"
 ARROW_ROOT="${ARROW_ROOT:-/data/67/paper14/hf_cache/datasets}"
-OUTPUT_DIR="${OUTPUT_DIR:-/data/Paper06/features/two_stage_source_splits_n5000}"
+OUTPUT_DIR="${OUTPUT_DIR:-/data/Paper06/features/two_stage_source_splits_n5000_unlabeled}"
 SAMPLES="${SAMPLES:-5000}"
 BATCH_SIZE="${BATCH_SIZE:-64}"
 WORKERS="${WORKERS:-4}"

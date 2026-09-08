@@ -10,10 +10,10 @@ NPU="$1"
 shift
 
 PROJECT_ROOT="${PROJECT_ROOT:-/home/67/collapsemodel-two-stage}"
-SOURCE_DIR="${SOURCE_DIR:-/data/Paper06/features/two_stage_source_splits_n5000}"
+SOURCE_DIR="${SOURCE_DIR:-/data/Paper06/features/two_stage_source_splits_n5000_unlabeled}"
 TARGET_DIR="${TARGET_DIR:-/data/Paper06/features/two_stage_target_splits_n5000}"
-BASE_RESULTS="${BASE_RESULTS:-/data/Paper06/results/two_stage_natural_shortlist}"
-RESULT_ROOT="${RESULT_ROOT:-/data/Paper06/results/two_stage_split_sensitivity}"
+BASE_RESULTS="${BASE_RESULTS:-/data/Paper06/results/two_stage_natural_shortlist_corrected_v2}"
+RESULT_ROOT="${RESULT_ROOT:-/data/Paper06/results/two_stage_split_sensitivity_corrected_v2}"
 
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
 set -u

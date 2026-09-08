@@ -1,5 +1,9 @@
 # 四编码器受控重叠停止扫描
 
+> **历史 pilot，非修正版结果。** 这里的旧 alignment AUROC 被跨数据集简单负例显著抬高，且
+> summary-only 代码没有实现数学主线的直接 rank-$L$ Gram 分数。修正版使用同数据集 matched
+> 指标并新增 `rank_l_gram`；旧表不能作为新方法证据。
+
 ## 协议
 
 每个编码器使用 CIFAR-10、CIFAR-100、DTD、EuroSAT、SVHN 的正式预处理特征。每个数据集按
@@ -49,13 +53,14 @@ Collapse-sketch 的通信量几乎相同，但不需要定义递归标量谱预�
 
 1. 停止扩大原四摘要/Collapse 多步选择器，将其降级为理论启发消融。
 2. 保留 pairwise subspace alignment 作为冗余信号。
-3. P4 自然池实验以 DPP-subspace、Facility、rank-only 和 full-information 上界为主。
+3. P4 自然池实验以 DPP-subspace、Facility、rank-only 和 full-information greedy 参考为主。
 
 ## Alignment 检测
 
-top-20 子空间相似度对别名 lineage 的 AUROC 在 0% 样本重叠时约为 0.922–0.924，在 50%
-重叠时为 0.985–0.996，在 75% 和 100% 时为 1.0。alignment 本身能识别同分布或重叠池；
-负面结果针对的是 Collapse 的多步状态更新，而不是 alignment 信号不存在。
+旧 top-20 子空间全局 AUROC 在 0% 样本重叠时约为 0.922–0.924，在 50% 重叠时为
+0.985–0.996，在 75% 和 100% 时为 1.0。但该指标包含大量跨数据集简单负例，0% 时指定
+parent 也没有真实共享样本，因此不能据此声称检测到 lineage。修正版必须以同数据集 matched
+AUROC/AUPRC、Parent Top-1/MRR 为主；旧 CLIP 数据重算后 0% matched AUROC 约为 0.505。
 
 ## Hybrid 诊断
 

@@ -161,7 +161,7 @@ def collapse_sequence(
     return selected
 
 
-def lineage_oracle_sequence(
+def lineage_deduplicated_rank_sequence(
     ranks: dict[str, float], lineage: dict[str, str], max_budget: int,
 ) -> list[str]:
     selected: list[str] = []
@@ -174,6 +174,9 @@ def lineage_oracle_sequence(
         if len(selected) == max_budget:
             return selected
     raise ValueError("not enough independent lineages for requested budget")
+
+
+lineage_oracle_sequence = lineage_deduplicated_rank_sequence
 
 
 def full_rank_sequence(
@@ -205,6 +208,8 @@ def average_precision(labels: np.ndarray, scores: np.ndarray) -> float:
 def alignment_detection(
     similarity: np.ndarray, names: list[str], lineage: dict[str, str],
 ) -> tuple[float, float]:
+    """Global lineage detection; cross-dataset negatives make this an easy diagnostic."""
+
     labels: list[int] = []
     scores: list[float] = []
     for left in range(len(names)):
@@ -214,6 +219,50 @@ def alignment_detection(
     label_array = np.asarray(labels, dtype=np.int64)
     score_array = np.asarray(scores, dtype=np.float64)
     return binary_auc(label_array, score_array), average_precision(label_array, score_array)
+
+
+def matched_parent_detection(
+    similarity: np.ndarray,
+    names: list[str],
+    dataset_family: dict[str, str],
+    alias_parent: dict[str, str],
+) -> dict[str, float]:
+    """Evaluate alias-parent recovery only against same-dataset base pools."""
+
+    name_to_index = {name: index for index, name in enumerate(names)}
+    labels: list[int] = []
+    scores: list[float] = []
+    reciprocal_ranks: list[float] = []
+    top_one: list[float] = []
+    for alias, parent in sorted(alias_parent.items()):
+        candidates = [
+            name for name in names
+            if name != alias
+            and name not in alias_parent
+            and dataset_family[name] == dataset_family[alias]
+        ]
+        if parent not in candidates:
+            raise ValueError(f"parent {parent} is absent from matched candidates for {alias}")
+        ranked = sorted(
+            candidates,
+            key=lambda name: (-float(similarity[name_to_index[alias], name_to_index[name]]), name),
+        )
+        parent_rank = ranked.index(parent) + 1
+        reciprocal_ranks.append(1.0 / parent_rank)
+        top_one.append(float(parent_rank == 1))
+        for candidate in candidates:
+            labels.append(int(candidate == parent))
+            scores.append(float(similarity[name_to_index[alias], name_to_index[candidate]]))
+    label_array = np.asarray(labels, dtype=np.int64)
+    score_array = np.asarray(scores, dtype=np.float64)
+    return {
+        "parent_matched_auroc": binary_auc(label_array, score_array),
+        "parent_matched_auprc": average_precision(label_array, score_array),
+        "parent_top1_accuracy": float(np.mean(top_one)) if top_one else float("nan"),
+        "parent_mean_reciprocal_rank": (
+            float(np.mean(reciprocal_ranks)) if reciprocal_ranks else float("nan")
+        ),
+    }
 
 
 def selection_metrics(
@@ -282,9 +331,17 @@ def run_collection(
         pools, names, "subspace", {}, subspaces,
     )
     stats_seconds = time.perf_counter() - stats_started
-    alignment_auroc, alignment_auprc = alignment_detection(
-        similarity, names, lineage,
+    designated_parent_alignment = matched_parent_detection(
+        similarity, names, dataset_family, alias_parent,
     )
+    if overlap > 0.0:
+        global_alignment_auroc, global_alignment_auprc = alignment_detection(
+            similarity, names, lineage,
+        )
+        matched_alignment = designated_parent_alignment
+    else:
+        global_alignment_auroc = global_alignment_auprc = float("nan")
+        matched_alignment = {key: float("nan") for key in designated_parent_alignment}
     max_budget = max(args.budgets)
 
     sequences: dict[str, tuple[list[str], float]] = {}
@@ -312,11 +369,11 @@ def run_collection(
         lambda: classic.facility_location(similarity, names, max_budget),
     )
     timed(
-        "lineage_oracle",
-        lambda: lineage_oracle_sequence(ranks, lineage, max_budget),
+        "lineage_deduplicated_rank",
+        lambda: lineage_deduplicated_rank_sequence(ranks, lineage, max_budget),
     )
     if args.include_full_rank:
-        timed("full_merged_rank", lambda: full_rank_sequence(pools, max_budget))
+        timed("exact_merged_rank_greedy", lambda: full_rank_sequence(pools, max_budget))
 
     rank_sequence = sequences["rank_only"][0]
     collapse_order = sequences["collapse"][0]
@@ -348,8 +405,19 @@ def run_collection(
                 "selection_seconds_for_max_budget": selection_seconds,
                 "metric_seconds": metric_seconds,
                 "shared_statistics_seconds": stats_seconds,
-                "alignment_duplicate_auroc": alignment_auroc,
-                "alignment_duplicate_auprc": alignment_auprc,
+                "alignment_global_lineage_auroc": global_alignment_auroc,
+                "alignment_global_lineage_auprc": global_alignment_auprc,
+                "alignment_parent_matched_auroc": matched_alignment["parent_matched_auroc"],
+                "alignment_parent_matched_auprc": matched_alignment["parent_matched_auprc"],
+                "alignment_parent_top1_accuracy": matched_alignment["parent_top1_accuracy"],
+                "alignment_parent_mean_reciprocal_rank": matched_alignment[
+                    "parent_mean_reciprocal_rank"
+                ],
+                "alignment_parent_ground_truth_defined": overlap > 0.0,
+                "alignment_zero_overlap_designated_parent_top1_accuracy": (
+                    designated_parent_alignment["parent_top1_accuracy"]
+                    if overlap == 0.0 else float("nan")
+                ),
                 "collapse_differs_from_rank": collapse_order[:budget] != rank_sequence[:budget],
             })
 
@@ -379,8 +447,19 @@ def run_collection(
                 "selection_seconds_for_max_budget": 0.0,
                 "metric_seconds": time.perf_counter() - metric_started,
                 "shared_statistics_seconds": stats_seconds,
-                "alignment_duplicate_auroc": alignment_auroc,
-                "alignment_duplicate_auprc": alignment_auprc,
+                "alignment_global_lineage_auroc": global_alignment_auroc,
+                "alignment_global_lineage_auprc": global_alignment_auprc,
+                "alignment_parent_matched_auroc": matched_alignment["parent_matched_auroc"],
+                "alignment_parent_matched_auprc": matched_alignment["parent_matched_auprc"],
+                "alignment_parent_top1_accuracy": matched_alignment["parent_top1_accuracy"],
+                "alignment_parent_mean_reciprocal_rank": matched_alignment[
+                    "parent_mean_reciprocal_rank"
+                ],
+                "alignment_parent_ground_truth_defined": overlap > 0.0,
+                "alignment_zero_overlap_designated_parent_top1_accuracy": (
+                    designated_parent_alignment["parent_top1_accuracy"]
+                    if overlap == 0.0 else float("nan")
+                ),
                 "collapse_differs_from_rank": collapse_order[:budget] != rank_sequence[:budget],
             })
 

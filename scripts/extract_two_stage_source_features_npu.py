@@ -19,9 +19,11 @@ from torch.utils.data import Dataset
 from benchmark_two_stage_encoders_npu import load_encoder
 from extract_two_stage_features_npu import (
     cached_result_is_valid,
+    deduplicate_files_by_content,
     extract_one,
     sha256_file,
     stratified_indices,
+    unlabeled_indices,
 )
 
 
@@ -156,6 +158,10 @@ def main() -> None:
     parser.add_argument("--npu", type=int, required=True)
     parser.add_argument("--samples", type=int, default=5_000)
     parser.add_argument("--sample-seed", type=int, default=20260905)
+    parser.add_argument(
+        "--sampling", choices=["unlabeled_random", "stratified"],
+        default="unlabeled_random",
+    )
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--force", action="store_true")
@@ -181,6 +187,7 @@ def main() -> None:
     for dataset_name in args.datasets:
         pattern, image_key, label_key = SOURCE_ARROWS[dataset_name]
         source_paths = resolve_source_files(args.arrow_root, pattern)
+        source_paths, source_hashes = deduplicate_files_by_content(source_paths)
         stem = output_stem(args.variant, dataset_name, args.samples)
         npz_path = args.output_dir / f"{stem}.npz"
         metadata_path = args.output_dir / f"{stem}.json"
@@ -192,6 +199,8 @@ def main() -> None:
             "split": "train",
             "requested_samples": args.samples,
             "sample_seed": args.sample_seed,
+            "sampling": args.sampling,
+            "source_file_sha256": source_hashes,
             "script_sha256": script_sha256,
             "encoder_loader_sha256": encoder_loader_sha256,
         }
@@ -205,7 +214,10 @@ def main() -> None:
         dataset = ArrowPoolDataset(
             source_paths, preprocess, image_key=image_key, label_key=label_key,
         )
-        indices = stratified_indices(dataset.labels, args.samples, args.sample_seed)
+        if args.sampling == "unlabeled_random":
+            indices = unlabeled_indices(len(dataset), args.samples, args.sample_seed)
+        else:
+            indices = stratified_indices(dataset.labels, args.samples, args.sample_seed)
         features, labels, elapsed, peak_allocated, peak_reserved = extract_one(
             model,
             device,
@@ -227,8 +239,8 @@ def main() -> None:
             "preprocess": repr(preprocess),
             "source_files": [str(path) for path in source_paths],
             "source_samples": len(dataset),
-            "sampling": "deterministic_proportional_stratified",
-            "saved_labels_for_audit_only": True,
+            "stage1_sampling_reads_labels": args.sampling == "stratified",
+            "saved_labels_for_stage2": True,
             "feature_shape": list(features.shape),
             "feature_dtype": str(features.dtype),
             "index_dtype": str(indices.dtype),

@@ -10,10 +10,10 @@ NPU="$1"
 shift
 
 PROJECT_ROOT="${PROJECT_ROOT:-/home/67/collapsemodel-two-stage}"
-SOURCE_DIR="${SOURCE_DIR:-/data/Paper06/features/two_stage_source_splits_n5000}"
+SOURCE_DIR="${SOURCE_DIR:-/data/Paper06/features/two_stage_source_splits_n5000_unlabeled}"
 TARGET_DIR="${TARGET_DIR:-/data/Paper06/features/two_stage_target_splits_n5000}"
-BASE_RESULTS="${BASE_RESULTS:-/data/Paper06/results/two_stage_natural_shortlist}"
-RESULT_ROOT="${RESULT_ROOT:-/data/Paper06/results/two_stage_cv_utility/folds_5_seed_20260905}"
+BASE_RESULTS="${BASE_RESULTS:-/data/Paper06/results/two_stage_natural_shortlist_corrected_v2}"
+RESULT_ROOT="${RESULT_ROOT:-/data/Paper06/results/two_stage_cv_utility_corrected_v2/folds_5_seed_20260905}"
 TARGET_CV_FOLDS="${TARGET_CV_FOLDS:-5}"
 TARGET_CV_SEED="${TARGET_CV_SEED:-20260905}"
 

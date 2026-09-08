@@ -1,5 +1,8 @@
 # Leave-one-source-out 实验
 
+> **历史 leave-one-candidate sensitivity 实验。** 各折高度共享候选、目标和 utility 观测，不能
+> 当作 21 个独立泛化重复。修正版保留该诊断，但不再简称为 domain LODO。
+
 ## 目的与协议
 
 该实验逐一删除 21 个候选源池中的一个，在剩余 20 个候选上重新执行 Stage-1，并用严格联合重复

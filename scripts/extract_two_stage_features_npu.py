@@ -51,6 +51,22 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def deduplicate_files_by_content(paths: Sequence[Path]) -> tuple[list[Path], list[str]]:
+    """Keep one deterministic path per content hash to avoid duplicate cache shards."""
+
+    unique: list[Path] = []
+    hashes: list[str] = []
+    seen: set[str] = set()
+    for path in sorted(paths):
+        digest = sha256_file(path)
+        if digest in seen:
+            continue
+        seen.add(digest)
+        unique.append(path)
+        hashes.append(digest)
+    return unique, hashes
+
+
 def dataset_labels(dataset: Dataset) -> np.ndarray:
     for attribute in ("targets", "labels", "_labels"):
         values = getattr(dataset, attribute, None)
@@ -97,6 +113,18 @@ def stratified_indices(labels: Sequence[int], samples: int, seed: int) -> np.nda
     result = np.concatenate(selected).astype(np.int64, copy=False)
     rng.shuffle(result)
     return result
+
+
+def unlabeled_indices(total: int, samples: int, seed: int) -> np.ndarray:
+    """Return deterministic indices without consulting class labels."""
+
+    if total < 0:
+        raise ValueError("total must be non-negative")
+    if samples <= 0 or samples >= total:
+        return np.arange(total, dtype=np.int64)
+    return np.random.default_rng(seed).choice(total, samples, replace=False).astype(
+        np.int64, copy=False,
+    )
 
 
 def find_arrow_split(root: Path, filename: str) -> Path:

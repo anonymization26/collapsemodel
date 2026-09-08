@@ -1,5 +1,8 @@
 # Source-domain LODO 实验
 
+> **历史 source-domain 排除敏感性实验。** 它从同一个混合候选集合删除一类来源，不是用未见
+> 目标域检验泛化的常规 domain generalization LODO；修正版报告必须使用这一准确名称。
+
 ## 协议
 
 在联合重复 5-fold utility 表上，分别从 Stage-1 候选池中完全删除一个源域，并在剩余候选中重新

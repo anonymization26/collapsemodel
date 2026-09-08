@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run all leave-one-source-out screens after one shared spectral preprocessing pass."""
+"""Run leave-one-candidate sensitivity screens after shared preprocessing."""
 
 from __future__ import annotations
 
@@ -29,6 +29,8 @@ def select_methods(
     names: list[str],
     ranks: dict[str, float],
     similarity: np.ndarray,
+    gram_sketches: dict[str, classic.GramSketch],
+    centroid_matrix: np.ndarray,
     max_shortlist: int,
 ) -> tuple[dict[str, list[str]], dict[str, float]]:
     selections = {}
@@ -42,6 +44,10 @@ def select_methods(
         selections[method] = selected
 
     select("rank_only", lambda: classic.rank_only(ranks, max_shortlist))
+    select(
+        "rank_l_gram",
+        lambda: classic.rank_l_gram_greedy(gram_sketches, max_shortlist),
+    )
     select(
         "facility_subspace",
         lambda: classic.facility_location(similarity, names, max_shortlist),
@@ -58,6 +64,16 @@ def select_methods(
         "pool_vendi_subspace",
         lambda: classic.pool_vendi_greedy(similarity, names, ranks, max_shortlist),
     )
+    select(
+        "agglomerative_subspace",
+        lambda: classic.agglomerative_medoids(similarity, names, max_shortlist),
+    )
+    select(
+        "leverage_centroid",
+        lambda: classic.leverage_score_selection(
+            centroid_matrix, names, max_shortlist,
+        ),
+    )
     return selections, runtimes
 
 
@@ -70,15 +86,22 @@ def run(args: argparse.Namespace) -> None:
         )
     args.out_dir.mkdir(parents=True, exist_ok=True)
     all_features = {}
+    source_cache_sha256 = {}
     for source in natural.SOURCES:
-        features, _ = natural.load_cache(natural.source_path(
+        path = natural.source_path(
             args.source_dir, args.encoder, source, args.cache_samples,
-        ))
-        all_features[source] = natural.sample_unlabeled(
+        )
+        natural.stage1_cache_metadata(path, args.allow_label_informed_cache)
+        features = natural.load_features(path)
+        source_cache_sha256[source] = sha256_file(path)
+        sampled = natural.sample_unlabeled(
             features,
             args.stage1_samples,
             natural.stable_seed(source, args.sample_seed),
         )
+        if args.source_weighting == "equal_source":
+            sampled = sampled / np.sqrt(len(sampled))
+        all_features[source] = sampled
 
     all_names = sorted(all_features)
     excluded_sources = args.excluded_sources or all_names
@@ -89,6 +112,7 @@ def run(args: argparse.Namespace) -> None:
     ranks, _, centroids, subspaces = classic.pool_statistics(
         all_features, args.top_k,
     )
+    all_gram_sketches = classic.pool_gram_sketches(all_features, args.top_k)
     full_similarity = classic.similarity_matrix(
         all_features, all_names, "subspace", centroids, subspaces,
     )
@@ -103,8 +127,11 @@ def run(args: argparse.Namespace) -> None:
         indices = [all_names.index(name) for name in names]
         similarity = full_similarity[np.ix_(indices, indices)]
         subset_ranks = {name: ranks[name] for name in names}
+        subset_gram_sketches = {name: all_gram_sketches[name] for name in names}
+        centroid_matrix = np.stack([centroids[name] for name in names])
         sequences, runtimes = select_methods(
-            names, subset_ranks, similarity, max_shortlist,
+            names, subset_ranks, similarity, subset_gram_sketches,
+            centroid_matrix, max_shortlist,
         )
         selections = {
             str(shortlist_size): {
@@ -135,6 +162,12 @@ def run(args: argparse.Namespace) -> None:
             "cache_samples": args.cache_samples,
             "stage1_samples": args.stage1_samples,
             "sample_seed": args.sample_seed,
+            "source_weighting": args.source_weighting,
+            "stage1_reads_labels": False,
+            "evaluation_protocol": "leave_one_candidate_sensitivity",
+            "source_cache_sha256": {
+                source: source_cache_sha256[source] for source in names
+            },
             "top_k": args.top_k,
             "shortlist_sizes": args.shortlist_sizes,
             "shared_summary_preprocessing_seconds": preprocessing_seconds,
@@ -149,6 +182,7 @@ def run(args: argparse.Namespace) -> None:
             n_random=args.n_random,
             random_seed=args.random_seed,
             tie_tolerance=args.tie_tolerance,
+            equivalence_tolerances=args.equivalence_tolerances,
         ))
         completed.append(excluded_source)
         print(
@@ -169,6 +203,8 @@ def run(args: argparse.Namespace) -> None:
         "completed_exclusions": completed,
         "shortlist_sizes": args.shortlist_sizes,
         "shared_summary_preprocessing_seconds": preprocessing_seconds,
+        "evaluation_protocol": "leave_one_candidate_sensitivity",
+        "source_cache_sha256": source_cache_sha256,
     }
     (args.out_dir / f"{args.encoder}_batch_manifest.json").write_text(
         json.dumps(batch_manifest, indent=2) + "\n"
@@ -185,11 +221,20 @@ def main() -> None:
     parser.add_argument("--stage1-samples", type=int, default=1000)
     parser.add_argument("--sample-seed", type=int, default=20260905)
     parser.add_argument("--top-k", type=int, default=20)
+    parser.add_argument(
+        "--source-weighting", choices=["equal_source", "equal_sample"],
+        default="equal_source",
+    )
+    parser.add_argument("--allow-label-informed-cache", action="store_true")
     parser.add_argument("--shortlist-sizes", nargs="+", type=int, default=[3, 5, 10])
     parser.add_argument("--excluded-sources", nargs="+")
     parser.add_argument("--n-random", type=int, default=100)
     parser.add_argument("--random-seed", type=int, default=20260905)
     parser.add_argument("--tie-tolerance", type=float, default=1e-12)
+    parser.add_argument(
+        "--equivalence-tolerances", nargs="+", type=float,
+        default=[0.0, 0.001, 0.002, 0.005],
+    )
     args = parser.parse_args()
     run(args)
 

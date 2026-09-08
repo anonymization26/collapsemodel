@@ -1,5 +1,8 @@
 # 联合重复交叉验证 Stage-2 效用实验
 
+> **历史 pilot，非修正版结果。** 本目录可用于旧 DPP/rank 的效用和容差敏感性审计，但使用了
+> 标签分层来源缓存，且没有测试 `rank_l_gram` 或 Stage-2 identity/random controls。
+
 ## 目的
 
 本实验替代单次 train/validation holdout。它固定一次源池 adapter 训练，在同一组目标特征上评估

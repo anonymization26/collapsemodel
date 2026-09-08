@@ -2186,6 +2186,22 @@ $\eta_{\mathrm{search},n}$ 需要穷举或搜索对照；$\xi_T$ 是最关键且
 - 多步状态更新会再次丢失谱质量与方向对应关系；
 - 只保留为理论启发消融，不再作为主算法。
 
+### 9.5 当前代码对应关系（2026-09-08）
+
+- `scripts/two_stage_classic_baselines.py::GramSketch` 保存转置约定下的
+  $B_j=\Sigma_{j,L}V_{j,L}^{\top}\in\mathbb R^{L\times d}$；因此代码累加的是
+  $B_j^{\top}B_j$，与本节使用 $V_{j,L}\Sigma_{j,L}$ 时的 $B_jB_j^{\top}$ 完全等价。
+- `make_gram_sketch` 在离线实验中用完整 SVD 计算精确尾部核质量和平方质量；部署时可以替换为
+  任何合法上界，但不能把 Frobenius 尾范数直接当核尾质量。
+- `gram_sketch_statistics` 直接对拼接因子的小核心谱计算 $\widehat F$、$T_S$、$\varepsilon_S$
+  和定理 8 区间。
+- `rank_l_gram_greedy` 每一步都累计已选来源的全部 sketch 与尾部，输出是否满足推论 8.2 的
+  严格分离条件。
+- `scripts/two_stage_summary_only_controlled.py` 和
+  `scripts/two_stage_natural_shortlist.py` 已将该方法注册为 `rank_l_gram`。
+- `collapse_sketch` 只表示 Legacy Four-Summary 消融。历史 `results/` 在本次实现之前生成，不能
+  视为 `rank_l_gram` 的实验结果；证据状态见 `AUDIT_2026-09-08.md`。
+
 ## 10. 数学主张与实验证据的对应关系
 
 | 主张 | 身份 | 所需验证 |

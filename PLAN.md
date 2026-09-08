@@ -302,7 +302,7 @@ CPU Stage-1 与共享 NPU adapter 并行。特征提取和 LoRA 不应与占用 
   “至少 3 个编码器方向一致”的验收条件。原四摘要方法又没有定义无完整特征反馈的多步状态更新，
   因此停止扩大并降级为理论启发消融。
 - DPP-subspace 只访问 top-k 子空间和单池质量标量，在四个编码器上均稳定优于 rank-only；
-  P4 自然池实验以它、Facility Location、rank-only 和 full-information 上界为主。
+  旧 P4 自然池实验以它、Facility Location、rank-only 和 full-information greedy 参考为主。
 
 ### 2026-09-05 自然池 pilot 状态
 
@@ -385,3 +385,64 @@ CPU Stage-1 与共享 NPU adapter 并行。特征提取和 LoRA 不应与占用 
 汇总进一步降到 76.79%，低于 rank-only 的 79.46%，且 general-vision LODO 只有 53.57%。现有
 证据不支持通用、domain-robust 或“安全”的无标签预筛选主张。P5/P6 按停止规则不执行；剩余工作
 仅用于界定负面结果和通信成本，不应继续扩张应用性主张。
+
+## 11. 2026-09-08 审计修复 Checklist
+
+详细证据和数值见 `AUDIT_2026-09-08.md`。以下“完成”只表示代码或文档修复已经实现；凡是改变
+抽样、算法或指标的项目，必须等待新实验后才能标记为“经验验证完成”。
+
+### P0：理论与主算法对应
+
+- [x] 实现可组合 rank-$L$ Gram PSD 因子，不再把累计状态重新压成四个标量。
+- [x] 实现截断 Gram 有效秩直接 greedy、尾部核质量/平方质量/尾秩界。
+- [x] 实现 Theorem 8 的候选 log-rank 区间与逐步 exact-greedy 分离证书。
+- [x] 统一 Legacy Collapse 的单池与累计统计层级，均使用同一 top-$L$ sketch。
+- [x] 保留 Legacy Collapse 为消融，不再将它列为理论主算法。
+- [ ] 在四编码器真实缓存上扫描 $L=10,20,50$，报告区间覆盖率、宽度、证书率和回退率。
+
+### P1：无标签边界与来源权重
+
+- [x] Stage-1 改用只读取 `H` 的 loader，可直接处理不含 `y` 的 NPZ。
+- [x] 来源特征抽样默认改为 deterministic unlabeled random sampling。
+- [x] 默认拒绝标签分层或来源不明的旧 Stage-1 缓存。
+- [x] 自然池默认使用 equal-source 权重，使每个来源总平方能量约为 1。
+- [x] 缓存清单记录抽样方式、输入 SHA-256、总能量和尾部界。
+- [ ] 重新提取四编码器标签无关来源缓存并验证逐字节确定性。
+
+### P2：公平指标与经典基线
+
+- [x] 将 global-lineage AUROC 与 same-dataset matched AUROC/AUPRC、Top-1、MRR 分开。
+- [x] 0% overlap 的 parent ground truth 标为未定义，只保留 designated-parent 负对照。
+- [x] 将 `full_merged_rank` 重命名为 `exact_merged_rank_greedy`，明确它不是组合上界。
+- [x] 加入有组合数门限的 exhaustive merged-rank oracle，并固定 greedy 反例测试。
+- [x] 经典重复来源默认使用固定种子随机抽取；最高秩复制仅作为显式压力测试。
+- [x] 加入 agglomerative-medoid 与 centroid leverage-score 基线。
+- [x] 保留精确 recall，同时输出固定容差曲线和 paired-bootstrap 候选置信集召回。
+- [ ] 用修正指标重跑 controlled overlap，并按 encoder/seed 报告 matched 指标置信区间。
+- [ ] 运行 scalar、rank-$L$、subspace 和 full-feature 的等字节 Pareto 扫描。
+
+### P3：Stage-2 与可复现性
+
+- [x] `torch_npu` 延迟到 `adapt` 阶段导入，CPU 可独立运行筛选和汇总。
+- [x] 适配 run fingerprint 绑定代码、筛选 manifest、参数和全部输入缓存哈希。
+- [x] 按完整 source/seed 组原子写入；发现半组结果时拒绝不安全恢复。
+- [x] 默认启用 PyTorch deterministic algorithms，并显式设置 NPU seed。
+- [x] 固定 Stage-2 来源样本数；不足预算默认报错而不是静默缩短。
+- [x] 加入 `frozen_identity` 与 `random_adapter` 两个来源无关基线。
+- [x] 高维 ridge 在样本少于维度时使用数学等价的对偶求解。
+- [ ] 在服务器验证 Ascend 确定性开关是否被所有使用算子支持。
+- [ ] 重跑 repeated 5-fold CV，并报告 adapter 相对 identity/random-adapter 的增量。
+- [ ] 在 frozen-feature gate 通过后再执行 LoRA 与多池混合验证。
+
+### P4：数值、数据覆盖与发布
+
+- [x] Gram/Scatter 在乘法前转为 `float64`，使用相对谱阈值排除伪小特征值。
+- [x] Arrow shard 按内容哈希去重；来源和目标缓存元数据绑定原始文件哈希。
+- [x] 修正版缓存与结果默认写入独立的 `unlabeled`/`corrected_v2` 路径。
+- [x] 单元测试扩展到 rank-$L$ 可组合性、理论区间、matched 指标、label-free loader、
+  resume 门禁、数值秩和 greedy 反例。
+- [ ] 建立彼此独立的医学、字符、通用视觉和混合候选集合，每组至少 20 个池。
+- [ ] 增加相应的非通用视觉目标和第 8 个目标；重新评估 domain robustness。
+- [ ] 新结果完成前，不把历史 pilot 表格改写为修正版算法结果。
+- [ ] 将通过验证的新结果同步进论文正文、附录、README 和匿名发布包。
+- [ ] 使用有效的匿名 GitHub 凭据推送当前分支；现有 token 于 2026-09-08 返回 401。

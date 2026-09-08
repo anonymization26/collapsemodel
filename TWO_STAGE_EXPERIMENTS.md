@@ -1,5 +1,10 @@
 # Two-Stage Compression Experiment Plan
 
+> **Audit status (2026-09-08).** The corrected primary method is direct rank-$L$ Gram-sketch
+> scoring with tail intervals. Full merged SVD greedy is an exact-score greedy reference, not
+> a combinatorial upper bound. Global duplicate AUROC must be accompanied by same-dataset
+> matched metrics. See `PLAN.md` and `AUDIT_2026-09-08.md` for the superseding protocol.
+
 ## 1. Experimental Objective
 
 Test the operational claim that a label-free spectral first stage can reduce expensive
@@ -54,7 +59,8 @@ different pairs containing a held-out test dataset.
 - Collapse with spectrum-weighted alignment.
 - Bucketed spectral summary with 4 and 8 buckets.
 - Randomized low-rank sketch.
-- Oracle full merged SVD, used as an upper reference rather than a deployable baseline.
+- Exact-score full merged SVD greedy, used as a non-deployable reference; a true oracle requires
+  bounded exhaustive enumeration.
 
 Compare methods at matched communication cost where possible, and separately show the
 full-information baselines.
@@ -76,7 +82,8 @@ seeds across selectors. Use at least three seeds for all headline results.
 - Beam search or a high-budget search when exhaustive subset enumeration is infeasible.
 - True merged effective rank from full features for evaluating Stage-1 prediction error.
 
-The downstream oracle, rather than the full-SVD oracle, defines the best final candidate.
+The downstream oracle, rather than an exact-score full-feature spectral reference, defines the
+best final candidate.
 
 ## 5. Core Experiments
 

@@ -1,5 +1,10 @@
 # Two-Stage Label-Free Data-Pool Compression
 
+> **Status (2026-09-08).** This records the original design. The corrected primary Stage-1
+> method is the direct composable rank-$L$ Gram sketch in `IDEA.md` and
+> `MATHEMATICAL_FOUNDATION.md`; the four-summary Collapse predictor is now a legacy ablation.
+> Historical experiments did not evaluate the corrected method. See `AUDIT_2026-09-08.md`.
+
 ## 1. Problem
 
 Suppose there are many candidate data pools \(\mathcal D_1,\ldots,\mathcal D_M\), but the

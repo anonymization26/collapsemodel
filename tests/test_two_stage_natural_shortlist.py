@@ -3,7 +3,6 @@ import csv
 import json
 import sys
 import tempfile
-import types
 import unittest
 from pathlib import Path
 
@@ -12,13 +11,56 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-sys.modules.setdefault("torch_npu", types.ModuleType("torch_npu"))
 
 import two_stage_classic_baselines as classic  # noqa: E402
 import two_stage_natural_shortlist as natural  # noqa: E402
 
 
 class NaturalShortlistTests(unittest.TestCase):
+    def test_stage1_loader_accepts_feature_only_archive(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "features.npz"
+            matrix = np.arange(24, dtype=np.float32).reshape(6, 4)
+            np.savez(path, H=matrix)
+            loaded = natural.load_features(path)
+            self.assertEqual(loaded.shape, matrix.shape)
+            np.testing.assert_allclose(np.linalg.norm(loaded, axis=1)[1:], 1.0)
+
+    def test_stage1_cache_gate_rejects_label_informed_sampling(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "features.npz"
+            np.savez(path, H=np.eye(3, dtype=np.float32))
+            path.with_suffix(".json").write_text(json.dumps({
+                "sampling": "deterministic_proportional_stratified",
+                "requested_samples": 2,
+                "source_samples": 3,
+            }))
+            with self.assertRaises(ValueError):
+                natural.stage1_cache_metadata(path, allow_label_informed=False)
+            metadata = natural.stage1_cache_metadata(path, allow_label_informed=True)
+            self.assertFalse(metadata["label_independent_sampling"])
+            path.with_suffix(".json").write_text(json.dumps({
+                "sampling": "unlabeled_random",
+                "requested_samples": 2,
+                "source_samples": 3,
+            }))
+            metadata = natural.stage1_cache_metadata(path, allow_label_informed=False)
+            self.assertTrue(metadata["label_independent_sampling"])
+
+    def test_resume_rejects_partial_or_out_of_run_groups(self):
+        targets = {"a", "b"}
+        natural.validate_resume_groups(
+            {("source", 0, "a"), ("source", 0, "b")},
+            ["source"], range(1), targets,
+        )
+        with self.assertRaises(ValueError):
+            natural.validate_resume_groups(
+                {("source", 0, "a")}, ["source"], range(1), targets,
+            )
+        with self.assertRaises(ValueError):
+            natural.validate_resume_groups(
+                {("other", 0, "a")}, ["source"], range(1), targets,
+            )
     def test_source_families_cover_sources_and_merge_known_duplicates(self):
         self.assertEqual(set(natural.SOURCE_FAMILIES), set(natural.SOURCES))
         self.assertEqual(len(set(natural.SOURCE_FAMILIES.values())), 17)
@@ -120,6 +162,24 @@ class NaturalShortlistTests(unittest.TestCase):
             {"a", "b", "c", "d"},
         )
 
+    def test_paired_bootstrap_confidence_tier_excludes_clear_loss(self):
+        values = {
+            "winner": [(0.90 + offset, 0.0, seed) for seed, offset in enumerate([
+                0.00, 0.01, -0.01, 0.005, -0.005,
+            ])],
+            "tied": [(0.90 + offset, 0.0, seed) for seed, offset in enumerate([
+                0.00, 0.01, -0.01, 0.005, -0.005,
+            ])],
+            "bad": [(0.50 + offset, 0.0, seed) for seed, offset in enumerate([
+                0.00, 0.01, -0.01, 0.005, -0.005,
+            ])],
+        }
+        tier = natural.paired_bootstrap_confidence_tier(
+            ["winner", "tied", "bad"], values, confidence=0.95,
+            replicates=2_000, seed=7,
+        )
+        self.assertEqual(tier, {"winner", "tied"})
+
     def test_summary_filters_manifest_sources_and_tracks_family_recall(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -175,6 +235,7 @@ class NaturalShortlistTests(unittest.TestCase):
             self.assertEqual(result["best_candidate_recall"], "0")
             self.assertEqual(result["best_candidate_family_recall"], "1")
             self.assertEqual(result["candidate_count"], "3")
+            self.assertIn("best_candidate_recall_tol_0p001", result)
 
 
 if __name__ == "__main__":

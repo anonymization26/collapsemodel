@@ -8,9 +8,9 @@ fi
 
 ENCODER="$1"
 PROJECT_ROOT="${PROJECT_ROOT:-/home/67/collapsemodel-two-stage}"
-SOURCE_DIR="${SOURCE_DIR:-/data/Paper06/features/two_stage_source_splits_n5000}"
-MERGED_ROOT="${MERGED_ROOT:-/data/Paper06/results/two_stage_cv_utility/merged}"
-RESULT_ROOT="${RESULT_ROOT:-/data/Paper06/results/two_stage_cv_lodo}"
+SOURCE_DIR="${SOURCE_DIR:-/data/Paper06/features/two_stage_source_splits_n5000_unlabeled}"
+MERGED_ROOT="${MERGED_ROOT:-/data/Paper06/results/two_stage_cv_utility_corrected_v2/merged}"
+RESULT_ROOT="${RESULT_ROOT:-/data/Paper06/results/two_stage_cv_lodo_corrected_v2}"
 
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
 set -u

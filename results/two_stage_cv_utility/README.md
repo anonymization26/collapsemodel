@@ -1,5 +1,8 @@
 # 独立重复 CV 诊断（非正式主结果）
 
+> **历史诊断。** 多次独立训练产生了不可忽略的 NPU 非确定性；修正版按一次训练内联合分区、
+> run fingerprint 和 source/seed 原子组执行，并加入 identity/random-adapter 基线。
+
 本目录保留三个分别启动、分别训练 adapter 的 5-fold CV 运行。它们最初用于目标划分敏感性分析，
 后来发现同时改变了两个因素：CV partition seed 和 NPU adapter 重训结果。因此只能作为系统
 非确定性诊断，不能用于估计纯粹的 CV partition 效应。

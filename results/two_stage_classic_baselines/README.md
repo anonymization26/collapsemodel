@@ -1,5 +1,9 @@
 # 经典基线受控筛选实验
 
+> **历史 pilot，非修正版结果。** 本实验复制最高有效秩来源，且把 exact-score greedy 误称为
+> 参考上界。修正版默认随机选择重复来源，并单独提供有规模门限的 exhaustive oracle；见
+> `AUDIT_2026-09-08.md`。下表只用于审计旧协议。
+
 ## 实验范围
 
 本目录比较两阶段 Stage-1 方法与经典子集选择方法。实验使用 ResNet-50 冻结特征、22 个候选源、
@@ -7,11 +11,11 @@
 共 24 个配置。每池采样 250 个样本；随机基线在每个配置重复 100 次。
 
 所有方法均不访问标签或目标数据。`family_rank` 使用真实 family 元数据，因此只作为去重 oracle，
-不属于可部署方法。`full_merged_rank` 使用完整特征，是当前评价指标下的贪心参考上界。
+不属于可部署方法。`full_merged_rank` 使用完整特征逐步精确评分，只是贪心参考，不是组合上界。
 
 ## 主要结果
 
-| 方法 | 合并有效秩均值 | 相对 Full-rank gap | 平均重复池数 | 胜过 rank-only 的配置比例 |
+| 方法 | 合并有效秩均值 | 相对 exact greedy gap | 平均重复池数 | 胜过 rank-only 的配置比例 |
 |---|---:|---:|---:|---:|
 | Full merged-rank | 674.190 | 0.000% | 0.000 | 100.0% |
 | Family oracle | 674.021 | 0.021% | 0.000 | 100.0% |
@@ -26,7 +30,7 @@
 
 `Collapse` 与 `rank-only` 的均值和重叠退化曲线几乎相同，当前单编码器实验不支持 alignment
 带来稳定增量价值。相反，top-20 subspace DPP 在 24/24 个配置中都优于 rank-only，且接近
-Full merged-rank 上界。
+旧 exact-score merged-rank greedy 参考。
 
 ## 名义摘要与实际 selector traffic
 

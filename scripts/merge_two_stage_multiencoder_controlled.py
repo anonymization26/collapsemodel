@@ -188,22 +188,34 @@ def summarize_stopping_decision(
 
 
 def summarize_alignment(rows: list[dict[str, str]]) -> list[dict[str, object]]:
-    unique: dict[tuple[str, int, float], tuple[float, float]] = {}
+    unique: dict[tuple[str, int, float], tuple[float, ...]] = {}
     for row in rows:
         key = (
             row["encoder"],
             int(row["construction_seed"]),
             float(row["overlap"]),
         )
-        value = (
-            float(row["alignment_duplicate_auroc"]),
-            float(row["alignment_duplicate_auprc"]),
-        )
-        if key in unique and unique[key] != value:
+        if "alignment_global_lineage_auroc" in row:
+            value = (
+                float(row["alignment_global_lineage_auroc"]),
+                float(row["alignment_global_lineage_auprc"]),
+                float(row["alignment_parent_matched_auroc"]),
+                float(row["alignment_parent_matched_auprc"]),
+                float(row["alignment_parent_top1_accuracy"]),
+                float(row["alignment_parent_mean_reciprocal_rank"]),
+                float(row["alignment_zero_overlap_designated_parent_top1_accuracy"]),
+            )
+        else:
+            value = (
+                float(row["alignment_duplicate_auroc"]),
+                float(row["alignment_duplicate_auprc"]),
+                float("nan"), float("nan"), float("nan"), float("nan"), float("nan"),
+            )
+        if key in unique and not np.allclose(unique[key], value, equal_nan=True):
             raise ValueError(f"inconsistent alignment metrics for {key}")
         unique[key] = value
 
-    grouped: dict[tuple[str, float], list[tuple[float, float]]] = defaultdict(list)
+    grouped: dict[tuple[str, float], list[tuple[float, ...]]] = defaultdict(list)
     for (encoder, _, overlap), value in unique.items():
         grouped[(encoder, overlap)].append(value)
     output: list[dict[str, object]] = []
@@ -212,10 +224,25 @@ def summarize_alignment(rows: list[dict[str, str]]) -> list[dict[str, object]]:
             "encoder": encoder,
             "overlap": overlap,
             "seeds": len(values),
-            "alignment_duplicate_auroc_mean": mean([value[0] for value in values]),
-            "alignment_duplicate_auroc_std": sample_std([value[0] for value in values]),
-            "alignment_duplicate_auprc_mean": mean([value[1] for value in values]),
-            "alignment_duplicate_auprc_std": sample_std([value[1] for value in values]),
+            "alignment_global_lineage_auroc_mean": mean([value[0] for value in values]),
+            "alignment_global_lineage_auroc_std": sample_std([value[0] for value in values]),
+            "alignment_global_lineage_auprc_mean": mean([value[1] for value in values]),
+            "alignment_global_lineage_auprc_std": sample_std([value[1] for value in values]),
+            "alignment_parent_matched_auroc_mean": mean([value[2] for value in values]),
+            "alignment_parent_matched_auroc_std": sample_std([value[2] for value in values]),
+            "alignment_parent_matched_auprc_mean": mean([value[3] for value in values]),
+            "alignment_parent_matched_auprc_std": sample_std([value[3] for value in values]),
+            "alignment_parent_top1_accuracy_mean": mean([value[4] for value in values]),
+            "alignment_parent_top1_accuracy_std": sample_std([value[4] for value in values]),
+            "alignment_parent_mean_reciprocal_rank_mean": mean([
+                value[5] for value in values
+            ]),
+            "alignment_parent_mean_reciprocal_rank_std": sample_std([
+                value[5] for value in values
+            ]),
+            "alignment_zero_overlap_designated_parent_top1_accuracy_mean": mean([
+                value[6] for value in values
+            ]),
         })
     return output
 

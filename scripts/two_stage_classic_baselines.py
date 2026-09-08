@@ -12,11 +12,13 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import itertools
 import json
 import math
 import os
 import time
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterable
@@ -53,26 +55,187 @@ def load_feature(root: Path, name: str, encoder: str) -> np.ndarray:
     return normalize_rows(h)
 
 
-def effective_rank(h: np.ndarray) -> float:
-    gram = h @ h.T if h.shape[0] <= h.shape[1] else h.T @ h
-    values = np.linalg.eigvalsh(gram.astype(np.float64, copy=False))
-    singular = np.sqrt(np.maximum(values, 0.0))
-    singular = singular[singular > 1e-10]
-    if singular.size == 0:
+def effective_rank_from_singular_values(singular: np.ndarray) -> float:
+    """Return entropy effective rank after a scale-aware numerical-rank cutoff."""
+
+    values = np.asarray(singular, dtype=np.float64)
+    if values.size == 0:
         return 0.0
-    probabilities = singular / singular.sum()
-    return float(np.exp(-np.sum(probabilities * np.log(probabilities))))
-
-
-def feature_vendi_score(h: np.ndarray) -> float:
-    """Vendi Score of samples under the linear kernel (squared singular values)."""
-    gram = h @ h.T if h.shape[0] <= h.shape[1] else h.T @ h
-    values = np.maximum(np.linalg.eigvalsh(gram.astype(np.float64, copy=False)), 0.0)
-    values = values[values > 1e-10]
+    values = np.maximum(values, 0.0)
+    tolerance = max(
+        float(values.max()) * np.finfo(np.float64).eps * max(values.size, 1) * 8.0,
+        np.finfo(np.float64).tiny,
+    )
+    values = values[values > tolerance]
     if values.size == 0:
         return 0.0
     probabilities = values / values.sum()
     return float(np.exp(-np.sum(probabilities * np.log(probabilities))))
+
+
+def effective_rank_from_scatter(scatter: np.ndarray) -> float:
+    """Compute effective rank of a PSD scatter matrix without counting roundoff modes."""
+
+    matrix = np.asarray(scatter, dtype=np.float64)
+    matrix = (matrix + matrix.T) / 2.0
+    eigenvalues = np.linalg.eigvalsh(matrix)
+    maximum = max(float(eigenvalues[-1]), 0.0) if eigenvalues.size else 0.0
+    tolerance = max(
+        maximum * np.finfo(np.float64).eps * max(matrix.shape) * 8.0,
+        np.finfo(np.float64).tiny,
+    )
+    singular = np.sqrt(np.maximum(eigenvalues[eigenvalues > tolerance], 0.0))
+    return effective_rank_from_singular_values(singular)
+
+
+def effective_rank(h: np.ndarray) -> float:
+    matrix = np.asarray(h, dtype=np.float64)
+    gram = matrix @ matrix.T if matrix.shape[0] <= matrix.shape[1] else matrix.T @ matrix
+    return effective_rank_from_scatter(gram)
+
+
+def feature_vendi_score(h: np.ndarray) -> float:
+    """Vendi Score of samples under the linear kernel (squared singular values)."""
+    matrix = np.asarray(h, dtype=np.float64)
+    gram = matrix @ matrix.T if matrix.shape[0] <= matrix.shape[1] else matrix.T @ matrix
+    values = np.linalg.eigvalsh((gram + gram.T) / 2.0)
+    maximum = max(float(values[-1]), 0.0) if values.size else 0.0
+    tolerance = max(
+        maximum * np.finfo(np.float64).eps * max(gram.shape) * 8.0,
+        np.finfo(np.float64).tiny,
+    )
+    values = values[values > tolerance]
+    if values.size == 0:
+        return 0.0
+    probabilities = values / values.sum()
+    return float(np.exp(-np.sum(probabilities * np.log(probabilities))))
+
+
+@dataclass(frozen=True)
+class GramSketch:
+    """Rank-L PSD factor plus certified upper bounds for the omitted spectrum."""
+
+    factor: np.ndarray
+    tail_nuclear_bound: float
+    tail_squared_bound: float
+    tail_rank_bound: int
+    full_rank_bound: int
+
+
+def make_gram_sketch(features: np.ndarray, rank: int) -> GramSketch:
+    """Build B with B.T @ B equal to the rank-L truncated feature Gram matrix."""
+
+    if rank < 1:
+        raise ValueError("Gram sketch rank must be positive")
+    matrix = np.asarray(features, dtype=np.float64)
+    _, singular, vh = np.linalg.svd(matrix, full_matrices=False)
+    count = min(rank, singular.size)
+    factor = singular[:count, None] * vh[:count]
+    tail = singular[count:]
+    return GramSketch(
+        factor=factor,
+        tail_nuclear_bound=float(tail.sum()),
+        tail_squared_bound=float(tail @ tail),
+        tail_rank_bound=int(tail.size),
+        full_rank_bound=min(matrix.shape),
+    )
+
+
+def pool_gram_sketches(
+    features: dict[str, np.ndarray], rank: int,
+) -> dict[str, GramSketch]:
+    return {name: make_gram_sketch(matrix, rank) for name, matrix in features.items()}
+
+
+def gram_sketch_statistics(sketches: Iterable[GramSketch]) -> dict[str, float | int]:
+    """Score a composable sketch and evaluate Theorem 8's log-rank interval."""
+
+    parts = list(sketches)
+    if not parts:
+        raise ValueError("at least one Gram sketch is required")
+    factor = np.concatenate([part.factor for part in parts], axis=0)
+    singular = np.linalg.svd(factor, compute_uv=False)
+    approximate_rank = effective_rank_from_singular_values(singular)
+    approximate_nuclear = float(singular.sum())
+    tail_nuclear = float(sum(part.tail_nuclear_bound for part in parts))
+    tail_squared = float(sum(part.tail_squared_bound for part in parts))
+    tail_rank = min(factor.shape[1], sum(part.tail_rank_bound for part in parts))
+    rank_bound = min(factor.shape[1], sum(part.full_rank_bound for part in parts))
+    frobenius_tail_bound = math.sqrt(max(tail_rank * tail_squared, 0.0))
+    tail_bound = min(tail_nuclear, frobenius_tail_bound)
+    denominator = approximate_nuclear + tail_bound
+    epsilon = tail_bound / denominator if denominator > 0.0 else 0.0
+    dimension_bound = max(rank_bound, 1)
+    if dimension_bound == 1 or epsilon <= 0.0:
+        log_error = 0.0
+    elif epsilon <= 1.0 - 1.0 / dimension_bound:
+        binary_entropy = (
+            -epsilon * math.log(epsilon)
+            -(1.0 - epsilon) * math.log1p(-epsilon)
+        )
+        log_error = binary_entropy + epsilon * math.log(dimension_bound - 1)
+    else:
+        log_error = math.log(dimension_bound)
+    approximate_log_rank = math.log(max(approximate_rank, 1.0))
+    return {
+        "effective_rank": approximate_rank,
+        "log_effective_rank": approximate_log_rank,
+        "nuclear_mass": approximate_nuclear,
+        "tail_nuclear_bound": tail_nuclear,
+        "tail_squared_bound": tail_squared,
+        "tail_rank_bound": tail_rank,
+        "tail_mass_bound": tail_bound,
+        "epsilon": epsilon,
+        "dimension_bound": dimension_bound,
+        "log_error_bound": log_error,
+        "log_rank_lower": approximate_log_rank - log_error,
+        "log_rank_upper": approximate_log_rank + log_error,
+    }
+
+
+def rank_l_gram_greedy(
+    sketches: dict[str, GramSketch],
+    k: int,
+    *,
+    return_diagnostics: bool = False,
+) -> list[str] | tuple[list[str], list[dict[str, float | int | str | bool]]]:
+    """Greedily maximize the direct rank-L aggregate score using summaries only."""
+
+    if k < 1 or k > len(sketches):
+        raise ValueError(f"selection size must be in [1, {len(sketches)}]")
+    selected: list[str] = []
+    diagnostics: list[dict[str, float | int | str | bool]] = []
+    while len(selected) < k:
+        remaining = sorted(set(sketches) - set(selected))
+        candidate_stats = {
+            name: gram_sketch_statistics(sketches[item] for item in selected + [name])
+            for name in remaining
+        }
+        choice = max(
+            remaining,
+            key=lambda name: (float(candidate_stats[name]["log_effective_rank"]), name),
+        )
+        competing_upper = max(
+            (
+                float(candidate_stats[name]["log_rank_upper"])
+                for name in remaining if name != choice
+            ),
+            default=-math.inf,
+        )
+        chosen = candidate_stats[choice]
+        diagnostics.append({
+            "step": len(selected) + 1,
+            "choice": choice,
+            "approximate_effective_rank": float(chosen["effective_rank"]),
+            "log_error_bound": float(chosen["log_error_bound"]),
+            "certified_exact_greedy_choice": (
+                float(chosen["log_rank_lower"]) > competing_upper
+            ),
+        })
+        selected.append(choice)
+    if return_diagnostics:
+        return selected, diagnostics
+    return selected
 
 
 def make_collection(
@@ -238,6 +401,8 @@ def collapse_greedy(features: dict[str, np.ndarray], k: int, top_k: int) -> list
 
 
 def full_merged_rank_greedy(features: dict[str, np.ndarray], k: int) -> list[str]:
+    """Greedy exact-score baseline; this is not a combinatorial upper bound."""
+
     selected: list[str] = []
     current: np.ndarray | None = None
     while len(selected) < k:
@@ -251,6 +416,33 @@ def full_merged_rank_greedy(features: dict[str, np.ndarray], k: int) -> list[str
         selected.append(choice)
         current = features[choice] if current is None else np.concatenate([current, features[choice]], axis=0)
     return selected
+
+
+exact_merged_rank_greedy = full_merged_rank_greedy
+
+
+def exhaustive_merged_rank_oracle(
+    features: dict[str, np.ndarray], k: int, max_combinations: int = 10_000,
+) -> list[str]:
+    """Return the global best size-k set when an explicitly bounded search is feasible."""
+
+    names = sorted(features)
+    combination_count = math.comb(len(names), k)
+    if combination_count > max_combinations:
+        raise ValueError(
+            f"exhaustive search needs {combination_count} combinations, "
+            f"above limit {max_combinations}"
+        )
+    best: tuple[str, ...] | None = None
+    best_score = -math.inf
+    for combination in itertools.combinations(names, k):
+        score = effective_rank(np.concatenate([features[name] for name in combination]))
+        if score > best_score:
+            best = combination
+            best_score = score
+    if best is None:
+        raise ValueError("empty exhaustive search")
+    return list(best)
 
 
 def facility_location(similarity: np.ndarray, names: list[str], k: int) -> list[str]:
@@ -312,6 +504,60 @@ def k_medoids_pam(similarity: np.ndarray, names: list[str], k: int) -> list[str]
             medoids[best_swap[0]] = best_swap[1]
             improved = True
     return [names[index] for index in medoids]
+
+
+def agglomerative_medoids(
+    similarity: np.ndarray, names: list[str], k: int,
+) -> list[str]:
+    """Average-linkage agglomeration followed by one deterministic medoid per cluster."""
+
+    clusters: list[tuple[int, ...]] = [(index,) for index in range(len(names))]
+    while len(clusters) > k:
+        pairs = [
+            (left, right)
+            for left in range(len(clusters))
+            for right in range(left + 1, len(clusters))
+        ]
+
+        def linkage(pair: tuple[int, int]) -> float:
+            left, right = pair
+            return float(np.mean(similarity[np.ix_(clusters[left], clusters[right])]))
+
+        left, right = max(pairs, key=lambda pair: (linkage(pair), -pair[0], -pair[1]))
+        merged = tuple(sorted(clusters[left] + clusters[right]))
+        clusters = [
+            cluster for index, cluster in enumerate(clusters)
+            if index not in {left, right}
+        ]
+        clusters.append(merged)
+        clusters.sort()
+
+    selected = []
+    for cluster in clusters:
+        medoid = max(
+            cluster,
+            key=lambda index: (
+                float(similarity[index, list(cluster)].sum()),
+                -index,
+            ),
+        )
+        selected.append(names[medoid])
+    return sorted(selected)
+
+
+def leverage_score_selection(
+    representation: np.ndarray, names: list[str], k: int,
+) -> list[str]:
+    """Select rows with largest rank-k statistical leverage scores."""
+
+    matrix = np.asarray(representation, dtype=np.float64)
+    if matrix.shape[0] != len(names):
+        raise ValueError("one representation row is required per pool")
+    left, _, _ = np.linalg.svd(matrix, full_matrices=False)
+    count = min(k, left.shape[1])
+    scores = np.sum(left[:, :count] ** 2, axis=1)
+    order = sorted(range(len(names)), key=lambda index: (-float(scores[index]), names[index]))
+    return [names[index] for index in order[:k]]
 
 
 def logdet_score(matrix: np.ndarray) -> float:
@@ -404,6 +650,8 @@ def representation_bytes(
         return 4
     if representation == "collapse":
         return 4 * (2 + top_k * dimension)
+    if representation == "gram_sketch":
+        return 8 * (top_k * dimension + 3)
     if representation == "centroid":
         return 4 * (dimension + 1)
     if representation == "subspace":
@@ -418,11 +666,15 @@ def method_spec(method: str) -> tuple[str, str, bool]:
         return "none", "none", False
     if method == "rank_only":
         return "scalar", "summary", False
+    if method == "rank_l_gram":
+        return "gram_sketch", "summary", False
     if method == "collapse":
         return "collapse", "summary", False
     if method == "family_rank":
         return "scalar", "summary+family", True
-    if method == "full_merged_rank":
+    if method in {
+        "full_merged_rank", "exact_merged_rank_greedy", "exhaustive_merged_rank_oracle",
+    }:
         return "full_features", "full", False
     if method == "merged_vendi":
         return "full_features", "full", False
@@ -456,9 +708,14 @@ def run(args: argparse.Namespace) -> None:
     start_time = utc_now()
     source = {name: load_feature(args.feature_dir, name, args.encoder) for name in SOURCES}
     full_ranks = {name: effective_rank(h) for name, h in source.items()}
-    duplicate_sources = sorted(full_ranks, key=lambda name: (-full_ranks[name], name))[
-        : args.n_duplicate_sources
-    ]
+    if args.duplicate_source_policy == "highest_rank":
+        duplicate_sources = sorted(
+            full_ranks, key=lambda name: (-full_ranks[name], name),
+        )[: args.n_duplicate_sources]
+    else:
+        duplicate_sources = sorted(np.random.default_rng(
+            args.duplicate_source_seed,
+        ).choice(sorted(SOURCES), args.n_duplicate_sources, replace=False).tolist())
     all_configs = [
         (seed, overlap, budget)
         for seed in CONSTRUCTION_SEEDS
@@ -486,6 +743,7 @@ def run(args: argparse.Namespace) -> None:
         names = sorted(features)
         stats_start = time.perf_counter()
         ranks, _, centroids, subspaces = pool_statistics(features, args.top_k)
+        gram_sketches = pool_gram_sketches(features, args.top_k)
         similarity = {
             representation: similarity_matrix(
                 features, names, representation, centroids, subspaces,
@@ -504,11 +762,30 @@ def run(args: argparse.Namespace) -> None:
             selections.append((method, replicate, selected))
 
         timed_select("rank_only", lambda: rank_only(ranks, budget))
+        timed_select(
+            "rank_l_gram",
+            lambda: rank_l_gram_greedy(gram_sketches, budget),
+        )
         timed_select("collapse", lambda: collapse_greedy(features, budget, args.top_k))
         timed_select("family_rank", lambda: family_rank(ranks, family, budget))
         if not args.skip_full_merged:
-            timed_select("full_merged_rank", lambda: full_merged_rank_greedy(features, budget))
+            timed_select(
+                "exact_merged_rank_greedy",
+                lambda: exact_merged_rank_greedy(features, budget),
+            )
             timed_select("merged_vendi", lambda: merged_vendi_greedy(features, budget))
+        centroid_matrix = np.stack([centroids[name] for name in names])
+        timed_select(
+            "leverage_centroid",
+            lambda: leverage_score_selection(centroid_matrix, names, budget),
+        )
+        if args.include_exhaustive:
+            timed_select(
+                "exhaustive_merged_rank_oracle",
+                lambda: exhaustive_merged_rank_oracle(
+                    features, budget, args.max_exhaustive_combinations,
+                ),
+            )
 
         for representation in representations:
             matrix = similarity[representation]
@@ -524,6 +801,10 @@ def run(args: argparse.Namespace) -> None:
             timed_select(
                 f"kmedoids_{suffix}",
                 lambda matrix=matrix: k_medoids_pam(matrix, names, budget),
+            )
+            timed_select(
+                f"agglomerative_{suffix}",
+                lambda matrix=matrix: agglomerative_medoids(matrix, names, budget),
             )
             timed_select(
                 f"dpp_{suffix}",
@@ -626,6 +907,10 @@ def run(args: argparse.Namespace) -> None:
         "representations": list(representations),
         "n_random": args.n_random,
         "duplicate_sources": duplicate_sources,
+        "duplicate_source_policy": args.duplicate_source_policy,
+        "duplicate_source_seed": args.duplicate_source_seed,
+        "include_exhaustive": args.include_exhaustive,
+        "max_exhaustive_combinations": args.max_exhaustive_combinations,
         "shard_index": args.shard_index,
         "shard_count": args.shard_count,
         "configs": manifest_configs,
@@ -641,12 +926,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--pool-size", type=int, default=250)
     parser.add_argument("--top-k", type=int, default=20)
     parser.add_argument("--n-duplicate-sources", type=int, default=6)
+    parser.add_argument(
+        "--duplicate-source-policy", choices=["random", "highest_rank"], default="random",
+    )
+    parser.add_argument("--duplicate-source-seed", type=int, default=20260908)
     parser.add_argument("--n-random", type=int, default=100)
     parser.add_argument("--random-seed-offset", type=int, default=0)
     parser.add_argument(
         "--representations", nargs="+", choices=REPRESENTATIONS, default=list(REPRESENTATIONS),
     )
     parser.add_argument("--skip-full-merged", action="store_true")
+    parser.add_argument("--include-exhaustive", action="store_true")
+    parser.add_argument("--max-exhaustive-combinations", type=int, default=10_000)
     parser.add_argument("--shard-index", type=int, default=0)
     parser.add_argument("--shard-count", type=int, default=1)
     parser.add_argument("--max-configs", type=int)
@@ -658,6 +949,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("--shard-index must be in [0, shard-count)")
     if args.n_random < 1:
         parser.error("--n-random must be at least 1")
+    if not 1 <= args.n_duplicate_sources <= len(SOURCES):
+        parser.error(f"--n-duplicate-sources must be in [1, {len(SOURCES)}]")
     return args
 
 

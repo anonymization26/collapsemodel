@@ -19,6 +19,7 @@ from torch.utils.data import Dataset
 from benchmark_two_stage_encoders_npu import load_encoder
 from extract_two_stage_features_npu import (
     cached_result_is_valid,
+    deduplicate_files_by_content,
     extract_one,
     sha256_file,
     stratified_indices,
@@ -140,6 +141,7 @@ def main() -> None:
         for requested_split in args.splits:
             pattern, source_split = ARROW_SPLITS[dataset_name][requested_split]
             source_paths = resolve_arrow_files(args.arrow_root, pattern)
+            source_paths, source_hashes = deduplicate_files_by_content(source_paths)
             stem = output_stem(args.variant, dataset_name, requested_split, args.samples)
             npz_path = args.output_dir / f"{stem}.npz"
             metadata_path = args.output_dir / f"{stem}.json"
@@ -154,6 +156,7 @@ def main() -> None:
                 "sample_seed": args.sample_seed,
                 "script_sha256": script_sha256,
                 "encoder_loader_sha256": encoder_loader_sha256,
+                "source_file_sha256": source_hashes,
             }
             if not args.force and cached_result_is_valid(
                 npz_path, metadata_path, expected_metadata,
@@ -186,7 +189,7 @@ def main() -> None:
                 "source_files": [str(path) for path in source_paths],
                 "source_samples": len(dataset),
                 "sampling": "deterministic_proportional_stratified",
-                "saved_labels_for_audit_only": True,
+                "saved_labels_for_stage2": True,
                 "feature_shape": list(features.shape),
                 "feature_dtype": str(features.dtype),
                 "index_dtype": str(indices.dtype),
