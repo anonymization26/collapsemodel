@@ -79,12 +79,12 @@ Given $M$ candidate datasets, which $k{\ll}M$ subset best preserves
 representational diversity when their features are merged---without
 access to labels or downstream tasks?
 We address this \emph{label-free data-pool compression} problem
-by deriving the \textbf{Collapse Model}, a closed-form bridge
-between spectral geometry and compression decisions.
+by deriving the \textbf{Collapse Model}, a structured summary predictor
+motivated by exact local spectral geometry.
 The model predicts the merged effective rank ($\reff$) from a
 $2{\times}2$ Gram-block eigenstructure via two compression-relevant
 SVD channels (energy ratio~$\gamma$, directional alignment~$\alpha$),
-yielding an explicit superadditivity threshold $\rho_c(\alpha,\gamma)$
+yielding a model-based superadditivity diagnostic $\rho_c(\alpha,\gamma)$
 that drives a greedy compression algorithm using only
 \emph{per-dataset summary statistics}---suitable for
 privacy-constrained or streaming settings where features cannot be
@@ -128,8 +128,8 @@ we seek compression at the \emph{dataset level}
 The criterion is representational diversity, formalized as the
 effective rank $\reff(H)=\exp(-\sum_i p_i\log p_i)$ of the merged features
 \citep{roy2007effective,garrido2023rankme}.
-No prior work provides a closed-form answer to how $\reff$ changes
-under feature concatenation,
+No prior work characterizes how dataset-level spectra and relative
+subspace geometry jointly affect $\reff$ under feature concatenation,
 forcing practitioners to rely on exhaustive search or heuristics
 that scale poorly with $M$.
 
@@ -142,12 +142,20 @@ Prior work addresses related but distinct problems.
 Task2Vec \citep{achille2019task2vec} avoids labels but requires probe fine-tuning.
 Model-merging methods (Task Arithmetic~\citep{ilharco2023task}, TIES-Merging~\citep{yadav2023ties}, DARE~\citep{yu2024dare}) combine parameters, not features.
 Intrinsic-dimensionality work \citep{pope2021intrinsic,ansuini2019intrinsic} characterizes individual matrices but not merged ones.
-To our knowledge, no existing work provides either a closed-form prediction of $\reff([H_A;H_B])$ or a theoretical framework that explains \emph{when and why} feature merging increases diversity.
+To our knowledge, no existing work combines an exact local spectral analysis
+of $\reff([H_A;H_B])$ with a summary-statistic predictor for dataset-level selection.
 
-We derive the \textbf{Collapse Model}, a closed-form bridge between spectral geometry and label-free compression.
-It expresses the merged effective rank as a function of four per-dataset quantities---$r_A$, $r_B$, the energy ratio $\gamma=\|H_B\|_*/\|H_A\|_*$, and the subspace alignment $\alpha=\SAk(H_A,H_B)$---via a $2\times2$ Gram block eigenstructure.
-Lemma~\ref{lem:gram} gives exact eigenvalues under the principal-angle model (discriminant $D$, weight $r^*$); Proposition~\ref{prop:collapse} approximates the merged spectrum as a two-component mixture with closed-form entropy.
-The resulting formula identifies a superadditivity threshold $\rho_c(\alpha,\gamma)$ and partitions the $(\alpha,\gamma)$ plane into \textbf{three behaviour regimes} (Corollary~\ref{cor:superadd}): \emph{superadditive} (balanced energy and low alignment, $r_{\mathrm{dom}}/r_{\mathrm{sub}}<\rho_c$), \emph{directional collapse} ($\alpha\to1$, subspaces overlap so merging adds no diversity), and \emph{energy collapse} ($\gamma\gg1$ or $\gamma\ll1$, one dataset dominates and the gain vanishes).
+We derive the \textbf{Collapse Model} from the exact identity
+$G_{A\cup B}=G_A+G_B$.
+Under explicit paired-direction conditions, Lemma~\ref{lem:gram} gives exact
+$2\times2$ block eigenvalues using mode-wise energy ratios $\gamma_i$ and
+alignments $\alpha_i$; under proportional spectra and uniform alignment,
+Proposition~\ref{prop:proportional} gives an exact two-branch entropy formula.
+For general spectra, Eq.~\eqref{eq:pred} compresses this structure into four
+summaries---$r_A$, $r_B$, the global energy ratio $\gamma$, and mean alignment
+$\alpha$---and is explicitly treated as an empirical approximation.
+Its diagnostic threshold $\rho_c(\alpha,\gamma)$ describes three idealized
+behaviour regimes: superadditive, directional collapse, and energy collapse.
 Our $\SAk$ uses mean squared cosine of principal angles, which connects more directly to projection theory than SVCCA's unsigned cosine or PWCCA's energy-weighted form;
 the $U$-channel uses the Two-NN intrinsic dimension estimator \citep{facco2017estimating}.
 
@@ -155,13 +163,13 @@ the $U$-channel uses the Two-NN intrinsic dimension estimator \citep{facco2017es
 \centering
 \includegraphics[width=0.88\linewidth]{fig_framework.pdf}
 \caption{Label-free data-pool compression pipeline.
-\textbf{Top:}~Three SVD-channel statistics ($\Sigma{:}\gamma$, $V{:}\alpha$, $U{:}\reff$) per dataset feed Lemma~\ref{lem:gram}+Prop.~\ref{prop:collapse} to predict merged rank and superadditivity threshold $\rho_c(\alpha,\gamma)$.
+\textbf{Top:}~Per-dataset summaries ($\Sigma{:}\gamma$, $V{:}\alpha$, $U{:}\reff$) compress the exact mode-wise structure of Lemma~\ref{lem:gram} into the approximate predictor Eq.~\eqref{eq:pred} and its diagnostic threshold $\rho_c(\alpha,\gamma)$.
 \textbf{Middle:}~Three behaviour regimes in the $(\alpha,\gamma)$ plane (Cor.~\ref{cor:superadd}): superadditive, directional collapse ($\alpha{\to}1$), energy collapse ($\gamma{\gg}1$ or ${\ll}1$).
 \textbf{Bottom:}~Greedy loop (Alg.~\ref{alg:collapse_greedy}): score remaining candidates, pick $\arg\max$, repeat $k$ times; outputs compressed pool $S$.}
 \label{fig:framework}
 \end{figure}
 
-\textbf{Why closed-form compression?}
+\textbf{Why summary-based compression?}
 Exhaustive search over $M$ candidates requires $\binom{M}{k}$ merged
 SVDs at $O(Nd^2)$ each, with simultaneous access to all feature matrices
 ($M{=}14, k{=}5$: $2002$ SVDs; $M{=}100, k{=}10$: $1.7{\times}10^{13}$).
@@ -176,13 +184,13 @@ operating from per-dataset summary statistics
 ($\reff,\|\cdot\|_*,V_{\mathrm{top}\text{-}k}$),
 suitable for privacy-constrained and streaming settings where
 feature matrices cannot be shared.
-(2)~\emph{Closed-form theory} (Lemma~\ref{lem:gram},
-Proposition~\ref{prop:collapse}, Theorem~\ref{thm:error}):
-the first closed-form predictor of merged $\reff$, decomposing it into
-three orthogonal SVD channels with a superadditivity threshold
-$\rho_c(\alpha,\gamma)$ (Corollary~\ref{cor:superadd}) that classifies
-merging into three regimes (superadditive / directional collapse /
-energy collapse) and an explicit multiplicative error bound.
+(2)~\emph{Exact local theory and structured approximation}
+(Proposition~\ref{prop:gram_general}, Lemma~\ref{lem:gram},
+Proposition~\ref{prop:proportional}): an unconditional Gram representation,
+an exact paired-direction eigendecomposition, and a proportional-spectrum
+entropy formula.  For general spectra we derive a low-dimensional summary
+predictor and prove by counterexample that its four inputs are not sufficient
+for universal exact prediction.
 (3)~\emph{Two-signal decomposition of LP-relevant diversity}
 (Sec.~\ref{sec:compression}): benchmarking against modern baselines
 reveals that downstream-relevant diversity factors into two orthogonal
@@ -190,7 +198,7 @@ signals---\emph{spectral retention} (captured by Collapse, $r_A{+}r_B$,
 Vendi-Greedy) and \emph{centroid coverage} (captured by farthest-first
 traversal). A two-stage Cen$\to$Col hybrid composes both signals and
 dominates pure Collapse on \emph{both} LP and retention simultaneously
-at $k{=}10$ (Appendix~\ref{app:p2e_hybrid}), positioning the closed-form
+at $k{=}10$ (Appendix~\ref{app:p2e_hybrid}), positioning the structured
 formula as a composable primitive rather than a standalone strategy.
 
 \textbf{Empirical findings.}
@@ -205,9 +213,9 @@ principal-angle distribution that the model isolates as the responsible
 mechanism.
 
 Among label-free analyses, only the Collapse Model simultaneously
-provides closed-form merged-rank prediction
+provides summary-based merged-rank prediction
 ($R^2_{\mathrm{cal}}{=}0.95$ on 427 pairs, Table~\ref{tab:e1d}),
-behaviour-regime classification via $\rho_c(\alpha,\gamma)$, and
+behaviour-regime diagnosis via $\rho_c(\alpha,\gamma)$, and
 superadditivity diagnosis at the same $O(Nd\min(N,d))$ cost as
 SVCCA/PWCCA; the naive $r_A{+}r_B$ matches Collapse in ordinal ranking
 ($\rho{=}0.963$ vs.\ $0.966$, not significant) but lacks absolute $R^2$, regime diagnosis, and redundancy detection.
@@ -298,58 +306,104 @@ $r_{\mathrm{dom}}$ is the effective rank of the higher-energy matrix.
 \subsection{Main Results}
 \label{sec:theorem}
 
-Our derivation has two layers: an \emph{exact} algebraic result (Lemma~\ref{lem:gram})
-and an \emph{approximate} prediction formula (Proposition~\ref{prop:collapse})
-that applies the exact result via a spectral mixture model.
+Our analysis separates three levels that must not be conflated:
+an unconditional Gram identity, an exact paired-direction model under
+explicit decoupling assumptions, and a low-dimensional summary predictor
+for general spectra.
+
+\begin{proposition}[Exact Gram Representation]
+\label{prop:gram_general}
+Let $H_A=U_A\Sigma_A V_A^\top$ and
+$H_B=U_B\Sigma_B V_B^\top$ be compact SVDs, and complete $V_A$ to an
+orthogonal basis $Q_A=[V_A\;V_{A,\perp}]$.  With
+$C=Q_A^\top V_B$ and $\widetilde\Sigma_A^2$ denoting $\Sigma_A^2$
+padded by zeros to dimension $d$, the merged Gram operator satisfies
+\begin{equation}
+ Q_A^\top(H_A^\top H_A+H_B^\top H_B)Q_A
+ =\widetilde\Sigma_A^2+C\Sigma_B^2C^\top.
+ \label{eq:general_gram}
+\end{equation}
+Consequently, the merged singular values are the square roots of the
+eigenvalues of the right-hand side.
+\end{proposition}
+
+Equation~\eqref{eq:general_gram} is unconditional.  In general $C$ is
+dense: a singular direction of one matrix can couple to several directions
+of the other.  Individual spectra and an average principal-angle statistic
+therefore do not determine the merged spectrum.
 
 \begin{lemma}[Exact: 2$\times$2 Gram Block Eigenstructure]
 \label{lem:gram}
-Under the \emph{principal-angle model} where the $i$-th right singular vector of $H_B$
-lies in $\mathrm{span}\{V_{A,i},V_{\perp,i}\}$ with $V_{A,i}^\top V_{B,i}=\cos\theta_i$,
-the $2\times2$ block of the Gram matrix $G=H_A^\top H_A+H_B^\top H_B$ in the
-$(V_{A,i},V_{\perp,i})$ basis has eigenvalues
-$\sigma_{A,i}^2(A\pm D_i)/2$ with $A=1+\gamma^2$ and
+Assume paired, decoupled directions: for each $i$,
+$V_{B,i}=\cos\theta_i V_{A,i}+\sin\theta_i V_{\perp,i}$, where the
+two-dimensional planes $\mathrm{span}\{V_{A,i},V_{\perp,i}\}$ are mutually
+orthogonal.  Define the \emph{mode-wise} energy ratio
+$\gamma_i=\sigma_{B,i}/\sigma_{A,i}$ and
+$\alpha_i=\cos^2\theta_i$.  The $i$-th Gram block has eigenvalues
 \begin{equation}
-  D = \sqrt{(1+\gamma^2)^2 - 4\gamma^2(1-\alpha)}
-    = \sqrt{(1-\gamma^2)^2 + 4\gamma^2\,\alpha},
+ \lambda_{\pm,i}=\frac{\sigma_{A,i}^2}{2}
+ \left(A_i\pm D_i\right),\quad
+ A_i=1+\gamma_i^2,\quad
+ D_i=\sqrt{(1-\gamma_i^2)^2+4\gamma_i^2\alpha_i}.
   \label{eq:discriminant}
 \end{equation}
-where $\alpha=\cos^2\theta$ is the (shared) squared alignment.
-The nuclear-norm fraction of the dominant merged component is
-\begin{equation}
-  r^* = \frac{\sqrt{(A+D)/2}}{\sqrt{(A+D)/2} + \sqrt{(A-D)/2}}.
-  \label{eq:rstar}
-\end{equation}
-This result is \emph{exact} under the stated model (proof: Appendix~\ref{app:proof_thm}, Part A).
+The corresponding singular values are $\sqrt{\lambda_{+,i}}$ and
+$\sqrt{\lambda_{-,i}}$.  This result is exact under the stated pairing and
+decoupling conditions (Appendix~\ref{app:proof_thm}).
 \end{lemma}
 
-\begin{proposition}[Collapse Model: Predicted Merged Rank]
-\label{prop:collapse}
-Under the two-component spectral mixture approximation (Appendix~\ref{app:proof_thm}, Part B),
-the predicted merged effective rank is:
+The global ratio $\gamma=\|H_B\|_*/\|H_A\|_*$ does \emph{not} imply
+$\gamma_i=\gamma$.  Replacing the collection $\{\gamma_i,\alpha_i\}$ by
+global summaries $(\gamma,\alpha)$ is an approximation step.
+
+\begin{proposition}[Exact Proportional-Spectrum Model]
+\label{prop:proportional}
+Under Lemma~\ref{lem:gram}, further assume
+$\sigma_{B,i}=\gamma\sigma_{A,i}$ and $\alpha_i=\alpha$ for every $i$.
+Let $A=1+\gamma^2$, $D=\sqrt{(1-\gamma^2)^2+4\gamma^2\alpha}$, and
+\begin{equation}
+ q = \frac{\sqrt{(A+D)/2}}
+ {\sqrt{(A+D)/2}+\sqrt{(A-D)/2}}.
+  \label{eq:rstar}
+\end{equation}
+Then the merged spectrum consists of two scaled copies of the spectrum of
+$H_A$, and
+\begin{equation}
+ r_{\mathrm{merged}}=r_A\exp(H_b(q)),\qquad r_A=r_B.
+ \label{eq:proportional_exact}
+\end{equation}
+\end{proposition}
+
+\begin{definition}[Collapse Summary Predictor]
+\label{def:collapse}
+For general spectra, we compress the mode-wise quantities to the global
+nuclear-norm ratio $\gamma$ and mean top-$k$ alignment $\alpha$, compute
+$q$ from Eq.~\eqref{eq:rstar}, and define
 \begin{equation}
   \hat{r}_{\mathrm{merged}} =
-  \exp\!\Big(H_b(r^*) + r^*\log r_{\mathrm{dom}} + (1-r^*)\log r_{\mathrm{sub}}\Big),
+  \exp\!\Big(H_b(q) + q\log r_{\mathrm{dom}} + (1-q)\log r_{\mathrm{sub}}\Big),
   \label{eq:pred}
 \end{equation}
-where $r^*$ is from Lemma~\ref{lem:gram},
-$H_b(p)=-p\log p-(1-p)\log(1-p)$ is binary entropy,
-and $r_{\mathrm{dom}},r_{\mathrm{sub}}$ are the effective ranks of the higher- and
-lower-energy matrices.
-The approximation error is $O(\sigma_{\min}/\sigma_{\max})$, controlled by $\gamma$.
-\end{proposition}
+where $H_b(p)=-p\log p-(1-p)\log(1-p)$.
+\end{definition}
+
+Equation~\eqref{eq:pred} is a theory-motivated low-dimensional
+approximation, not an identity or a universally bounded estimator.  It
+interpolates the input spectral entropies and adds the binary entropy of
+the idealized two-branch split.  Its accuracy on general spectra is an
+empirical question evaluated in Sec.~\ref{sec:experiments}.
 
 \textbf{Interpretation.}
 Equation~\eqref{eq:pred} is a weighted log-geometric mean of the
-individual ranks plus a balance bonus $H_b(r^*)$ (maximal when
-$r^*{=}0.5$, vanishing as $r^*{\to}0,1$).
+individual ranks plus a balance bonus $H_b(q)$ (maximal when
+$q{=}0.5$, vanishing as $q{\to}0,1$).
 
 \textbf{Behavior regimes.}
-\emph{Superadditive} ($\alpha{\approx}0$, $\gamma{\approx}1$): $r^*{\approx}0.5$,
+\emph{Superadditive} ($\alpha{\approx}0$, $\gamma{\approx}1$): $q{\approx}0.5$,
 $\hat{r}_{\mathrm{merged}}{\approx}2\sqrt{r_Ar_B}\geq r_{\mathrm{dom}}$.
-\emph{Directional collapse} ($\alpha{\to}1$): $r^*{\to}1$, $H_b(r^*){\to}0$,
+\emph{Directional collapse} ($\alpha{\to}1$): $q{\to}1$, $H_b(q){\to}0$,
 $\hat{r}_{\mathrm{merged}}{\to}r_{\mathrm{dom}}$.
-\emph{Energy collapse} ($\gamma{\gg}1$ or $\gamma{\ll}1$): $r^*{\to}1$,
+\emph{Energy collapse} ($\gamma{\gg}1$ or $\gamma{\ll}1$): $q{\to}1$,
 $\hat{r}_{\mathrm{merged}}{\to}r_{\mathrm{dom}}$.
 When $\alpha{\to}1$ \emph{and} $\gamma{\gg}1$, the merged rank can fall
 \emph{below} $r_{\mathrm{sub}}$---a net loss in diversity.
@@ -357,70 +411,64 @@ When $\alpha{\to}1$ \emph{and} $\gamma{\gg}1$, the merged rank can fall
 \subsection{Superadditivity Threshold}
 \label{sec:superadd}
 
-\begin{corollary}[Bounded-Ratio Superadditivity]
+\begin{corollary}[Summary-Model Superadditivity Diagnostic]
 \label{cor:superadd}
-Proposition~\ref{prop:collapse} predicts $\hat{r}_{\mathrm{merged}}>r_{\mathrm{dom}}$
-if and only if
+The summary predictor in Eq.~\eqref{eq:pred} predicts
+$\hat{r}_{\mathrm{merged}}>r_{\mathrm{dom}}$
+for $q<1$ if and only if
 \begin{equation}
   \frac{r_{\mathrm{dom}}}{r_{\mathrm{sub}}} < \rho_c(\alpha,\gamma)
-  \;\equiv\; \exp\!\!\left(\frac{H_b(r^*)}{1-r^*}\right),
+  \;\equiv\; \exp\!\!\left(\frac{H_b(q)}{1-q}\right),
   \label{eq:rho_c}
 \end{equation}
-where $r^*$ is from Lemma~\ref{lem:gram}.
+where $q$ is from Eq.~\eqref{eq:rstar}.
 The threshold $\rho_c$ is increasing in $\alpha$:
 $\rho_c\geq4.0$ for all $\alpha\in[0,0.9]$ at $\gamma=1$.
-At $\alpha=1$: $H_b(r^*)\to0$, $\rho_c\to1$---superadditivity is impossible.
+As $q\to1^{-}$, $\rho_c\to\infty$ while the predicted gain tends to zero.
+At the degenerate point $q=1$ the division in Eq.~\eqref{eq:rho_c} is
+undefined and Eq.~\eqref{eq:pred} gives
+$\hat r_{\mathrm{merged}}=r_{\mathrm{dom}}$ exactly.
 \end{corollary}
 
+This is an exact decision boundary for the summary model, and for the
+proportional-spectrum model of Proposition~\ref{prop:proportional}; on
+general data it is a diagnostic rather than a guarantee.
+
 \textbf{Physical meaning.}
-$\rho_c$ is a rank-ratio threshold: orthogonal subspaces ($\alpha{\to}0$) allow
-$\rho_c{\gg}1$ (very unbalanced pairs remain superadditive); identical subspaces
-($\alpha{\to}1$) force $\rho_c{\to}1$ (no gain).
-The two-part proof and principal-angle scope are in Appendix~\ref{app:proof_thm},~\ref{app:pa_scope}.
+$\rho_c$ is a decision threshold internal to the summary model.  Near
+$q=1$, it can classify an arbitrarily small positive entropy increment as
+superadditive; the magnitude $\hat r_{\mathrm{merged}}-r_{\mathrm{dom}}$
+must therefore be reported alongside the binary diagnosis.  Exact directional
+overlap gives $q=1$ and no predicted gain.
+The proofs and model scope are in
+Appendices~\ref{app:proof_thm},~\ref{app:pa_scope}.
 
-\subsection{Approximation Error Bound}
-\label{sec:error_bound}
+\subsection{The Four Summaries Are Not Sufficient}
+\label{sec:insufficiency}
 
-The two-component spectral mixture in Proposition~\ref{prop:collapse}
-replaces the per-dimension discriminants $D_i$ with a single value $\bar{D}$
-computed from the average alignment $\bar\alpha=\SAk$.
-Theorem~\ref{thm:error} formalizes when this approximation is exact
-and how its error depends on observable quantities.
+\begin{proposition}[Non-identifiability from Four Scalars]
+\label{prop:insufficient}
+The tuple $(r_A,r_B,\gamma,\alpha)$ does not uniquely determine
+$\reff([H_A;H_B])$.
+\end{proposition}
 
-\begin{theorem}[Spectral Mixture Error Bound]
-\label{thm:error}
-Under the principal-angle model with per-dimension alignments
-$\alpha_i=\cos^2\theta_i$, average alignment $\bar\alpha=\SAk$,
-energy ratio $\gamma$, and condition number $\kappa=\sigma_1^A/\sigma_k^A$,
-let $\hat{r}$ denote the Collapse Model prediction
-(Proposition~\ref{prop:collapse})
-and $r=\reff([H_A;H_B])$ the true merged effective rank.
-
-\textbf{(a) Exactness under uniform alignment.}
-If $\alpha_i=\bar\alpha$ for all $i=1,\ldots,k$, then $\hat{r}=r$.
-
-\textbf{(b) General error bound.}
-\begin{equation}
-  \left|\log\frac{\hat{r}}{r}\right|
-  \;\leq\;
-  \frac{4\gamma^2}{\bar{D}^2}\cdot V_\alpha\cdot\log\kappa,
-  \label{eq:error_bound}
-\end{equation}
-where $\bar{D}=\sqrt{(1-\gamma^2)^2+4\gamma^2\bar\alpha}$ is the average discriminant
-and $V_\alpha=\sum_{i=1}^k p_i(\alpha_i-\bar\alpha)^2$ is the
-spectrum-weighted alignment variance with $p_i=\sigma_{A,i}/\|H_A\|_*$.
-\end{theorem}
-
-The three factors capture discriminant sensitivity, alignment
-heterogeneity, and spectral non-uniformity respectively, and combine
-to the worst-case guarantee $|\log(\hat r/r)|\leq\log\kappa$
-(multiplicative error never exceeds the condition number).
-Full proof and the discussion of why the formula generalises beyond the
-principal-angle model (E1a-Ind, $r{=}0.9987$) are in
-Appendices~\ref{app:error_proof},~\ref{app:generalization}.
+\textbf{Counterexample.}
+Let both inputs have singular values $(1,1)$, so $r_A=r_B=2$ and
+$\gamma=1$, and let $V_A=(e_1,e_2)$ in $\R^4$.
+For pair X take $V_B=(e_1,e_3)$, giving per-mode alignments $(1,0)$.
+For pair Y take
+$V_B=((e_1+e_3)/\sqrt2,(e_2+e_4)/\sqrt2)$, giving alignments
+$(1/2,1/2)$.  Both pairs have the same mean alignment $\alpha=1/2$.
+Pair X has merged singular values $(\sqrt2,1,1)$ and effective rank
+$2.958$, whereas pair Y has two copies each of
+$\sqrt{1+1/\sqrt2}$ and $\sqrt{1-1/\sqrt2}$ and effective rank $3.661$.
+Thus equal individual ranks, global energy ratio, and average alignment
+can yield different merged ranks.  The predictor necessarily discards
+alignment heterogeneity, spectral pairing, and cross-direction coupling.
+\hfill$\square$
 
 \textbf{Calibration.}
-On real data the formula acts as a systematic upper bound;
+On the evaluated real-data pairs the formula systematically over-predicts;
 a single multiplicative constant $c$ restores quantitative accuracy and
 follows a universal regression $c{=}0.946{-}0.175\log(N/\reff)$
 across encoder families (Appendix~\ref{app:calibration}).
@@ -437,21 +485,21 @@ gain and \emph{high} transfer loss simultaneously.
 
 
 % ============================================================
-\section{Formula Validation: Closing the Theoretical Loop}
+\section{Evaluation of the Summary Predictor}
 \label{sec:experiments}
 
 Before applying the Collapse Model to compression (Sec.~\ref{sec:applications}),
-we establish a three-step validation chain:
-(i)~\textbf{mathematical correctness}---the formula is exact under its
-derivation assumptions (§\ref{sec:e1a_main}, synthetic grid);
-(ii)~\textbf{real-data generalization}---the formula remains a strong
+we establish a three-step evaluation chain:
+(i)~\textbf{idealized-model agreement}---the predictor agrees with data
+generated under its summary assumptions (§\ref{sec:e1a_main}, synthetic grid);
+(ii)~\textbf{real-data predictive validity}---the formula remains a strong
 approximation across 5 encoder families, 14 vision datasets,
 and 19 text corpora (§\ref{sec:e1d}, 427 pairs);
 (iii)~\textbf{behavioral regime agreement}---empirical superadditivity
 patterns match the three regimes predicted by
 Corollary~\ref{cor:superadd} (§\ref{sec:e1d}, Table~\ref{tab:e1d}).
-Together these close the theoretical loop: the formula is correct,
-it generalizes, and its qualitative predictions are observable.
+Together these test where the approximation succeeds, how it transfers to
+real encoders, and whether its qualitative diagnostics are observable.
 Additional controls (E1a-Ind 120 non-principal-angle pairs,
 E1b 30 real pairs, E1c 57 pairs, E\_diverse cross-architecture,
 E\_downstream $\reff$/LP-accuracy) all agree with the same picture
@@ -460,11 +508,12 @@ Feature matrices are L2-row-normalized and subsampled to
 $N_{\mathrm{sub}}$ samples; effective rank uses Eq.~\eqref{eq:reff};
 bootstrap CIs use $B=10{,}000$ resamples.
 
-\subsection{Step 1 --- Mathematical Correctness: Synthetic Controlled Grid (E1a, 280 pairs)}
+\subsection{Step 1 --- Idealized-Model Agreement: Synthetic Controlled Grid (E1a, 280 pairs)}
 \label{sec:e1a_main}
 
 Before validating on real data, we verify the Collapse Model on
-280 controlled synthetic pairs generated under the principal-angle model
+280 controlled synthetic pairs generated under the proportional-spectrum,
+paired-direction model
 with $\alpha\in\{0,0.05,\ldots,1.0\}$ and $\gamma\in\{0.1,0.33,\ldots,10.0\}$
 ($d{=}512$, $N{=}1000$, 5 repeats per setting).
 
@@ -528,11 +577,11 @@ DINO ViT-S/16 (11 datasets)    & 55  & 36.4\%            & 0.913 & 0.584 & 0.554
 
 \textbf{Generalization (Step 2).}
 The formula remains a strong approximation on all 427 real-world pairs:
-overall Pearson $r{=}0.970$ (uncalibrated, upper bound) and
+overall Pearson $r{=}0.970$ (uncalibrated) and
 $R^2_{\mathrm{cal}}{=}0.952$ after per-encoder-family calibration
 (scatter visualization in Appendix~\ref{app:exp_extras}, Fig.~\ref{fig:hero_scatter}).
-This confirms that the closed-form prediction, derived under the
-idealized principal-angle model, transfers faithfully to real encoders
+This confirms that the summary prediction, motivated by the
+idealized paired-direction model, remains predictive on real encoders
 spanning supervised CNNs, ViT, contrastive/self-distillation transformers,
 and sentence encoders.
 
@@ -540,8 +589,8 @@ and sentence encoders.
 (i)~\textbf{ResNet-50 achieves 100\% superadditivity} across 91 pairs
 (including medical and ImageNet), confirming the balanced-$(\gamma,\alpha)$
 regime predicted by Corollary~\ref{cor:superadd}.
-(ii)~\textbf{Supervised/self-supervised divide} emerges exactly where
-theory predicts: CLIP and DINO achieve only 29\%--36\% superadditivity,
+(ii)~\textbf{Supervised/self-supervised divide} emerges in the model's
+directional-overlap regime: CLIP and DINO achieve only 29\%--36\% superadditivity,
 with failures concentrating \emph{entirely} in cross-domain pairs
 (handwritten$\times$ImageNet, natural$\times$digit fail universally)
 while within-domain pairs remain near-perfect.
@@ -556,7 +605,7 @@ regime of Sec.~\ref{sec:superadd}.
 \caption{\textbf{Bimodal principal-angle structure} (CIFAR-10\,$\times$\,ImageNet-Animal, $k{=}20$).
 \textbf{(a)}~Per-dimension $\cos^2\theta_i$: ResNet-50 ($\SAk{=}0.039$, $V_\alpha{=}0.019$) decays monotonically from one dominant direction; CLIP ($\SAk{=}0.414$, $V_\alpha{=}0.090$) and DINO ($\SAk{=}0.355$, $V_\alpha{=}0.073$) form a two-cluster step (top-5 ratios $20{\times}$/$31{\times}$ over bot-5), violating the uniform-$\alpha$ assumption.
 \textbf{(b)}~Geometric interpretation: one shared spine plus orthogonal domain-specific wings.
-\textbf{(c)}~Alignment variance $V_\alpha$ predicts upward formula bias across 166 pairs (OLS slope 0.69), consistent with Theorem~\ref{thm:error}'s $V_\alpha\log\kappa$ term.}
+\textbf{(c)}~Alignment variance $V_\alpha$ predicts upward formula bias across 166 pairs (OLS slope 0.69), identifying alignment heterogeneity as an empirical failure indicator.}
 \label{fig:bimodal_structure}
 \end{figure}
 
@@ -565,13 +614,13 @@ Per-probe calibrated $R^2$: CLIP $0.84>$ ResNet $0.76>$ DINO $0.55>$ ViT $0.49$;
 ranking accuracy is uniformly high ($r{\geq}0.90$).
 Figure~\ref{fig:bimodal_structure}(a,c) shows that CLIP/DINO's two-cluster
 $\cos^2\theta_i$ distribution ($V_\alpha{>}0.07$) inflates the
-$V_\alpha\log\kappa$ error term, explaining the upward bias in $\hat r$---the
-failure mode is internally consistent with Theorem~\ref{thm:error} rather than
-a black-box surprise (full mechanism in Appendix~\ref{app:bimodal}).
+observed prediction bias, identifying a concrete departure from the global
+summary approximation rather than a black-box failure
+(full mechanism in Appendix~\ref{app:bimodal}).
 
 (iii)~\textbf{Energy collapse} appears in ViT's 17 non-superadditive
-pairs, all in $\gamma\notin[0.5,2]$---exactly the energy-imbalance
-boundary of Corollary~\ref{cor:superadd}.
+pairs, all in $\gamma\notin[0.5,2]$, matching the summary model's
+energy-imbalance diagnostic.
 (iv)~\textbf{Cross-modal transfer}: 171 SBERT text pairs
 (98.8\% superadditive, ranking $r{=}0.793$) confirm that the
 formula's \emph{ordinal} predictions are modality-agnostic.
@@ -583,11 +632,11 @@ SBERT variance, indicating that text encoders have a qualitatively
 different spectral bias.
 A text-specific calibration is left for future work.
 
-\textbf{Loop closure.}
-Steps 1--3 together establish that the Collapse Model is mathematically
-exact, generalizes to real encoders, and reproduces the three regimes
-(superadditive, directional collapse, energy collapse) predicted by
-the theory. This licenses the applications developed next.
+\textbf{Evaluation summary.}
+Steps 1--3 establish agreement in the idealized model, strong empirical
+ranking on real encoders, and observable qualitative regimes.  They do not
+establish universal exactness: Proposition~\ref{prop:insufficient} proves
+that the four summaries cannot determine merged rank in general.
 Cross-dataset calibration generalization, cross-probe consistency,
 and $\reff$/LP-accuracy correspondence ($\rho{=}0.90$ within ViT family)
 are in Appendix~\ref{app:exp_extras}.
@@ -599,15 +648,15 @@ are in Appendix~\ref{app:exp_extras}.
 \label{sec:compression}
 \label{sec:pool_selection}
 
-Having closed the theoretical loop (Sec.~\ref{sec:experiments}),
-we now demonstrate the concrete utility of the Collapse Model:
+Having evaluated the predictor (Sec.~\ref{sec:experiments}),
+we now examine its concrete utility:
 given $M$ candidate datasets and a target $D_t$, compress the pool
 to $k{\ll}M$ while preserving $\reff$ of the merged representation.
 Exhaustive search over $\binom{M}{k}$ subsets is intractable;
 the Collapse Model enables compression at $O(kM)$ predictions from
 per-dataset summary statistics.
 At each round, \textbf{Collapse Greedy} scores every remaining candidate
-by applying Proposition~\ref{prop:collapse} to $(H_{\mathrm{cur}},H_{\mathrm{cand}})$
+by applying Eq.~\eqref{eq:pred} to $(H_{\mathrm{cur}},H_{\mathrm{cand}})$
 and selects the highest predicted $\reff$
 (Algorithm~\ref{alg:collapse_greedy}).
 We report two levels of evidence below:
@@ -619,7 +668,7 @@ $M{=}14$ vision and $M{=}7$ text pools are in
 Appendix~\ref{app:compression_m14}.
 
 At each round Collapse Greedy scores each remaining candidate via
-Prop.~\ref{prop:collapse} applied to $(H_{\mathrm{cur}},H_c)$---requiring
+Eq.~\eqref{eq:pred} applied to $(H_{\mathrm{cur}},H_c)$---requiring
 only $\SAk$ and $\gamma$ computed from per-dataset SVDs---and picks the
 highest-predicted $\reff$
 (pseudocode in Appendix~\ref{app:algorithm}).
@@ -657,7 +706,7 @@ Collapse within $0.7$\,pp at $M{=}43$ (Table~\ref{tab:scale})---a
 predictable consequence of Corollary~\ref{cor:superadd} when
 $\bar\alpha{<}0.2$.
 The Collapse Model's role on such pools is to provide an
-\emph{a priori} safety certificate
+\emph{a priori} low-redundancy diagnostic
 ($\rho_c{>}4$ at $\bar\alpha{\leq}0.2$) and to take over when this
 condition fails (clone attacks, fine-grained subset families, bimodal
 cross-domain pairs); see Appendix~\ref{app:rsum_regime}.
@@ -831,13 +880,13 @@ the clone confirms $\alpha$-channel rejection ($\reff{=}1251$ vs.\ $997$; Append
 \section{Conclusion}
 \label{sec:conclusion}
 
-We introduced the Collapse Model---a closed-form bridge from spectral
-geometry to label-free data-pool compression.
+We introduced the Collapse Model---an exact local spectral analysis and a
+structured summary predictor for label-free data-pool compression.
 Greedy compression retains ${>}100\%$ of full-pool $\reff$ across 6 probes
 and 2 modalities, outperforming Facility Location and $k$-Medoids by
 $+7$--$+14$\,pp and scaling to $M{=}43$ ($14.3{\times}$ compression,
 $+40$\,pp over random).
-The three-channel $(\gamma,\alpha,\UID)$ decomposition achieves
+The four-summary $(r_A,r_B,\gamma,\alpha)$ predictor achieves
 Pearson $r{=}0.97$ on 427 real pairs ($R^2_{\mathrm{cal}}{=}0.95$),
 with superadditivity-threshold diagnosis and clone-rejection
 distinguishing it from $r_A{+}r_B$.
@@ -845,8 +894,7 @@ Benchmarking exposes two orthogonal LP-diversity signals---spectral
 retention (Collapse/Vendi) and centroid coverage (Centroid-FF)---and
 a bimodal CLIP/DINO principal-angle structure that quantifies the
 supervised\,/\,SSL spectral-geometry divide.
-The framework extends naturally to neural compression (attention-head
-pruning, LoRA selection, MoE gating).
+Extensions to neural compression remain future work.
 Code is available at \url{https://anonymous.4open.science/r/collapsemodel-1DB6}.
 
 \bibliographystyle{abbrvnat}
@@ -858,6 +906,12 @@ Code is available at \url{https://anonymous.4open.science/r/collapsemodel-1DB6}.
 \section{Limitations}
 \label{app:limitations}
 
+The four summaries $(r_A,r_B,\gamma,\alpha)$ are not sufficient to
+determine merged effective rank in general
+(Proposition~\ref{prop:insufficient}).  The exact $2\times2$ decomposition
+requires mode-wise pairing and decoupling; the closed entropy expression
+additionally requires proportional spectra and uniform alignment.  We do
+not claim a universal error bound for the summary predictor.
 The empirical calibration constant (Eq.~\ref{eq:universal_c})
 reduces but does not eliminate per-encoder tuning.
 The uniform-$\alpha$ assumption holds for supervised encoders and
@@ -865,18 +919,33 @@ within-domain self-supervised pairs ($r{>}0.90$), but fails on
 cross-domain CLIP/DINO pairs (bimodal angles,
 Fig.~\ref{fig:bimodal_structure}) and SBERT text pairs
 (universal-$c$ explains $r{=}0.08$ of variance vs.\ $0.96$ for vision);
-ranking remains correct while absolute predictions are biased.
-A piecewise model for non-uniform $V_\alpha$ is left as future work.
+ranking remains strong on the evaluated pairs while absolute predictions
+are biased.  Natural clean pools also show only a small average gain over
+$r_A{+}r_B$; the alignment channel's clearest benefit is redundancy
+detection under high overlap.  A piecewise model for non-uniform
+$V_\alpha$ and explicit control of cross-direction coupling are left as
+future work.
 
-\section{Proof of Lemma~\ref{lem:gram} and Proposition~\ref{prop:collapse}}
+\section{Proofs of the Exact Gram Results}
 \label{app:proof_thm}
 
-\textbf{Part A: Exact $2\times2$ eigenvalue algebra.}
+\textbf{Proposition~\ref{prop:gram_general}.}
+From the compact SVDs,
+$H_A^\top H_A=V_A\Sigma_A^2V_A^\top$ and
+$H_B^\top H_B=V_B\Sigma_B^2V_B^\top$.
+Because the first columns of $Q_A$ are $V_A$,
+$Q_A^\top V_A\Sigma_A^2V_A^\top Q_A=\widetilde\Sigma_A^2$.
+Writing $C=Q_A^\top V_B$ gives
+$Q_A^\top V_B\Sigma_B^2V_B^\top Q_A=C\Sigma_B^2C^\top$.
+Adding proves Eq.~\eqref{eq:general_gram}.  Orthogonal similarity preserves
+eigenvalues, whose square roots are the merged singular values. $\square$
 
-Under the principal-angle model, the $i$-th right singular vector of $H_B$ is
+\textbf{Lemma~\ref{lem:gram}.}
+
+Under paired, decoupled directions, the $i$-th right singular vector of $H_B$ is
 $V_{B,i}=\cos\theta_i V_{A,i}+\sin\theta_i V_{\perp,i}$,
 where $V_{A,i}$ is the $i$-th right singular vector of $H_A$
-and $V_{\perp,i}\perp V_{A,i}$.
+and the two-dimensional planes are mutually orthogonal.
 In the basis $\{V_{A,i},V_{\perp,i}\}$:
 \begin{align}
   H_A^\top H_A \text{ (block)} &= \sigma_{A,i}^2\begin{pmatrix}1&0\\0&0\end{pmatrix}, \\
@@ -884,40 +953,39 @@ In the basis $\{V_{A,i},V_{\perp,i}\}$:
     \begin{pmatrix}\cos^2\theta_i & \cos\theta_i\sin\theta_i \\
     \cos\theta_i\sin\theta_i & \sin^2\theta_i\end{pmatrix}.
 \end{align}
-Summing with $\sigma_{B,i}=\gamma\sigma_{A,i}$ (from $\|H_B\|_*=\gamma\|H_A\|_*$):
+Define the mode-wise ratio $\gamma_i=\sigma_{B,i}/\sigma_{A,i}$; no
+global proportional-spectrum assumption is required.  Summing gives
 \begin{equation}
-  G_i = \sigma_{A,i}^2\begin{pmatrix}1+\gamma^2\alpha_i & \gamma\sqrt{\alpha_i(1-\alpha_i)} \\
-    \gamma\sqrt{\alpha_i(1-\alpha_i)} & \gamma^2(1-\alpha_i)\end{pmatrix},
+  G_i = \sigma_{A,i}^2\begin{pmatrix}1+\gamma_i^2\alpha_i & \gamma_i\sqrt{\alpha_i(1-\alpha_i)} \\
+    \gamma_i\sqrt{\alpha_i(1-\alpha_i)} & \gamma_i^2(1-\alpha_i)\end{pmatrix},
 \end{equation}
 where $\alpha_i=\cos^2\theta_i$.
-The eigenvalues are $\sigma_{A,i}^2(A\pm D_i)/2$ with $A=1+\gamma^2$,
-$D_i=\sqrt{A^2-4\gamma^2(1-\alpha_i)}=\sqrt{(1-\gamma^2)^2+4\gamma^2\alpha_i}$.
-The eigenvector for $\lambda_+=\sigma_{A,i}^2(A+D_i)/2$ has squared norm
-$\propto(\sqrt{(A+D_i)/2},\sqrt{(A-D_i)/2})$,
-giving nuclear-norm fraction:
-\begin{equation}
-  r^* = \frac{\sqrt{(A+D)/2}}{\sqrt{(A+D)/2}+\sqrt{(A-D)/2}}.\quad\square
-\end{equation}
+Its trace is $\sigma_{A,i}^2(1+\gamma_i^2)$ and determinant is
+$\sigma_{A,i}^4\gamma_i^2(1-\alpha_i)$, yielding
+Eq.~\eqref{eq:discriminant} by the quadratic formula. $\square$
 
-\textbf{Part B: Two-component spectral mixture approximation.}
+\textbf{Proposition~\ref{prop:proportional}.}
 
-The full merged singular-value distribution $\{\sigma_i^{\mathrm{merged}}\}_{i=1}^{r_A+r_B}$
-is approximated as a two-component mixture:
-\begin{itemize}[leftmargin=1.5em]
-  \item Dominant component ($r^*$ weight): log-spread $\log r_{\mathrm{dom}}$
-  \item Subordinate component ($(1-r^*)$ weight): log-spread $\log r_{\mathrm{sub}}$
-\end{itemize}
-The effective rank of a two-component mixture with weights $(r^*,1-r^*)$
-and within-component entropies $\log r_{\mathrm{dom}}$, $\log r_{\mathrm{sub}}$ is:
-\begin{equation}
-  \log\hat{r}_{\mathrm{merged}} = H_b(r^*) + r^*\log r_{\mathrm{dom}} + (1-r^*)\log r_{\mathrm{sub}},
-\end{equation}
-where $H_b(r^*)$ is the between-component entropy.
-This is the mixture entropy identity: $H(\text{mixture})=H(\text{between})+\sum_k w_k H(\text{within}_k)$.
-The approximation error is $O(\sigma_{\min}/\sigma_{\max})$:
-when $\gamma\approx1$, the two components have similar energy and the mixture captures
-the full spectral shape; when $\gamma\gg1$ or $\gamma\ll1$, $r^*\to1$ and the
-dominant term absorbs the error. $\square$
+With $\gamma_i=\gamma$ and $\alpha_i=\alpha$, define
+$c_\pm=\sqrt{(A\pm D)/2}$.  Lemma~\ref{lem:gram} gives merged
+singular values $\{c_+\sigma_{A,i}\}_i\cup\{c_-\sigma_{A,i}\}_i$.
+After nuclear-norm normalization their probabilities are
+$q p_i^A$ and $(1-q)p_i^A$, where
+$q=c_+/(c_++c_-)$.  Hence
+\begin{align}
+ H_{\mathrm{merged}}
+ &=H_b(q)+qH(p^A)+(1-q)H(p^A)\\
+ &=H_b(q)+\log r_A.
+\end{align}
+Exponentiating proves Eq.~\eqref{eq:proportional_exact}.  Proportional
+spectra have identical normalized singular-value distributions, so
+$r_A=r_B$. $\square$
+
+\textbf{Status of Eq.~\eqref{eq:pred}.}
+For unequal or non-proportional spectra, the two branches need not inherit
+the input distributions, and $q$ can vary by mode.  Equation~\eqref{eq:pred}
+therefore defines a structured approximation; no exactness or universal
+error bound is asserted for it.
 
 \section{Proof of Proposition~\ref{prop:transfer_bound}}
 \label{app:proof_prop1}
@@ -965,123 +1033,6 @@ Following \citet{bartlett2002rademacher} and \citet{pope2021intrinsic}:
 \end{equation}
 Adding the three gaps completes the proof. $\square$
 
-\section{Proof of Theorem~\ref{thm:error} (Error Bound)}
-\label{app:error_proof}
-
-\textbf{Part (a): Exactness under uniform alignment.}
-
-Assume $\alpha_i=\bar\alpha$ for all $i$.
-Then $D_i=\bar{D}$ for all $i$, and the merged singular values are
-$\sigma_{+,i}=\sigma_{A,i}\sqrt{(A+\bar{D})/2}$,
-$\sigma_{-,i}=\sigma_{A,i}\sqrt{(A-\bar{D})/2}$.
-Define constants $c_\pm=\sqrt{(A\pm\bar{D})/2}$.
-The total nuclear norm of the merged matrix is
-$\|[H_A;H_B]\|_*=\sum_i\sigma_{A,i}(c_++c_-)=(c_++c_-)\|H_A\|_*$.
-
-The share of the $i$-th ``$+$'' singular value is:
-\begin{equation}
-  w_{+,i} = \frac{\sigma_{A,i}\,c_+}{(c_++c_-)\|H_A\|_*}
-           = \frac{c_+}{c_++c_-}\cdot\frac{\sigma_{A,i}}{\|H_A\|_*}
-           = r^*\cdot p_i^A,
-\end{equation}
-and similarly $w_{-,i}=(1-r^*)\cdot p_i^A$.
-The full entropy decomposes as:
-\begin{align}
-  H(w) &= -\sum_i w_{+,i}\log w_{+,i} - \sum_i w_{-,i}\log w_{-,i} \nonumber\\
-       &= -r^*\sum_i p_i^A(\log r^*+\log p_i^A)
-          -(1-r^*)\sum_i p_i^A(\log(1-r^*)+\log p_i^A) \nonumber\\
-       &= H_b(r^*) + \log r_A,
-\end{align}
-since $\sum_i p_i^A\log p_i^A = -\log r_A$.
-Under the principal-angle model, $\sigma_{B,i}=\gamma\sigma_{A,i}$
-implies $r_B=r_A$, so $r_{\mathrm{dom}}=r_{\mathrm{sub}}=r_A$.
-Thus $\log\hat{r}=H_b(r^*)+r^*\log r_A+(1-r^*)\log r_A=H_b(r^*)+\log r_A=\log r$.
-$\square$
-
-\textbf{Part (b): Error bound under varying alignment.}
-
-When $\alpha_i$ varies, $D_i$ deviates from $\bar{D}$.
-Taylor-expanding $D_i=\sqrt{(1-\gamma^2)^2+4\gamma^2\alpha_i}$ around
-$\bar\alpha$:
-\begin{equation}
-  D_i = \bar{D} + \frac{2\gamma^2}{\bar{D}}(\alpha_i-\bar\alpha)
-      + O\!\left((\alpha_i-\bar\alpha)^2\right).
-\end{equation}
-The perturbation in $c_{+,i}=\sqrt{(A+D_i)/2}$ is:
-\begin{equation}
-  c_{+,i} = \bar{c}_+ + \frac{\gamma^2}{2\bar{c}_+\bar{D}}(\alpha_i-\bar\alpha)
-           + O\!\left((\alpha_i-\bar\alpha)^2\right).
-\end{equation}
-The within-component shares become
-$w_{+,i}=\sigma_{A,i}c_{+,i}/Z$ where $Z=\sum_j\sigma_{A,j}(c_{+,j}+c_{-,j})$.
-The relative perturbation from the uniform-alignment shares $\hat{w}_{+,i}=r^*p_i^A$
-is:
-\begin{equation}
-  \frac{w_{+,i}-\hat{w}_{+,i}}{\hat{w}_{+,i}}
-  = \frac{c_{+,i}/\bar{c}_+-1}{1+\bar{Z}^{-1}\delta Z}
-  \approx \frac{\gamma^2}{\bar{c}_+^2\bar{D}}(\alpha_i-\bar\alpha),
-\end{equation}
-where $\delta Z$ is the perturbation of the normalization constant
-(a weighted average of $(\alpha_i-\bar\alpha)$ that vanishes
-to first order by definition of $\bar\alpha$).
-
-The $\ell_1$ distance between the true and approximated distributions is:
-\begin{equation}
-  \|w-\hat{w}\|_1
-  \leq \frac{2\gamma^2}{\bar{c}_+^2\bar{D}}
-       \sum_i p_i^A|\alpha_i-\bar\alpha|
-  \leq \frac{2\gamma^2}{\bar{c}_+^2\bar{D}}\sqrt{V_\alpha},
-\end{equation}
-where the last step uses Cauchy--Schwarz with $\sum_i p_i^A=1$.
-
-Since $\bar{c}_+^2=(A+\bar{D})/2\geq\bar{D}$
-(because $A=1+\gamma^2\geq\bar{D}$ for all $\gamma,\alpha$),
-we have $\|w-\hat{w}\|_1\leq(2\gamma^2/\bar{D}^2)\sqrt{V_\alpha}$.
-
-By a Fannes-type entropy continuity inequality
-\citep{audenaert2007sharp},
-$|H(w)-H(\hat{w})|\leq\|w-\hat{w}\|_1\cdot\log(n/\|w-\hat{w}\|_1)$
-for distributions on $n$ elements.
-Here $n=2k$ (the number of merged singular values).
-The factor $\log(n/\|w-\hat{w}\|_1)$ is bounded by $\log\kappa+\log(2k/\|w-\hat{w}\|_1)$,
-but since we are comparing entropies of distributions that differ only in
-within-component spread (not in the $r^*$ partition),
-the effective support is controlled by the spectral spread $\kappa$
-rather than the total number of components.
-Taking $\log n\leq\log\kappa+\log r_A$
-and noting that the $\log r_A$ term cancels between the true and
-approximate entropies (both have the same $r_A$ base),
-the residual is bounded by $\log\kappa$.
-Combining:
-\begin{equation}
-  |\log\hat{r}-\log r|
-  \leq \frac{2\gamma^2}{\bar{D}^2}\sqrt{V_\alpha}\cdot\log\kappa
-  \leq \frac{4\gamma^2}{\bar{D}^2}\cdot V_\alpha\cdot\log\kappa,
-\end{equation}
-where the last step uses $\sqrt{V_\alpha}\leq 2V_\alpha/\sqrt{V_\alpha}$
-for $V_\alpha\leq1/4$ (since $\alpha_i\in[0,1]$ and $V_\alpha\leq\bar\alpha(1-\bar\alpha)\leq1/4$).
-$\square$
-
-\textbf{Worst-case simplification.}
-Since $V_\alpha\leq\bar\alpha(1-\bar\alpha)$ and
-$4\gamma^2\bar\alpha/\bar{D}^2
-=4\gamma^2\bar\alpha/[(1-\gamma^2)^2+4\gamma^2\bar\alpha]\leq1$,
-the bound simplifies to:
-\begin{equation}
-  \left|\log\frac{\hat{r}}{r}\right| \leq (1-\bar\alpha)\log\kappa \leq \log\kappa.
-\end{equation}
-In multiplicative form: $1/\kappa\leq r/\hat{r}\leq\kappa$.
-For supervised encoders ($\kappa\sim70$--$400$,
-$V_\alpha\sim0.01$--$0.05$),
-the bound in Eq.~\eqref{eq:error_bound} gives
-$|\log(\hat{r}/r)|\lesssim0.1$--$0.5$,
-consistent with the observed $1.24$--$1.84\times$ over-prediction in E1c.
-For self-supervised encoders ($\kappa\sim10^4$--$10^6$),
-the bound widens to $|\log(\hat{r}/r)|\lesssim2$--$4$,
-explaining why CLIP/DINO require much stronger calibration
-($c\approx0.58$ vs.\ $c\approx0.78$ for ResNet-50;
-Sec.~\ref{sec:e1d}).
-
 % ============================================================
 \section{Bootstrap Confidence Intervals}
 \label{app:bootstrap}
@@ -1111,48 +1062,6 @@ E1c (SBERT)        & Superadd.\ \%          & 1.000  & [1.000, 1.000]  & 0.000 \
 \end{table}
 
 % ============================================================
-\section{Empirical Verification of Theorem~1 Error Bound}
-\label{app:error_bound_empirical}
-
-Theorem~1 bounds the log-prediction error as
-$|\log(\hat{r}/r)|\leq(4\gamma^2/\bar{D}^2)\cdot V_\alpha\cdot\log\kappa$.
-We verify this empirically on the 158 vision pairs from E1d.
-Since per-dimension alignments $\alpha_i$ are not directly accessible,
-we use the theoretical upper bound $V_\alpha\leq\bar\alpha(1-\bar\alpha)$
-and estimate $\kappa\approx\max(r_A,r_B)$.
-
-\begin{table}[h]
-\centering
-\caption{Empirical verification of Theorem~1 error bound on 158 vision pairs.
-The worst-case bound ($\log\kappa$) holds for 100\% of pairs;
-the tighter bound (with $V_\alpha$ upper bound) holds for 63\%,
-with median tightness ratio $0.56$ (bound is ${\sim}2\times$ the actual error).}
-\label{tab:error_bound_empirical}
-\small
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{lccccc}
-\toprule
-Probe & $n$ & Actual $|\log\frac{\hat{r}}{r}|$ & Tight bound & Holds & Worst-case holds \\
-\midrule
-ResNet-50 & 91 & 0.254 & 1.406 & 54\% & 100\% \\
-ViT-B/16 & 55 & 0.435 & 2.033 & 71\% & 100\% \\
-CLIP ViT-B/32 & 6 & 0.532 & 2.185 & 100\% & 100\% \\
-DINO ViT-S/16 & 6 & 0.570 & 2.348 & 100\% & 100\% \\
-\midrule
-\textbf{All vision} & 158 & 0.340 & 1.690 & 63\% & \textbf{100\%} \\
-\bottomrule
-\end{tabular}\normalsize
-\end{table}
-
-The worst-case guarantee $|\log(\hat{r}/r)|\leq\log\kappa$ holds universally,
-confirming that the multiplicative error never exceeds the condition number.
-The tighter bound holds for 63\% of pairs; failures occur when the
-$V_\alpha$ upper bound $\bar\alpha(1-\bar\alpha)$ is loose (i.e., the
-actual alignment variance is larger than the theoretical maximum
-under the assumed spectral weighting).
-The median tightness ratio (actual/bound) is $0.56$,
-indicating the bound is informative (within a factor of 2).
-
 % ============================================================
 \section{Bimodal Principal-Angle Structure in Self-Supervised Encoders}
 \label{app:bimodal}
@@ -1168,13 +1077,11 @@ For DINO ($R^2{=}0.55$), the cause is the bimodal $\cos^2\theta_i$
 analysed below. For ViT ($R^2{=}0.49$, supervised), the cause is
 \emph{energy imbalance} rather than bimodality: $17/17$ ViT
 non-superadditive pairs lie in $\gamma{\notin}[0.5,2]$ (cross-resolution
-pairs such as MNIST $\times$ ImageNet), where $\bar D$ collapses and the
-two-component mixture approximation degrades, inflating both
-$V_\alpha\log\kappa$ and the calibration residual.
+pairs such as MNIST $\times$ ImageNet), where the global energy summary is
+extreme and the two-component mixture approximation degrades.
 ViT's principal-angle distribution remains near-uniform (no bimodality);
-its lower $R^2$ instead reflects the boundary of
-Theorem~\ref{thm:error}'s $4\gamma^2/\bar D^2$ prefactor activating in
-the energy-imbalance regime.
+its lower $R^2$ instead empirically marks the energy-imbalance regime as
+a reliability boundary.
 We retain the full ViT row in Table~\ref{tab:e1d} for transparency,
 flagging $\gamma{\in}[0.5,2]$ as ViT's reliable applicability window.
 
@@ -1182,7 +1089,7 @@ flagging $\gamma{\in}[0.5,2]$ as ViT's reliable applicability window.
 We treat the bimodal failure mode as a genuine boundary of the current
 formula, not a feature.
 The uniform-$\alpha$ assumption underlying
-Proposition~\ref{prop:collapse} is violated whenever the principal-angle
+The global-summary approximation is stressed whenever the principal-angle
 distribution is bimodal, and self-supervised contrastive/distillation
 encoders (CLIP, DINO) systematically produce such distributions on
 cross-domain pairs.
@@ -1194,10 +1101,9 @@ $29$--$36\%$ observed superadditivity rates on CLIP/DINO cross-domain
 pairs.
 \textbf{What the Collapse Model does contribute here} is mechanistic
 localisation: the bimodal top/bottom ratio ${>}20{\times}$ in
-$\cos^2\theta_i$ (Figure~\ref{fig:bimodal_structure}) is exactly the quantity
-Theorem~\ref{thm:error}'s $V_\alpha\log\kappa$ factor blows up on, so
-the failure mode is internally consistent with the error bound rather
-than a black-box surprise.
+$\cos^2\theta_i$ (Figure~\ref{fig:bimodal_structure}) exposes alignment
+heterogeneity discarded by the scalar summary, rather than leaving the
+failure as a black-box surprise.
 
 \textbf{What does not work.}
 A naive energy-weighted patch
@@ -1207,19 +1113,14 @@ $6$--$8\%$), because it overweights the most-aligned direction's
 redundancy while suppressing intermediate-direction contributions.
 
 \textbf{What we believe will work, and how to test it.}
-The natural next step is a \emph{piecewise principal-angle model}:
+The natural next step is a \emph{piecewise paired-direction model}:
 partition the $k$ directions into a high-alignment cluster
 ($\cos^2\theta_i{\geq}\tau$) and a low-alignment cluster, apply
-Lemma~\ref{lem:gram} separately within each cluster, and combine via
-the mixture identity used in Proposition~\ref{prop:collapse}.
-Theorem~\ref{thm:error}(a) predicts this should be exact within each
-cluster (uniform alignment), and the dominant residual error becomes
-cluster-boundary mis-classification rather than the averaging bias.
-We leave the empirical validation of this two-cluster extension to
-future work; the fact that Theorem~\ref{thm:error} pinpoints $V_\alpha$
-as the leading-order error term provides a concrete falsifiable
-prediction (clustering should reduce $V_\alpha$ by ${>}10{\times}$ on
-CLIP, recovering CLIP's calibrated $R^2$ to ${>}0.95$).
+Lemma~\ref{lem:gram} separately within each cluster, and combine the
+resulting branch spectra.  This retains more of the distribution of
+$\alpha_i$ than a single mean, but it still requires controlling spectral
+pairing and cross-direction coupling.  We leave this extension and its
+error analysis to future work.
 
 % ============================================================
 \section{Compression at $M{=}14$ Vision and $M{=}7$ Text Pools}
@@ -1279,21 +1180,21 @@ extending the M=43 LP advantage to the smaller pool size.
 On clean curated pools, the $r_A{+}r_B$ and Max-$\reff$ heuristics
 select the \emph{same} subset as Collapse Greedy
 (within $0.7$\,pp at $M{=}43$, Table~\ref{tab:scale}).
-This is not a weakness of the formula but a \emph{predictable consequence}
-of Corollary~\ref{cor:superadd}: when all top-$\reff$ candidates have low
+This agreement is consistent with the summary diagnostic in
+Corollary~\ref{cor:superadd}: when all top-$\reff$ candidates have low
 mutual alignment ($\bar\alpha{<}0.2$, i.e.\ rank-ratio $r_{\mathrm{dom}}/r_{\mathrm{sub}}{<}\rho_c$),
-the superadditivity bonus $H_b(r^*)$ is dominated by the rank term
-$r^*\log r_{\mathrm{dom}}{+}(1{-}r^*)\log r_{\mathrm{sub}}$,
+the superadditivity bonus $H_b(q)$ is dominated by the rank term
+$q\log r_{\mathrm{dom}}{+}(1{-}q)\log r_{\mathrm{sub}}$,
 making individual rank a near-sufficient statistic.
 The Collapse Model thus serves a different role than ``beating $r_A{+}r_B$
 everywhere'':
-\textbf{(i)~A priori safety certificate.}
+\textbf{(i)~A priori low-redundancy diagnostic.}
 $\rho_c(\bar\alpha,\bar\gamma)$ computed from per-dataset summaries
-\emph{predicts} when $r_A{+}r_B$ is safe to deploy without actually
+\emph{indicates} when $r_A{+}r_B$ is likely to agree without actually
 running competing strategies.
 On our ResNet-50 vision pools, $\bar\alpha{<}0.2$ between top-$\reff$
-pairs places $r_{\mathrm{dom}}/r_{\mathrm{sub}}$ well inside the safe
-regime ($\rho_c{>}4$ at $\bar\alpha{\leq}0.2$,
+pairs places $r_{\mathrm{dom}}/r_{\mathrm{sub}}$ well inside the predicted
+agreement regime ($\rho_c{>}4$ at $\bar\alpha{\leq}0.2$,
 Cor.~\ref{cor:superadd}), matching the observed heuristic-equivalence
 at $M{=}14$ and $M{=}43$.
 \textbf{(ii)~Detection of the unsafe regime.}
@@ -1306,14 +1207,14 @@ Collapse holds) demonstrates this on a controlled stress test;
 the naturally bimodal CLIP/DINO cross-domain pairs
 (Sec.~\ref{sec:e1d}, $\alpha\in[0.35,0.41]$ with top-5 $\cos^2\theta\geq0.7$)
 are real-world settings where the $\alpha$ signal is non-negligible
-and the rank-only heuristic loses its safety guarantee.
+and the rank-only heuristic can fail.
 \textbf{(iii)~Diagnosis without execution.}
 Unlike heuristics that can only be evaluated by running them, the
 Collapse Model's regime classification (superadditive / directional
 collapse / energy collapse) is computable from $(\gamma,\alpha,\UID)$
 alone, turning it into an \emph{ex ante} planning tool.
-\emph{The principled formula is needed not to beat the heuristic on easy
-pools, but to certify when the heuristic is safe and to take over when
+\emph{The structured formula is useful not to beat the heuristic on easy
+pools, but to diagnose when alignment is negligible and to take over when
 it is not.}
 
 \paragraph{Redundancy clone trap: failure mode of $r_A{+}r_B$.}
@@ -1401,7 +1302,7 @@ that Collapse would also select.
 \textbf{Implication.}
 The \emph{ordering} matters: starting with Centroid-FF establishes a
 geometric backbone that Collapse then augments with high-$\reff$
-complementary directions. The closed-form formula's role in this
+complementary directions. The summary formula's role in this
 hybrid is to \emph{fill} the residual budget with diversity-maximizing
 choices, exactly the regime where it operates with summary statistics
 alone (the centroid-FF prefix can be precomputed once from
@@ -1526,98 +1427,53 @@ be met ($P(\text{Collapse}>\text{r\_sum}){=}0.99$).
 
 
 % ============================================================
-\section{Principal-Angle Model Scope and Theorem~1 Proof Sketch}
+\section{Scope of the Paired-Direction Model}
 \label{app:pa_scope}
 \label{app:generalization}
 \label{app:calibration}
 \label{app:algorithm}
 
-\begin{remark}[Scope of the principal-angle model]
-Lemma~\ref{lem:gram} assumes pairwise-decoupled singular vectors:
-$V_{B,i}\in\mathrm{span}\{V_{A,i},V_{\perp,i}\}$ for each $i$.
-Real feature matrices violate this---cross-pair coupling, non-uniform
-alignment, and higher-order interactions are common.
-This explains why the formula acts as an upper bound on real data
-(E1a-Ind M3/M4: $R^2<0$ but Pearson $r=0.999$;
-E1c: bias $1.24$--$1.84\times$).
-The ranking accuracy (Pearson $r\geq0.928$) shows the formula is
-robust to this violation for ordering purposes.
+\begin{remark}[Exact and approximate layers]
+Proposition~\ref{prop:gram_general} is unconditional and retains the full
+coupling matrix $C=Q_A^\top V_B$.  Lemma~\ref{lem:gram} is exact only when
+the singular directions can be paired into mutually orthogonal
+two-dimensional planes.  Proposition~\ref{prop:proportional} additionally
+requires mode-wise proportional spectra and uniform alignment; these
+conditions imply $r_A=r_B$.  The practical predictor
+Eq.~\eqref{eq:pred} allows $r_A\neq r_B$ by interpolating two input
+entropies, and is therefore a modeling approximation rather than a
+consequence of the proportional-spectrum proposition.
 \end{remark}
 
-\textbf{Proof sketch.}
-Part (a): when $\alpha_i=\bar\alpha$, all discriminants equal $\bar{D}$,
-so the merged singular values factor as
-$\sigma_{\pm,i}^{\mathrm{merged}}=\sigma_{A,i}\cdot\bar{c}_\pm$
-with constants $\bar{c}_\pm=\sqrt{(A\pm\bar{D})/2}$.
-The within-component nuclear-norm shares are
-$w_{+,i}=\sigma_{A,i}\bar{c}_+/\sum_j\sigma_{A,j}\bar{c}_+
-=\sigma_{A,i}/\|H_A\|_*=p_i^A$,
-inheriting $H_A$'s spectral distribution exactly.
-Under the proportional-spectrum assumption of the principal-angle model
-($\sigma_{B,i}=\gamma\sigma_{A,i}$, which implies $\reff(H_B)=\reff(H_A)$),
-both the predicted and true entropies equal $H_b(r^*)+\log r_A$.
-On real data, $r_A\neq r_B$ in general; the formula uses
-$(r_{\mathrm{dom}},r_{\mathrm{sub}})$ separately,
-absorbing this departure into the two-component mixture approximation.
+\begin{remark}[Information discarded by global summaries]
+The global ratio $\gamma=\|H_B\|_*/\|H_A\|_*$ does not imply
+$\sigma_{B,i}=\gamma\sigma_{A,i}$.  Likewise,
+$\alpha=\SAk$ does not retain the distribution of $\alpha_i$, its
+association with spectral mass, or dense cross-direction coupling.
+Proposition~\ref{prop:insufficient} gives an explicit pair of examples
+with identical $(r_A,r_B,\gamma,\alpha)$ and different merged effective
+ranks.  Consequently no estimator based only on these four scalars can be
+universally exact.
+\end{remark}
 
-Part (b): Taylor-expanding $D_i$ around $\bar\alpha$ gives
-$D_i=\bar{D}+(2\gamma^2/\bar{D})(\alpha_i-\bar\alpha)+O((\alpha_i-\bar\alpha)^2)$.
-This perturbation distorts the within-component shares from $p_i^A$,
-inducing an $\ell_1$ shift bounded by
-$\|w-\hat{w}\|_1\leq(2\gamma^2/\bar{D}^2)\cdot\sum_i p_i|\alpha_i-\bar\alpha|
-\leq(2\gamma^2/\bar{D}^2)\sqrt{V_\alpha}$.
-Applying a Fannes-type entropy continuity inequality
-and bounding the support size by $\log\kappa$ (spectral spread)
-yields Eq.~\eqref{eq:error_bound}.
-The full derivation is in Appendix~\ref{app:error_proof}.
-\hfill$\square$
-
-\begin{remark}[Why does the formula generalize beyond the principal-angle model?]
-\label{rem:generalization}
-The Collapse Model is \emph{derived} under the principal-angle assumption
-$V_{B,i}=\cos\theta_i V_{A,i}+\sin\theta_i V_{\perp,i}$,
-yet it predicts accurately on matrices that violate this assumption
-(E1a-Ind: Pearson $r=0.9987$ on low-rank Gaussian, sparse, and
-block-diagonal generators).
-This robustness arises because the formula depends only on summary
-statistics $(r_A, r_B, \gamma, \alpha)$ that are well-defined for any
-matrix pair, regardless of how the matrices were generated.
-The principal-angle model serves as a \emph{derivation scaffold}:
-it provides the analytic setting in which closed-form eigenvalues
-can be obtained, but the resulting functional dependence on
-$(r_A, r_B, \gamma, \alpha)$ captures the correct macroscopic
-relationships that govern merging.
-Several mechanisms underpin this generalization.
-When the truncation level $k$ is large, the subspace alignment $\SAk$
-concentrates around its expectation by the law of large numbers,
-driving the alignment variance $V_\alpha$ toward zero and making the
-Theorem~\ref{thm:error} error bound vanish.
-Effective rank, as an entropy functional, exhibits Lipschitz continuity
-with respect to spectral perturbations: small changes in the singular
-value distribution produce bounded changes in $\reff$, so deviations
-from the idealized model are smoothly absorbed.
-The systematic over-prediction (always an upper bound) further preserves
-rankings, and the single-parameter calibration exploits this monotone
-bias to recover quantitative accuracy.
-An instructive analogy is the ideal gas law $PV=nRT$: derived under
-the assumption of point particles with no interactions, it nonetheless
-predicts the behavior of real gases because it captures the correct
-macroscopic variables---pressure, volume, and temperature---even when
-the microscopic assumptions fail.
-Similarly, the Collapse Model succeeds because $(r_A, r_B, \gamma, \alpha)$
-are the right summary statistics for the merging problem,
-regardless of the fine-grained spectral structure.
+\begin{remark}[Empirical generalization]
+The summaries in Eq.~\eqref{eq:pred} remain well-defined outside the
+paired-direction model.  Their empirical correlations on synthetic
+out-of-model generators and real encoders quantify predictive utility,
+not theorem validity.  Alignment heterogeneity, non-proportional spectra,
+and cross-direction coupling are observable failure sources; calibration
+corrects average scale on the evaluated encoder family but does not create
+a general guarantee.
 \end{remark}
 
 \begin{remark}[Calibrated Collapse Model]
 \label{rem:calibration}
-On real data the principal-angle model is approximate---cross-pair
+On real data the paired-direction summary model is approximate---cross-pair
 coupling, non-proportional spectra ($\sigma_{B,i}\neq\gamma\sigma_{A,i}$,
 hence $r_A\neq r_B$), and higher-order interactions introduce
-a systematic upward bias beyond Theorem~\ref{thm:error}.
+a systematic upward bias on the evaluated pairs.
 Empirically the over-prediction ratio is $1.24$--$1.84\times$ (E1c),
-consistent with the formula acting as an upper bound
-whose gap grows with the alignment variance $V_\alpha$.
+and its gap is positively associated with alignment heterogeneity.
 Since the log-space bias has low variance
 ($\mathrm{std}=0.164$ vs.\ $\mathrm{mean}=0.293$),
 a single multiplicative calibration restores quantitative accuracy:
@@ -1627,7 +1483,7 @@ a single multiplicative calibration restores quantitative accuracy:
   \label{eq:calibration}
 \end{equation}
 This calibration compensates for the entropy over-estimation
-caused by cross-pair coupling that the principal-angle model ignores.
+caused by structure that the four global summaries ignore.
 With $c{=}0.746$ estimated from E1c ($n{=}57$),
 LOO-CV yields $R^2{=}0.855$, RMSE${=}87.7$ (vs.\ uncalibrated $R^2{=}0.049$,
 RMSE${=}224$; Sec.~\ref{sec:calibration}).
@@ -1638,7 +1494,7 @@ and testing on the held-out 57 E1c pairs yields $R^2{=}0.859$, RMSE${=}86.3$
 However, $c$ varies across encoder families
 ($c{=}0.78$ for ResNet-50 vs.\ $c{=}0.65$ for ViT-B/16),
 reflecting systematic differences in how each architecture's spectral structure
-deviates from the principal-angle model.
+deviates from the paired-direction summary model.
 We find that this variation obeys a universal regression:
 \begin{equation}
   c \;=\; 0.946 - 0.175\,\log(N/\reff),
@@ -1746,7 +1602,7 @@ The E1a synthetic validation results (Table~\ref{tab:e1a}) are presented
 in the main text; Figure~\ref{fig:e1a} visualizes the $(\alpha,\gamma)$
 landscape and superadditivity region.
 Additional design details: feature pairs are generated from the
-principal-angle model with
+proportional-spectrum paired-direction model with
 $\alpha\in\{0,0.05,0.1,0.2,0.4,0.6,0.8,1.0\}$ and
 $\gamma\in\{0.1,0.33,0.5,1.0,2.0,3.0,10.0\}$,
 $d=512$, $N=1000$, 5 independent repeats per setting (280 pairs).
@@ -1759,11 +1615,12 @@ Corollary~\ref{cor:superadd}.
 
 \textbf{Motivation and design.}
 A critical concern with E1a is circularity: synthetic data generated from the
-\emph{principal-angle model} trivially satisfies the theorem's assumptions,
+\emph{proportional-spectrum paired-direction model} satisfies the exact
+model assumptions,
 making $R^2=0.9999$ a near-tautological result.
-To independently test whether Proposition~\ref{prop:collapse} generalizes
+To independently test whether Eq.~\eqref{eq:pred} remains predictive
 beyond its derivation assumptions, we generate 120 synthetic matrix pairs
-using \emph{four generation methods that do not use the principal-angle model}:
+using \emph{four generation methods that do not use that paired model}:
 (M1) \emph{low-rank Gaussian}: $H=U_k\Sigma V_k^\top + \epsilon$ with random orthogonal bases;
 (M2) \emph{shared+private subspace}: $H=H_{\mathrm{shared}}+H_{\mathrm{private}}$ with
 partial overlap enforced by construction;
@@ -1777,15 +1634,17 @@ Table~\ref{tab:e1a_ind} shows Pearson $r=0.9987$ overall: the formula
 $R^2$ is method-dependent: $\geq0.99$ for Gaussian-structure methods (M1, M2),
 but strongly negative for sparse and block-diagonal structures (M3, M4),
 because those structures systematically reduce actual $r_{\mathrm{eff}}$ relative to the formula's prediction.
-This reveals that Proposition~\ref{prop:collapse} acts as a \emph{tight upper bound}
-whose gap grows with structural sparsity.
+This reveals excellent ordering but poor absolute prediction on sparse and
+block-diagonal structures, exposing structural sparsity as an empirical
+failure mode.
 Superadditivity is predicted at 100\% for all methods.
 
 \begin{table}[t]
 \centering
 \caption{E1a-Ind: Independent validation on 120 non-principal-angle synthetic pairs.
-Pearson $r$ measures directional ranking; $R^2<0$ indicates systematic over-prediction
-(formula as upper bound). SA\% = fraction of pairs where formula predicts superadditivity.}
+Pearson $r$ measures directional ranking; $R^2<0$ indicates systematic
+over-prediction on the observed generator. SA\% = fraction of pairs where
+the formula predicts superadditivity.}
 \label{tab:e1a_ind}
 \setlength{\tabcolsep}{5pt}
 \begin{tabular}{lcccc}
@@ -1843,7 +1702,7 @@ partner datasets such as MNIST ($r_{\mathrm{eff}}\approx140$) and SVHN ($\approx
 This yields energy ratios $\gamma\in[2.0,\,2.5]$, placing these pairs
 near the superadditivity boundary $\rho_c(\alpha,\gamma)$.
 Specifically, the dominant component absorbs the subordinate:
-$r^*\to1$, $H_b(r^*)\to0$, and $\hat{r}_{\mathrm{merged}}\to r_{\mathrm{dom}}$,
+$q\to1$, $H_b(q)\to0$, and $\hat{r}_{\mathrm{merged}}\to r_{\mathrm{dom}}$,
 so the observed $r_{\mathrm{merged}}$ can fall slightly below $r_{\mathrm{dom}}$
 due to spectral averaging.
 We verify this by sweeping $N_{\mathrm{sub}}\in\{500,1000,2000,4000\}$:
@@ -1873,8 +1732,8 @@ Table~\ref{tab:e1c} shows strong and consistent superadditivity across all probe
 \centering
 \caption{E1c: Large-scale Collapse Model validation.
 Superadditivity rate and Pearson $r$ (predicted vs.\ actual merged $r_{\mathrm{eff}}$).
-Bootstrap 95\% CI ($B=10{,}000$). Formula is a systematic upper bound on all probes;
-over-prediction grows with the gap between sample size and effective rank.}
+Bootstrap 95\% CI ($B=10{,}000$). The formula over-predicts on all probes
+in this experiment; ``Bias'' reports the observed multiplicative ratio.}
 \label{tab:e1c}
 \small
 \setlength{\tabcolsep}{3.5pt}
@@ -1901,14 +1760,14 @@ creates $\gamma\in[2.0,2.5]$, placing these pairs near the superadditivity
 boundary $\rho_c$ of Corollary~\ref{cor:superadd}.
 (iii) \textbf{Pearson $r=0.928$ vs.\ $R^2\approx0.05$}: these metrics measure
 different properties.
-The formula is a systematic upper bound ($1.24$--$1.84\times$), so $R^2$ is low
-by design; Pearson $r$ measures ranking, which is correct.
+The formula over-predicts by $1.24$--$1.84\times$ on these probes, so
+$R^2$ is low before calibration; Pearson $r$ measures ordering.
 A single-parameter calibration (Eq.~\ref{eq:calibration})
 restores quantitative accuracy: $R^2_{\mathrm{cal}}{=}0.855$ (LOO-CV),
 and cross-validation from E1b to E1c yields $R^2{=}0.859$
 (see Sec.~\ref{sec:calibration} and Remark~\ref{rem:calibration}).
-(iv) \textbf{ResNet-50: 100\% superadditivity (36/36)} is the strongest real-data confirmation
-of Proposition~\ref{prop:collapse}; 95\% CI [100\%, 100\%] leaves no room for false positives.
+(iv) \textbf{ResNet-50: 100\% superadditivity (36/36)} is strong empirical
+agreement with the summary diagnostic on this observed set.
 (v) \textbf{Over-prediction scales with $n/r_{\mathrm{eff}}$}:
 ResNet-50 ($n=2000\gg r_{\mathrm{eff}}\approx350$, $1.24\times$)
 $<$ ViT-B/16 ($n=2000\approx3r_{\mathrm{eff}}\approx650$, $1.45\times$)
@@ -1935,7 +1794,7 @@ not ranking.}
 \centering
 \includegraphics[width=0.95\linewidth]{fig_hero_scatter.pdf}
 \caption{Predicted vs.\ actual merged $\reff$ for all 427 pairs across 5 encoder
-families. (a)~Uncalibrated: formula acts as a tight upper bound (Pearson $r{=}0.970$).
+families. (a)~Uncalibrated: predictions are systematically high but strongly correlated (Pearson $r{=}0.970$).
 (b)~After per-probe calibration: $R^2{=}0.952$, MAE${=}48$.
 Color encodes encoder family; the identity line is dashed.}
 \label{fig:hero_scatter}
@@ -1994,8 +1853,8 @@ superadditivity (CLIP: 90\% on ImageNet-only, 100\% on natural-only;
 DINO: 100\% on both), while \emph{cross-domain} pairs
 (handwritten$\times$ImageNet, natural$\times$digit) fail almost universally.
 This suggests that self-supervised encoders learn domain-specific spectral
-structures that violate the principal-angle model's assumption of
-smoothly varying alignment across domains---an important boundary condition
+structures with heterogeneous alignment and spectral coupling discarded by
+the global summaries---an important boundary condition
 for the Collapse Model's applicability.
 (iv)~\textbf{Cross-modal generalization}: extending to 171 SBERT text pairs
 (98.8\% superadditive, $r{=}0.793$) shows the formula's superadditivity
@@ -2042,13 +1901,11 @@ push cross-domain features into a shared semantic subspace,
 creating high directional overlap where ResNet-50 preserves
 domain-specific directions.
 
-\emph{(b) Extreme condition number.}
+\emph{(b) Extreme spectral concentration.}
 CLIP/DINO feature spectra are highly non-uniform:
 $\kappa{=}15{,}000$--$1{,}200{,}000$ vs.\ ResNet-50's $\kappa{=}70$--$400$.
-Theorem~\ref{thm:error} bounds the approximation error as
-$|\log(\hat{r}/r)|\leq(4\gamma^2/\bar{D}^2)\cdot V_\alpha\cdot\log\kappa$;
-the $\log\kappa$ factor alone is $3$--$4\times$ larger for CLIP/DINO,
-amplifying any alignment variance.
+This concentration makes average alignment less informative because overlap
+on a few high-mass directions can dominate many complementary tail directions.
 
 \emph{(c) Bimodal principal-angle distribution.}
 The \emph{individual} principal angles $\cos^2\theta_i$
@@ -2086,15 +1943,15 @@ the first singular direction's redundancy
 ($\cos^2\theta_1{\approx}0.87$ for that direction),
 while improperly suppressing the estimated contribution of
 intermediate directions to the merge.
-More refined corrections (e.g., piecewise principal-angle models,
+More refined corrections (e.g., piecewise paired-direction models,
 per-direction threshold truncation, or adaptive $k$ selection)
 may break through this bottleneck and are left to future work.
 
-\subsection{Calibration: From Upper Bound to Quantitative Prediction}
+\subsection{Calibration: From Systematic Bias to Quantitative Prediction}
 \label{sec:calibration}
 
-The Collapse Model acts as a systematic upper bound on real data
-(Remark~\ref{rem:calibration}).
+The Collapse Model systematically over-predicts on the evaluated real-data
+pairs (Remark~\ref{rem:calibration}).
 Since the log-space over-prediction is approximately constant across
 probes and domains ($\mathrm{mean}{=}0.293$, $\mathrm{std}{=}0.164$),
 a single multiplicative constant $c$ (Eq.~\ref{eq:calibration})
@@ -2180,8 +2037,8 @@ ResNet-50: $R^2=0.557$, Pearson $r=0.9987$, 100\% superadditive.
 ViT-B/16: $R^2=-16.1$ (systematic over-prediction), Pearson $r=0.9825$, 83.3\% superadditive.
 Cross-architecture Pearson $r\geq0.982$ confirms that \emph{directional rankings} are
 probe-independent even when absolute magnitudes differ.
-The Pearson vs.\ $R^2$ gap for ViT-B/16 confirms that the formula acts as an upper bound
-whose scale (not direction) is encoder-dependent.
+The Pearson vs.\ $R^2$ gap for ViT-B/16 shows encoder-dependent scale bias
+despite stable ordering.
 
 \subsection{E4: Cross-Probe Consistency}
 \label{sec:e4}
@@ -2263,13 +2120,13 @@ additional task-specific metrics are needed.
 
 
 \paragraph{Sample-size sensitivity.}
-Theorem~\ref{thm:error} predicts that the over-prediction ratio grows
-as $N/\reff$ increases. We verify this on 10 representative ResNet-50 pairs:
+Empirically, the over-prediction ratio grows with $N/\reff$ on 10
+representative ResNet-50 pairs:
 at $N{=}200$ the mean ratio is $1.021$, rising monotonically to $1.545$ at $N{=}2000$
 (Spearman $\rho{=}0.80$ between $N/\reff$ and $\log\mathrm{bias}$).
-This explains why the calibration constant varies across encoders
-(ResNet-50 $c{=}0.78$, DINO $c{=}0.58$): higher $N/\reff$ widens the
-spectral mixture approximation gap.
+This association helps predict calibration variation across encoders
+(ResNet-50 $c{=}0.78$, DINO $c{=}0.58$), but is not asserted as a
+theoretical error law.
 
 
 \newpage
