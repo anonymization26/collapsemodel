@@ -265,8 +265,9 @@ CPU Stage-1 与共享 NPU adapter 并行。特征提取和 LoRA 不应与占用 
 - [x] P3：完成精确样本重叠的 E2 停止扫描；停止扩大四摘要/Collapse，保留 DPP-subspace。
 - [ ] P4：运行 E3 自然池实验和 shortlist recall（混合自然池、严格 repeated-CV utility 与
   source-family-aware LODO 已完成；四组各至少 20 个候选的独立集合和第 8 个目标尚未完成）。
-- [ ] P5：只将 E3 中有竞争力的方法送入 E5 adapter（pilot 未通过验收，暂缓扩大）。
-- [ ] P6：若 E5 达到成本—效用验收标准，再运行 E6 LoRA。
+- [x] P5：完成当前混合自然池的严格来源监督 adapter gate；oracle 显著低于 frozen identity，
+  因而判定未通过。
+- [x] P6：按预注册停止规则不运行 E6 LoRA 与多池混合，避免在失败的 frozen-feature gate 上扩张。
 - [ ] P7：完成 cluster bootstrap、LODO、跨编码器分析和最终表格（target/source-family cluster
   bootstrap、leave-one-source/domain/encoder-out 与跨编码器表已完成；层次混合效应模型因
   DPP/rank 配对 588 项中 587 项为零差异而近退化，尚未强行拟合）。
@@ -332,7 +333,8 @@ CPU Stage-1 与共享 NPU adapter 并行。特征提取和 LoRA 不应与占用 
 
 - 为消除单 holdout oracle 噪声，已实现同一 adapter 内的 3 个独立分层 5-fold 分区。四个编码器
   共训练 420 个源池 adapter，记录 2,940 个 adapter-target utility；每条记录含 15 个 fold 和
-  3 个 partition accuracy。官方 test 每个组合只评估一次，未参与选择。
+  3 个 partition accuracy。该历史实现虽未用 test 排序，但在选择冻结前计算了所有候选的 test
+  accuracy，因此只能作为审计基线，不能称为严格 held-out 结果。
 - 三次“独立启动的 CV 运行”不能直接合并：2,940 个对齐键中有 132 个 test accuracy 发生变化，
   51 个变化超过 0.001，最大变化 0.02344，说明 NPU adapter 重训引入非确定性。正式结果改用
   单次训练、联合评估三个 CV 分区的协议。
@@ -358,12 +360,34 @@ CPU Stage-1 与共享 NPU adapter 并行。特征提取和 LoRA 不应与占用 
   （删除 DermaMNIST 或 PathMNIST），21 折均未通过 90%。Target-cluster 95% CI 为
   `[71.09%, 99.66%]`；结果见 `results/two_stage_repeated_cv_source_lodo/README.md`。
 
+### 2026-09-09 修正版执行状态
+
+- [x] 已按最新 provenance 门禁重提取 21 个来源 x 4 个编码器的标签无关缓存；旧分层缓存不再
+  进入修正版 Stage-1。
+- [x] `L=10/20/50` 的 v3 controlled-overlap 扫描已完成，四编码器每个 rank 各 240 个配置并通过
+  完整分片聚合；旧 `corrected_v2` 数值已作废。
+- [x] 修正 legacy `collapse_sketch` 的通信计费为 $8(Ld+2)$ bytes/pool；已归档 v3 manifest
+  少计 16 bytes/pool，保留原始签名文件并在结果 README 中披露，选择指标不受影响。
+- [x] 2,880 个选中 prefix 的区间覆盖率为 100%，但 7,200 个 greedy 步骤证书率为 0；当前界
+  在 $L\leq50$ 时正确但过宽。
+- [x] 包含 Full-Gram greedy、Random-100 和 prefix 一致率的三构造种子 pilot 已完成：288 个配置
+  中区间覆盖 288/288，证书 0/720，rank-$L$ 与 Full-Gram 有序 prefix 完全一致 0/288。
+- [x] 新标签盲缓存上的 v3 自然池 screening、目标 train/test 缓存、repeated-CV 和 held-out
+  评估均已完成。
+- [x] Stage-2 已拆为 validation-only adapter、冻结 selection manifest、冻结后的 held-out test；
+  adapter checkpoint 同时绑定文件 SHA-256 和参数 SHA-256。
+- [x] 汇总器逐行验证 CV 结构、超参数、样本数、数值范围、checkpoint 和完整 shard，不接受只靠
+  sidecar 声明但 CSV 内容不一致的结果。
+- [x] v3 identity/random-adapter/validation-oracle 对照完成：来源监督 oracle 相对 identity 平均
+  -0.06703，target-cluster 95% CI `[-0.09771, -0.04400]`，frozen-feature gate 失败。
+- [x] 全部候选适配器是为穷举 regret 审计离线训练的，因此当前总墙钟不能作为部署节省证据。
+
 停止规则：
 
 - Collapse 在 3 个编码器上均不优于 rank-only：降级为理论启发的消融，不再作为主算法。
 - richer summary 不优于 Vendi/Facility Location 且通信成本更高：不主张实用优势。
 - Stage-1 shortlist 的最佳候选召回率低于 90%：不得声称可安全预筛选。
-- adapter 收益不能在 LoRA 中复现：应用范围限定为冻结表示诊断。
+- 来源监督 adapter 不能稳定优于 frozen identity：停止 LoRA 和多池混合，只报告冻结表示诊断。
 
 ## 9. 最终报告表格
 
@@ -379,12 +403,14 @@ CPU Stage-1 与共享 NPU adapter 并行。特征提取和 LoRA 不应与占用 
 
 ## 10. 当前判断
 
-受控实验表明 top-k 子空间 alignment 能检测同分布或重叠池，且 DPP-subspace 能改善受控集合上的
-合并有效秩；但这一优势没有转化为自然池 Stage-2 shortlist recall。更严格的同一 adapter、三分区
-5-fold 协议中，DPP-subspace 在移除 52.4% 候选时召回 85.71%，与 rank-only 相同；四组 LODO
-汇总进一步降到 76.79%，低于 rank-only 的 79.46%，且 general-vision LODO 只有 53.57%。现有
-证据不支持通用、domain-robust 或“安全”的无标签预筛选主张。P5/P6 按停止规则不执行；剩余工作
-仅用于界定负面结果和通信成本，不应继续扩张应用性主张。
+修正版受控扫描确认 rank-$L$ 区间在已测 2,880 个选中 prefix 上全部覆盖精确分数，但 7,200 个
+greedy 步骤没有非零证书；DPP 在当前非等字节比较中至少同样有竞争力。自然池 Stage-2 中，删除
+52.4% 候选时 rank-$L$/rank-only/DPP/Full-Gram 的召回为 75.00%/85.71%/85.71%/89.29%，均未
+通过 90% 门槛。更关键的是，验证 oracle 来源监督 adapter 的 held-out 准确率仍比 frozen identity
+低 0.06703（target-cluster 95% CI `[-0.09771,-0.04400]`），所以小 shortlist regret 不能解释为
+下游收益。现有证据不支持通用、domain-robust、“安全”预筛选或实际计算节省主张；后续只应完成
+等字节 Pareto 和独立域复核，不应扩张应用性主张。三种子精确参照已经完成；其中 rank-$L$/DPP/
+Full-Gram greedy 相对 rank-only 的平均增益为 3.65%/5.37%/5.81%，进一步否定 rank-$L$ 的基线优势。
 
 ## 11. 2026-09-08 审计修复 Checklist
 
@@ -396,9 +422,10 @@ CPU Stage-1 与共享 NPU adapter 并行。特征提取和 LoRA 不应与占用 
 - [x] 实现可组合 rank-$L$ Gram PSD 因子，不再把累计状态重新压成四个标量。
 - [x] 实现截断 Gram 有效秩直接 greedy、尾部核质量/平方质量/尾秩界。
 - [x] 实现 Theorem 8 的候选 log-rank 区间与逐步 exact-greedy 分离证书。
-- [x] 统一 Legacy Collapse 的单池与累计统计层级，均使用同一 top-$L$ sketch。
+- [x] 将 Legacy Collapse 的“精确来源局部标量 + 截断累计 sketch”明确标为历史启发式消融，
+  与直接累加 PSD 因子的 rank-$L$ 主方法分开，删除同一理论保证的表述。
 - [x] 保留 Legacy Collapse 为消融，不再将它列为理论主算法。
-- [ ] 在四编码器真实缓存上扫描 $L=10,20,50$，报告区间覆盖率、宽度、证书率和回退率。
+- [x] 在四编码器真实缓存上完成 $L=10,20,50$ 扫描并报告区间覆盖率、宽度、证书率和回退率。
 
 ### P1：无标签边界与来源权重
 
@@ -407,7 +434,8 @@ CPU Stage-1 与共享 NPU adapter 并行。特征提取和 LoRA 不应与占用 
 - [x] 默认拒绝标签分层或来源不明的旧 Stage-1 缓存。
 - [x] 自然池默认使用 equal-source 权重，使每个来源总平方能量约为 1。
 - [x] 缓存清单记录抽样方式、输入 SHA-256、总能量和尾部界。
-- [ ] 重新提取四编码器标签无关来源缓存并验证逐字节确定性。
+- [x] 重新提取四编码器标签无关来源缓存，并绑定 model-state、preprocess、loader、原始文件和
+  sampled-index 哈希。
 
 ### P2：公平指标与经典基线
 
@@ -418,31 +446,35 @@ CPU Stage-1 与共享 NPU adapter 并行。特征提取和 LoRA 不应与占用 
 - [x] 经典重复来源默认使用固定种子随机抽取；最高秩复制仅作为显式压力测试。
 - [x] 加入 agglomerative-medoid 与 centroid leverage-score 基线。
 - [x] 保留精确 recall，同时输出固定容差曲线和 paired-bootstrap 候选置信集召回。
-- [ ] 用修正指标重跑 controlled overlap，并按 encoder/seed 报告 matched 指标置信区间。
+- [x] 用修正指标重跑 controlled overlap，并按 encoder/seed 输出 matched 指标及 bootstrap 结果。
 - [ ] 运行 scalar、rank-$L$、subspace 和 full-feature 的等字节 Pareto 扫描。
 
 ### P3：Stage-2 与可复现性
 
-- [x] `torch_npu` 延迟到 `adapt` 阶段导入，CPU 可独立运行筛选和汇总。
+- [x] `torch_npu` 只在 `adapt`/`heldout` 阶段导入，CPU 可独立运行筛选和汇总。
 - [x] 适配 run fingerprint 绑定代码、筛选 manifest、参数和全部输入缓存哈希。
 - [x] 按完整 source/seed 组原子写入；发现半组结果时拒绝不安全恢复。
 - [x] 默认启用 PyTorch deterministic algorithms，并显式设置 NPU seed。
 - [x] 固定 Stage-2 来源样本数；不足预算默认报错而不是静默缩短。
 - [x] 加入 `frozen_identity` 与 `random_adapter` 两个来源无关基线。
 - [x] 高维 ridge 在样本少于维度时使用数学等价的对偶求解。
-- [ ] 在服务器验证 Ascend 确定性开关是否被所有使用算子支持。
-- [ ] 重跑 repeated 5-fold CV，并报告 adapter 相对 identity/random-adapter 的增量。
-- [ ] 在 frozen-feature gate 通过后再执行 LoRA 与多池混合验证。
+- [x] `adapt` 不读取 target test；`summarize` 先冻结选择和 checkpoint 哈希，`heldout` 验证冻结
+  文件后才读取 test，并禁止改写 validation 结果字段。
+- [x] 逐行核对 CV folds/partitions/seeds、训练参数、覆盖样本、准确率、耗时和 adapter 状态。
+- [x] 在服务器启用 Ascend/PyTorch 确定性开关并完成修正版全流程；结果清单记录该配置。
+- [x] 重跑 repeated 5-fold CV，并报告来源监督 adapter 相对 identity/random-adapter 的增量。
+- [x] frozen-feature gate 未通过，按停止规则不执行 LoRA 与多池混合验证。
 
 ### P4：数值、数据覆盖与发布
 
 - [x] Gram/Scatter 在乘法前转为 `float64`，使用相对谱阈值排除伪小特征值。
 - [x] Arrow shard 按内容哈希去重；来源和目标缓存元数据绑定原始文件哈希。
-- [x] 修正版缓存与结果默认写入独立的 `unlabeled`/`corrected_v2` 路径。
+- [x] 修正版缓存与结果默认写入独立的 `unlabeled`/`corrected_v3` 路径；`corrected_v2` 已作废。
 - [x] 单元测试扩展到 rank-$L$ 可组合性、理论区间、matched 指标、label-free loader、
   resume 门禁、数值秩和 greedy 反例。
 - [ ] 建立彼此独立的医学、字符、通用视觉和混合候选集合，每组至少 20 个池。
 - [ ] 增加相应的非通用视觉目标和第 8 个目标；重新评估 domain robustness。
-- [ ] 新结果完成前，不把历史 pilot 表格改写为修正版算法结果。
-- [ ] 将通过验证的新结果同步进论文正文、附录、README 和匿名发布包。
+- [x] 历史 pilot 未被改写为修正版算法结果；正文仅引用通过完整门禁的 `corrected_v3` 结果。
+- [x] 已将通过验证的 rank sweep、精确参照、自然池与 held-out 结果同步进论文正文、README 和
+  匿名发布目录。
 - [ ] 使用有效的匿名 GitHub 凭据推送当前分支；现有 token 于 2026-09-08 返回 401。

@@ -7,7 +7,6 @@ import argparse
 import csv
 import hashlib
 import json
-from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import fmean
@@ -28,12 +27,16 @@ def read_rows(root: Path) -> tuple[list[dict[str, str]], list[Path]]:
     if not paths:
         raise ValueError(f"no leave-one-source result files found under {root}")
     rows = []
+    provenance_paths = []
     for path in paths:
         excluded_source = path.relative_to(root).parts[0].removeprefix("exclude_")
         with path.open(newline="") as stream:
             file_rows = list(csv.DictReader(stream))
+        if not file_rows:
+            raise ValueError(f"empty result file: {path}")
+        provenance_paths.append(cross.validate_detail_result(path, file_rows))
         rows.extend({**row, "excluded_source": excluded_source} for row in file_rows)
-    return rows, paths
+    return rows, paths + provenance_paths
 
 
 def aggregate_values(

@@ -30,6 +30,8 @@ for variant in "$@"; do
     --output-dir "$OUTPUT_DIR" \
     --npu "$NPU" \
     --samples "$SAMPLES" \
+    --sample-seed 20260905 \
+    --sampling unlabeled_random \
     --batch-size "$BATCH_SIZE" \
     --workers "$WORKERS"
   echo "VARIANT_DONE=$variant UTC=$(date -u +%FT%TZ)"

@@ -14,6 +14,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+
+# CPU-only screen/summarize commands must not auto-import torch_npu.  The adapt
+# command loads it explicitly after the Ascend environment has been configured.
+os.environ.setdefault("TORCH_DEVICE_BACKEND_AUTOLOAD", "0")
 import torch
 import torch.nn as nn
 
@@ -29,6 +33,14 @@ SOURCES = [
 ]
 TARGETS = ["beans", "dtd", "eurosat", "flowers102", "food101", "gtsrb", "oxford_pets"]
 SHORTLIST_SIZES = [3, 5, 10]
+
+ENCODER_PROVENANCE_FIELDS = (
+    "checkpoint",
+    "checkpoint_file_sha256",
+    "model_state_sha256",
+    "preprocess_sha256",
+    "encoder_loader_sha256",
+)
 
 SOURCE_DOMAINS = {
     **{name: "medical" for name in [
@@ -94,30 +106,165 @@ def load_features(path: Path) -> np.ndarray:
         return normalize_rows(archive["H"])
 
 
-def stage1_cache_metadata(path: Path, allow_label_informed: bool) -> dict[str, object]:
+def _valid_sha256(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value.lower())
+    )
+
+
+def cache_encoder_provenance(metadata: dict[str, object]) -> dict[str, object]:
+    missing = [field for field in ENCODER_PROVENANCE_FIELDS if field not in metadata]
+    if missing:
+        raise ValueError(f"cache metadata lacks encoder provenance: {missing}")
+    for field in ("model_state_sha256", "preprocess_sha256", "encoder_loader_sha256"):
+        if not _valid_sha256(metadata[field]):
+            raise ValueError(f"cache metadata has invalid encoder provenance: {field}")
+    checkpoint_hash = metadata["checkpoint_file_sha256"]
+    if checkpoint_hash is not None and not _valid_sha256(checkpoint_hash):
+        raise ValueError("cache metadata has an invalid checkpoint file hash")
+    return {field: metadata[field] for field in ENCODER_PROVENANCE_FIELDS}
+
+
+def _audit_feature_archive(
+    path: Path, metadata: dict[str, object], require_labels: bool,
+) -> dict[str, object]:
+    with np.load(path, allow_pickle=False) as archive:
+        if "H" not in archive or "indices" not in archive:
+            raise ValueError(f"feature archive lacks H or indices: {path}")
+        features = np.asarray(archive["H"])
+        indices = np.asarray(archive["indices"], dtype=np.int64)
+        labels = np.asarray(archive["y"]).reshape(-1) if "y" in archive else None
+    if features.ndim != 2 or not np.isfinite(features).all():
+        raise ValueError(f"feature archive has invalid features: {path}")
+    if (
+        indices.ndim != 1
+        or len(indices) != len(features)
+        or len(np.unique(indices)) != len(indices)
+        or np.any(indices < 0)
+    ):
+        raise ValueError(f"feature archive has invalid sample indices: {path}")
+    if require_labels and (labels is None or len(labels) != len(features)):
+        raise ValueError(f"Stage-2 cache has invalid labels: {path}")
+    declared_shape = metadata.get("feature_shape")
+    if declared_shape is not None and list(features.shape) != declared_shape:
+        raise ValueError(f"feature metadata shape mismatch: {path}")
+    return {
+        "computed_index_sha256": hashlib.sha256(
+            indices.astype("<i8", copy=False).tobytes()
+        ).hexdigest(),
+        "computed_feature_shape": list(features.shape),
+    }
+
+
+def stage1_cache_metadata(
+    path: Path,
+    allow_label_informed: bool,
+    *,
+    expected_encoder: str | None = None,
+    expected_dataset: str | None = None,
+    expected_samples: int | None = None,
+) -> dict[str, object]:
     metadata_path = path.with_suffix(".json")
     if not metadata_path.exists():
         if allow_label_informed:
-            return {"sampling": "unverified", "label_independent_sampling": False}
+            return {
+                "sampling": "unverified",
+                "label_independent_sampling": False,
+                "computed_feature_file_sha256": sha256_file(path),
+                "metadata_file_sha256": "",
+            }
         raise ValueError(f"Stage-1 cache has no provenance metadata: {metadata_path}")
     metadata = json.loads(metadata_path.read_text())
+    feature_sha256 = sha256_file(path)
+    declared_sha256 = metadata.get("feature_file_sha256")
+    if declared_sha256 is None and not allow_label_informed:
+        raise ValueError(f"Stage-1 cache metadata has no feature checksum: {metadata_path}")
+    if declared_sha256 is not None and declared_sha256 != feature_sha256:
+        raise ValueError(f"Stage-1 cache checksum mismatch: {path}")
+    expected_identity = {
+        "variant": expected_encoder,
+        "dataset": expected_dataset,
+        "split": "train" if expected_dataset is not None else None,
+        "requested_samples": expected_samples,
+    }
+    mismatches = [
+        field for field, expected in expected_identity.items()
+        if expected is not None and metadata.get(field) != expected
+    ]
+    if mismatches:
+        raise ValueError(f"Stage-1 cache identity mismatch in {metadata_path}: {mismatches}")
     sampling = str(metadata.get("sampling", "unknown"))
-    requested = int(metadata.get("requested_samples", -1))
-    source_samples = int(metadata.get("source_samples", -1))
-    uses_all_rows = (
-        "requested_samples" in metadata
-        and (
-            requested <= 0
-            or (source_samples >= 0 and requested >= source_samples)
-        )
+    label_independent = (
+        sampling == "unlabeled_random"
+        and metadata.get("stage1_sampling_reads_labels") is False
     )
-    label_independent = sampling == "unlabeled_random" or uses_all_rows
     if not label_independent and not allow_label_informed:
         raise ValueError(
             f"Stage-1 cache {path} used label-informed or unknown sampling={sampling!r}; "
             "regenerate it with --sampling unlabeled_random"
         )
-    return {**metadata, "label_independent_sampling": label_independent}
+    archive_audit = _audit_feature_archive(path, metadata, require_labels=False)
+    provenance = None
+    try:
+        provenance = cache_encoder_provenance(metadata)
+    except ValueError:
+        if not allow_label_informed:
+            raise
+    return {
+        **metadata,
+        **archive_audit,
+        "encoder_provenance": provenance,
+        "label_independent_sampling": label_independent,
+        "computed_feature_file_sha256": feature_sha256,
+        "metadata_file_sha256": sha256_file(metadata_path),
+    }
+
+
+def stage2_cache_metadata(
+    path: Path,
+    *,
+    expected_encoder: str,
+    expected_dataset: str,
+    expected_split: str,
+    expected_samples: int,
+    label_read_field: str,
+) -> dict[str, object]:
+    metadata_path = path.with_suffix(".json")
+    if not metadata_path.exists():
+        raise ValueError(f"Stage-2 cache has no provenance metadata: {metadata_path}")
+    metadata = json.loads(metadata_path.read_text())
+    expected_identity = {
+        "variant": expected_encoder,
+        "dataset": expected_dataset,
+        "split": expected_split,
+        "requested_samples": expected_samples,
+    }
+    mismatches = [
+        field for field, expected in expected_identity.items()
+        if metadata.get(field) != expected
+    ]
+    if mismatches:
+        raise ValueError(f"Stage-2 cache identity mismatch in {metadata_path}: {mismatches}")
+    if (
+        metadata.get("sampling") != "unlabeled_random"
+        or metadata.get(label_read_field) is not False
+    ):
+        raise ValueError(
+            f"Stage-2 cache subset is not label-independent: {metadata_path}"
+        )
+    feature_sha256 = sha256_file(path)
+    if metadata.get("feature_file_sha256") != feature_sha256:
+        raise ValueError(f"Stage-2 cache checksum mismatch: {path}")
+    audit = _audit_feature_archive(path, metadata, require_labels=True)
+    return {
+        **metadata,
+        **audit,
+        "encoder_provenance": cache_encoder_provenance(metadata),
+        "computed_feature_file_sha256": feature_sha256,
+        "metadata_file_sha256": sha256_file(metadata_path),
+    }
 
 
 def source_path(root: Path, encoder: str, source: str, samples: int) -> Path:
@@ -169,15 +316,20 @@ def effective_rank_from_scatter(scatter: np.ndarray) -> float:
     return classic.effective_rank_from_scatter(scatter)
 
 
-def full_rank_greedy(features: dict[str, np.ndarray], budget: int) -> list[str]:
-    scatters = {
+def source_scatters(features: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+    return {
         name: value.astype(np.float64, copy=False).T @ value.astype(np.float64, copy=False)
         for name, value in features.items()
     }
+
+
+def full_rank_greedy_from_scatters(
+    scatters: dict[str, np.ndarray], budget: int,
+) -> list[str]:
     selected: list[str] = []
     current = np.zeros_like(next(iter(scatters.values())), dtype=np.float64)
     while len(selected) < budget:
-        remaining = sorted(set(features) - set(selected))
+        remaining = sorted(set(scatters) - set(selected))
         choice = max(
             remaining,
             key=lambda name: effective_rank_from_scatter(current + scatters[name]),
@@ -187,13 +339,30 @@ def full_rank_greedy(features: dict[str, np.ndarray], budget: int) -> list[str]:
     return selected
 
 
+def full_rank_greedy(features: dict[str, np.ndarray], budget: int) -> list[str]:
+    return full_rank_greedy_from_scatters(source_scatters(features), budget)
+
+
 def run_screen(args: argparse.Namespace) -> None:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     features = {}
     source_rows = []
+    encoder_provenance: dict[str, object] | None = None
     for source in args.sources:
         path = source_path(args.source_dir, args.encoder, source, args.cache_samples)
-        cache_metadata = stage1_cache_metadata(path, args.allow_label_informed_cache)
+        cache_metadata = stage1_cache_metadata(
+            path,
+            args.allow_label_informed_cache,
+            expected_encoder=args.encoder,
+            expected_dataset=source,
+            expected_samples=args.cache_samples,
+        )
+        current_provenance = cache_metadata.get("encoder_provenance")
+        if current_provenance is not None:
+            if encoder_provenance is None:
+                encoder_provenance = current_provenance
+            elif current_provenance != encoder_provenance:
+                raise ValueError(f"encoder provenance differs for source {source}")
         full_features = load_features(path)
         sampled = sample_unlabeled(
             full_features, args.stage1_samples, stable_seed(source, args.sample_seed),
@@ -212,7 +381,10 @@ def run_screen(args: argparse.Namespace) -> None:
                 sampled.astype(np.float64) ** 2
             )),
             "cache_path": str(path),
-            "cache_sha256": sha256_file(path),
+            "cache_sha256": cache_metadata["computed_feature_file_sha256"],
+            "cache_metadata_path": str(path.with_suffix(".json")),
+            "cache_metadata_sha256": cache_metadata["metadata_file_sha256"],
+            "cache_index_sha256": cache_metadata.get("computed_index_sha256", ""),
             "cache_sampling": cache_metadata.get("sampling", "unknown"),
             "label_independent_cache_sampling": cache_metadata[
                 "label_independent_sampling"
@@ -248,10 +420,13 @@ def run_screen(args: argparse.Namespace) -> None:
         method_sequences[method] = selected
 
     select("rank_only", lambda: classic.rank_only(ranks, max_shortlist))
-    select(
-        "rank_l_gram",
-        lambda: classic.rank_l_gram_greedy(gram_sketches, max_shortlist),
+    rank_l_started = time.perf_counter()
+    rank_l_order, rank_l_diagnostics = classic.rank_l_gram_greedy(
+        gram_sketches, max_shortlist, return_diagnostics=True,
     )
+    runtimes["rank_l_gram"] = time.perf_counter() - rank_l_started
+    classic.validate_selection(rank_l_order, names, max_shortlist)
+    method_sequences["rank_l_gram"] = rank_l_order
     select(
         "facility_subspace",
         lambda: classic.facility_location(subspace_similarity, names, max_shortlist),
@@ -283,10 +458,33 @@ def run_screen(args: argparse.Namespace) -> None:
             centroid_matrix, names, max_shortlist,
         ),
     )
-    select(
-        "exact_merged_rank_greedy",
-        lambda: full_rank_greedy(features, max_shortlist),
-    )
+    exact_started = time.perf_counter()
+    scatters = source_scatters(features)
+    exact_order = full_rank_greedy_from_scatters(scatters, max_shortlist)
+    runtimes["exact_merged_rank_greedy"] = time.perf_counter() - exact_started
+    classic.validate_selection(exact_order, names, max_shortlist)
+    method_sequences["exact_merged_rank_greedy"] = exact_order
+
+    rank_l_interval_diagnostics = []
+    rank_l_scatter = np.zeros_like(next(iter(scatters.values())), dtype=np.float64)
+    for step, diagnostic in enumerate(rank_l_diagnostics, 1):
+        rank_l_scatter = rank_l_scatter + scatters[rank_l_order[step - 1]]
+        exact_reff = effective_rank_from_scatter(rank_l_scatter)
+        approximate_log_reff = float(np.log(max(
+            float(diagnostic["approximate_effective_rank"]), 1.0,
+        )))
+        exact_log_reff = float(np.log(max(exact_reff, 1.0)))
+        absolute_log_error = float(abs(approximate_log_reff - exact_log_reff))
+        log_error_bound = float(diagnostic["log_error_bound"])
+        rank_l_interval_diagnostics.append({
+            **diagnostic,
+            "exact_effective_rank_of_selected_prefix": exact_reff,
+            "exact_log_effective_rank_of_selected_prefix": exact_log_reff,
+            "absolute_log_error_of_selected_prefix": absolute_log_error,
+            "selected_prefix_interval_covers_exact": bool(
+                absolute_log_error <= log_error_bound + 1e-12
+            ),
+        })
 
     selections: dict[str, dict[str, list[str]]] = {}
     for shortlist_size in args.shortlist_sizes:
@@ -351,6 +549,9 @@ def run_screen(args: argparse.Namespace) -> None:
         "created_utc": utc_now(),
         "pid": os.getpid(),
         "script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "classic_script_sha256": sha256_file(
+            Path(__file__).with_name("two_stage_classic_baselines.py")
+        ),
         "encoder": args.encoder,
         "source_dir": str(args.source_dir),
         "sources": args.sources,
@@ -366,19 +567,37 @@ def run_screen(args: argparse.Namespace) -> None:
         "stage1_samples": args.stage1_samples,
         "sample_seed": args.sample_seed,
         "source_weighting": args.source_weighting,
+        "marginal_scalar_mode": "exact_source_local",
         "stage1_reads_labels": False,
         "stage1_requires_label_independent_cache": not args.allow_label_informed_cache,
+        "encoder_provenance": encoder_provenance,
         "top_k": args.top_k,
         "shortlist_sizes": args.shortlist_sizes,
         "summary_preprocessing_seconds": summary_seconds,
         "selections": selections,
         "selection_seconds_to_max_shortlist": runtimes,
+        "rank_l_diagnostics": rank_l_interval_diagnostics,
+        "rank_l_exact_greedy_prefix_match": {
+            str(size): (
+                method_sequences["rank_l_gram"][:size]
+                == method_sequences["exact_merged_rank_greedy"][:size]
+            )
+            for size in args.shortlist_sizes
+        },
         "source_cache_sha256": {
             str(row["source"]): str(row["cache_sha256"]) for row in source_rows
         },
+        "source_cache_metadata_sha256": {
+            str(row["source"]): str(row["cache_metadata_sha256"])
+            for row in source_rows
+        },
+        "source_cache_index_sha256": {
+            str(row["source"]): str(row["cache_index_sha256"])
+            for row in source_rows
+        },
     }
     path = args.out_dir / f"{args.encoder}_screening_manifest.json"
-    path.write_text(json.dumps(manifest, indent=2) + "\n")
+    write_json_atomic(path, manifest)
     print(f"wrote {path}", flush=True)
 
 
@@ -532,14 +751,35 @@ def encode(adapter: Adapter, features: np.ndarray, device: torch.device) -> torc
     return torch.cat(outputs)
 
 
-def read_completed(path: Path) -> set[tuple[str, int, str]]:
-    if not path.exists():
-        return set()
-    with path.open(newline="") as stream:
-        return {
-            (row["source"], int(row["adapter_seed"]), row["target"])
-            for row in csv.DictReader(stream)
-        }
+def module_state_sha256(module: nn.Module) -> str:
+    digest = hashlib.sha256()
+    for name, tensor in sorted(module.state_dict().items()):
+        value = tensor.detach().cpu().contiguous()
+        digest.update(name.encode())
+        digest.update(b"\0")
+        digest.update(str(value.dtype).encode())
+        digest.update(b"\0")
+        digest.update(str(tuple(value.shape)).encode())
+        digest.update(b"\0")
+        digest.update(value.reshape(-1).view(torch.uint8).numpy().tobytes())
+    return digest.hexdigest()
+
+
+def save_adapter_state(
+    adapter: Adapter, output: Path, encoder: str, source: str, seed: int,
+) -> tuple[str, str, str]:
+    state_dir = output.parent / "adapter_states"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{encoder}__{source}__seed{seed}.pt"
+    state_path = state_dir / filename
+    temporary = state_path.with_suffix(".tmp.pt")
+    torch.save(
+        {name: tensor.detach().cpu() for name, tensor in adapter.state_dict().items()},
+        temporary,
+    )
+    temporary.replace(state_path)
+    relative = state_path.relative_to(output.parent).as_posix()
+    return relative, sha256_file(state_path), module_state_sha256(adapter)
 
 
 def adaptation_run_path(output: Path) -> Path:
@@ -568,28 +808,72 @@ def adaptation_provenance(
     manifest: dict[str, object],
     assigned_sources: list[str],
 ) -> dict[str, object]:
-    source_hashes = {
-        source: sha256_file(source_path(
-            args.source_dir, args.encoder, source, args.cache_samples,
-        ))
+    source_metadata = {
+        source: stage2_cache_metadata(
+            source_path(args.source_dir, args.encoder, source, args.cache_samples),
+            expected_encoder=args.encoder,
+            expected_dataset=source,
+            expected_split="train",
+            expected_samples=args.cache_samples,
+            label_read_field="stage1_sampling_reads_labels",
+        )
         for source in assigned_sources
     }
-    target_hashes = {
-        f"{target}:{split}": sha256_file(target_path(
-            args.target_dir, args.encoder, target, split, args.cache_samples,
-        ))
+    target_metadata = {
+        f"{target}:train": stage2_cache_metadata(
+            target_path(args.target_dir, args.encoder, target, "train", args.cache_samples),
+            expected_encoder=args.encoder,
+            expected_dataset=target,
+            expected_split="train",
+            expected_samples=args.cache_samples,
+            label_read_field="stage2_sampling_reads_labels",
+        )
         for target in manifest["targets"]
-        for split in ("train", "test")
+    }
+    all_metadata = [*source_metadata.values(), *target_metadata.values()]
+    encoder_provenance = all_metadata[0]["encoder_provenance"]
+    if any(
+        metadata["encoder_provenance"] != encoder_provenance
+        for metadata in all_metadata[1:]
+    ):
+        raise ValueError("Stage-2 source/target caches use different encoder provenance")
+    if manifest.get("encoder_provenance") != encoder_provenance:
+        raise ValueError("Stage-2 cache provenance does not match the Stage-1 manifest")
+    source_hashes = {
+        source: metadata["computed_feature_file_sha256"]
+        for source, metadata in source_metadata.items()
+    }
+    target_hashes = {
+        key: metadata["computed_feature_file_sha256"]
+        for key, metadata in target_metadata.items()
     }
     configuration = {
-        "schema_version": 2,
+        "schema_version": 4,
         "script_sha256": sha256_file(Path(__file__)),
         "screening_manifest_sha256": sha256_file(args.manifest),
         "encoder": args.encoder,
+        "encoder_provenance": encoder_provenance,
         "assigned_sources": assigned_sources,
         "targets": manifest["targets"],
         "source_cache_sha256": source_hashes,
         "target_cache_sha256": target_hashes,
+        "source_cache_metadata_sha256": {
+            source: metadata["metadata_file_sha256"]
+            for source, metadata in source_metadata.items()
+        },
+        "target_cache_metadata_sha256": {
+            key: metadata["metadata_file_sha256"]
+            for key, metadata in target_metadata.items()
+        },
+        "source_cache_index_sha256": {
+            source: metadata["computed_index_sha256"]
+            for source, metadata in source_metadata.items()
+        },
+        "target_cache_index_sha256": {
+            key: metadata["computed_index_sha256"]
+            for key, metadata in target_metadata.items()
+        },
+        "target_test_access": "forbidden_during_adaptation_and_selection",
         "cache_samples": args.cache_samples,
         "adapter_samples": args.adapter_samples,
         "allow_short_source": args.allow_short_source,
@@ -602,6 +886,7 @@ def adaptation_provenance(
         "steps": args.steps,
         "batch_size": args.batch_size,
         "ridge": args.ridge,
+        "adapter_state_format": "torch_state_dict_v1",
         "deterministic_algorithms": args.deterministic,
         "shard_index": args.shard_index,
         "shard_count": args.shard_count,
@@ -638,13 +923,11 @@ def validate_resume_groups(
 
 def evaluate_target_representation(
     encoded_train: torch.Tensor,
-    encoded_test: torch.Tensor,
     data: dict[str, object],
     ridge: float,
     device: torch.device,
 ) -> dict[str, object]:
     train_labels_tensor = torch.from_numpy(data["train_labels"]).to(device)
-    test_labels_tensor = torch.from_numpy(data["test_labels"]).to(device)
     partition_accuracies: list[float] = []
     all_fold_accuracies: list[float] = []
     validation_examples = 0
@@ -677,9 +960,6 @@ def evaluate_target_representation(
         "validation_accuracy_std_across_partitions": float(np.std(partition_accuracies)),
         "validation_examples": validation_examples,
         "unique_validation_examples": len(data["train_labels"]),
-        "test_accuracy": ridge_accuracy(
-            encoded_train, train_labels_tensor, encoded_test, test_labels_tensor, ridge,
-        ),
     }
 
 
@@ -707,9 +987,8 @@ def run_stage2_baselines(
     for target, data in targets.items():
         started = time.perf_counter()
         identity_train = torch.from_numpy(data["train_features"]).to(device)
-        identity_test = torch.from_numpy(data["test_features"]).to(device)
         metrics = evaluate_target_representation(
-            identity_train, identity_test, data, args.ridge, device,
+            identity_train, data, args.ridge, device,
         )
         torch.npu.synchronize()
         rows.append({
@@ -737,9 +1016,8 @@ def run_stage2_baselines(
             adapter = Adapter(data["train_features"].shape[1], args.width).to(device)
             adapter.eval()
             encoded_train = encode(adapter, data["train_features"], device)
-            encoded_test = encode(adapter, data["test_features"], device)
             metrics = evaluate_target_representation(
-                encoded_train, encoded_test, data, args.ridge, device,
+                encoded_train, data, args.ridge, device,
             )
             torch.npu.synchronize()
             rows.append({
@@ -772,6 +1050,10 @@ def run_adapt(args: argparse.Namespace) -> None:
     if manifest["encoder"] != args.encoder:
         raise ValueError(f"manifest encoder {manifest['encoder']} != {args.encoder}")
     sources = manifest["sources"]
+    if args.shard_count > len(sources):
+        raise ValueError(
+            f"shard-count {args.shard_count} exceeds the {len(sources)} manifest sources"
+        )
     assigned_sources = [
         source for index, source in enumerate(sources)
         if index % args.shard_count == args.shard_index
@@ -797,10 +1079,8 @@ def run_adapt(args: argparse.Namespace) -> None:
         train_features, train_labels = load_cache(target_path(
             args.target_dir, args.encoder, target, "train", args.cache_samples,
         ))
-        test_features, test_labels = load_cache(target_path(
-            args.target_dir, args.encoder, target, "test", args.cache_samples,
-        ))
-        train_labels, test_labels = remap_target_labels(train_labels, test_labels)
+        _, train_labels = np.unique(train_labels, return_inverse=True)
+        train_labels = train_labels.astype(np.int64, copy=False)
         ridge_partitions = target_validation_partitions(
             train_labels, args.target_cv_folds, args.target_cv_seeds,
         )
@@ -811,8 +1091,6 @@ def run_adapt(args: argparse.Namespace) -> None:
         targets[target] = {
             "train_features": train_features,
             "train_labels": train_labels,
-            "test_features": test_features,
-            "test_labels": test_labels,
             "ridge_partitions": ridge_partitions,
             "validation_protocol": (
                 base_protocol if len(args.target_cv_seeds) == 1
@@ -825,15 +1103,33 @@ def run_adapt(args: argparse.Namespace) -> None:
         "validation_accuracy", "validation_accuracy_std", "validation_fold_accuracies",
         "validation_partition_accuracies", "validation_accuracy_std_across_partitions",
         "validation_examples", "unique_validation_examples", "target_validation_protocol",
-        "target_cv_folds", "target_cv_partitions", "target_cv_seed", "test_accuracy",
+        "target_cv_folds", "target_cv_partitions", "target_cv_seed",
         "source_samples", "steps", "width", "batch_size", "ridge",
-        "deterministic_algorithms", "training_seconds", "evaluation_seconds", "device",
+        "deterministic_algorithms", "adapter_state_path", "adapter_state_file_sha256",
+        "adapter_state_sha256", "training_seconds", "evaluation_seconds", "device",
     ]
     existing_rows: list[dict[str, object] | dict[str, str]] = []
     if has_output:
         with args.output.open(newline="") as stream:
             existing_rows.extend(csv.DictReader(stream))
-    completed = read_completed(args.output)
+    completed = {
+        (str(row["source"]), int(row["adapter_seed"]), str(row["target"]))
+        for row in existing_rows
+    }
+    if len(completed) != len(existing_rows):
+        raise ValueError("adaptation resume contains duplicate rows")
+    if existing_rows:
+        if (
+            {row.get("run_fingerprint") for row in existing_rows}
+            != {run_record["run_fingerprint"]}
+            or {row.get("encoder") for row in existing_rows} != {args.encoder}
+        ):
+            raise ValueError("adaptation resume rows have incompatible provenance")
+        validate_adaptation_row_protocol(
+            existing_rows,
+            run_record["configuration"],
+            args.output,
+        )
     seed_range = range(args.seed_start, args.seed_start + args.n_seeds)
     validate_resume_groups(completed, assigned_sources, seed_range, set(targets))
 
@@ -873,13 +1169,15 @@ def run_adapt(args: argparse.Namespace) -> None:
             )
             torch.npu.synchronize()
             training_seconds = time.perf_counter() - training_started
+            state_path, state_file_sha256, state_sha256 = save_adapter_state(
+                adapter, args.output, args.encoder, source, adapter_seed,
+            )
             adapter_rows: list[dict[str, object]] = []
             for target, data in targets.items():
                 evaluation_started = time.perf_counter()
                 encoded_train = encode(adapter, data["train_features"], device)
-                encoded_test = encode(adapter, data["test_features"], device)
                 metrics = evaluate_target_representation(
-                    encoded_train, encoded_test, data, args.ridge, device,
+                    encoded_train, data, args.ridge, device,
                 )
                 torch.npu.synchronize()
                 adapter_rows.append({
@@ -900,6 +1198,9 @@ def run_adapt(args: argparse.Namespace) -> None:
                     "batch_size": args.batch_size,
                     "ridge": args.ridge,
                     "deterministic_algorithms": args.deterministic,
+                    "adapter_state_path": state_path,
+                    "adapter_state_file_sha256": state_file_sha256,
+                    "adapter_state_sha256": state_sha256,
                     "training_seconds": training_seconds,
                     "evaluation_seconds": time.perf_counter() - evaluation_started,
                     "device": str(device),
@@ -914,23 +1215,285 @@ def run_adapt(args: argparse.Namespace) -> None:
             )
 
 
-def read_adaptation(paths: list[Path]) -> list[dict[str, str]]:
-    rows = []
+ADAPTATION_COMPATIBILITY_FIELDS = (
+    "schema_version",
+    "script_sha256",
+    "screening_manifest_sha256",
+    "encoder",
+    "encoder_provenance",
+    "targets",
+    "target_cache_sha256",
+    "target_cache_metadata_sha256",
+    "target_cache_index_sha256",
+    "target_test_access",
+    "cache_samples",
+    "adapter_samples",
+    "allow_short_source",
+    "source_sample_seed",
+    "target_cv_folds",
+    "target_cv_seeds",
+    "seed_start",
+    "n_seeds",
+    "width",
+    "steps",
+    "batch_size",
+    "ridge",
+    "adapter_state_format",
+    "deterministic_algorithms",
+    "shard_count",
+)
+
+
+def _parse_accuracy_list(value: str, field: str, path: Path) -> list[float]:
+    try:
+        values = [float(item) for item in value.split("|") if item != ""]
+    except ValueError as error:
+        raise ValueError(f"invalid {field} in {path}") from error
+    if not values or any(not np.isfinite(item) or not 0.0 <= item <= 1.0 for item in values):
+        raise ValueError(f"invalid {field} in {path}")
+    return values
+
+
+def validate_adaptation_row_protocol(
+    rows: list[dict[str, str]],
+    configuration: dict[str, object],
+    path: Path,
+) -> None:
+    """Bind CSV claims to the signed run configuration and basic metric invariants."""
+
+    folds = int(configuration["target_cv_folds"])
+    seeds = [int(seed) for seed in configuration["target_cv_seeds"]]
+    partition_count = len(seeds)
+    expected_seed_text = "|".join(map(str, seeds))
+    base_protocol = "stratified_holdout_80_20" if folds == 1 else f"stratified_{folds}_fold"
+    expected_protocol = (
+        base_protocol if partition_count == 1 else f"repeated_{base_protocol}"
+    )
+    required_fields = {
+        "target_validation_protocol", "target_cv_folds", "target_cv_partitions",
+        "target_cv_seed", "validation_accuracy", "validation_accuracy_std",
+        "validation_fold_accuracies", "validation_partition_accuracies",
+        "validation_accuracy_std_across_partitions", "validation_examples",
+        "unique_validation_examples", "source_samples", "steps",
+        "width", "batch_size", "ridge", "deterministic_algorithms",
+        "adapter_state_path", "adapter_state_file_sha256", "adapter_state_sha256",
+        "training_seconds", "evaluation_seconds",
+    }
+    expected_static = {
+        "target_validation_protocol": expected_protocol,
+        "target_cv_folds": str(folds),
+        "target_cv_partitions": str(partition_count),
+        "target_cv_seed": expected_seed_text,
+        "steps": str(configuration["steps"]),
+        "width": str(configuration["width"]),
+        "batch_size": str(configuration["batch_size"]),
+        "deterministic_algorithms": str(configuration["deterministic_algorithms"]),
+    }
+    expected_samples = int(configuration["adapter_samples"])
+    allow_short = bool(configuration["allow_short_source"])
+    for row in rows:
+        if row.get("test_accuracy", "") != "":
+            raise ValueError(f"adaptation row accessed target test before selection: {path}")
+        missing = sorted(field for field in required_fields if row.get(field, "") == "")
+        if missing:
+            raise ValueError(f"adaptation row lacks audited fields {missing}: {path}")
+        state_relative = Path(row["adapter_state_path"])
+        if state_relative.is_absolute() or ".." in state_relative.parts:
+            raise ValueError(f"adapter state path escapes its run directory: {path}")
+        state_path = path.parent / state_relative
+        if (
+            not state_path.is_file()
+            or not _valid_sha256(row["adapter_state_file_sha256"])
+            or sha256_file(state_path) != row["adapter_state_file_sha256"]
+            or not _valid_sha256(row["adapter_state_sha256"])
+        ):
+            raise ValueError(f"adapter state provenance mismatch: {state_path}")
+        mismatches = [
+            field for field, expected in expected_static.items()
+            if row[field] != expected
+        ]
+        if mismatches:
+            raise ValueError(f"adaptation row/config mismatch {mismatches}: {path}")
+        try:
+            if not np.isclose(float(row["ridge"]), float(configuration["ridge"])):
+                raise ValueError
+            source_samples = int(row["source_samples"])
+            validation = float(row["validation_accuracy"])
+            validation_std = float(row["validation_accuracy_std"])
+            partition_std = float(row["validation_accuracy_std_across_partitions"])
+            validation_examples = int(row["validation_examples"])
+            unique_examples = int(row["unique_validation_examples"])
+            timings = [float(row["training_seconds"]), float(row["evaluation_seconds"])]
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"adaptation row contains invalid numeric fields: {path}") from error
+        if source_samples < 1 or source_samples > expected_samples:
+            raise ValueError(f"adaptation source sample count exceeds its budget: {path}")
+        if not allow_short and source_samples != expected_samples:
+            raise ValueError(f"adaptation source sample count differs from its fixed budget: {path}")
+        if not np.isfinite(validation) or not 0.0 <= validation <= 1.0:
+            raise ValueError(f"adaptation accuracy is outside [0, 1]: {path}")
+        if any(not np.isfinite(value) or value < 0.0 for value in (validation_std, partition_std, *timings)):
+            raise ValueError(f"adaptation dispersion/timing field is invalid: {path}")
+        fold_values = _parse_accuracy_list(
+            row["validation_fold_accuracies"], "validation_fold_accuracies", path,
+        )
+        partition_values = _parse_accuracy_list(
+            row["validation_partition_accuracies"],
+            "validation_partition_accuracies", path,
+        )
+        if len(fold_values) != folds * partition_count:
+            raise ValueError(f"adaptation fold count does not match configuration: {path}")
+        if len(partition_values) != partition_count:
+            raise ValueError(f"adaptation partition count does not match configuration: {path}")
+        if not np.isclose(validation, np.mean(partition_values), atol=1e-8):
+            raise ValueError(f"adaptation validation mean is inconsistent: {path}")
+        if not np.isclose(validation_std, np.std(fold_values), atol=1e-8):
+            raise ValueError(f"adaptation fold dispersion is inconsistent: {path}")
+        if not np.isclose(partition_std, np.std(partition_values), atol=1e-8):
+            raise ValueError(f"adaptation partition dispersion is inconsistent: {path}")
+        if validation_examples < 1 or unique_examples < 1:
+            raise ValueError(f"adaptation validation sample counts are invalid: {path}")
+        if folds > 1 and validation_examples != unique_examples * partition_count:
+            raise ValueError(f"cross-validation coverage is incomplete: {path}")
+        if folds == 1 and validation_examples > unique_examples * partition_count:
+            raise ValueError(f"holdout coverage exceeds the target split: {path}")
+
+
+def read_adaptation(
+    paths: list[Path],
+    *,
+    manifest: dict[str, object],
+    manifest_path: Path,
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    configurations: list[dict[str, object]] = []
+    observed_shards: set[int] = set()
+    assigned_sources: set[str] = set()
     for path in paths:
         with path.open(newline="") as stream:
             current = list(csv.DictReader(stream))
+        if not current:
+            raise ValueError(f"adaptation input is empty: {path}")
         fingerprints = {row.get("run_fingerprint", "") for row in current}
-        fingerprints.discard("")
-        if fingerprints:
-            if len(fingerprints) != 1 or any(not row.get("run_fingerprint") for row in current):
-                raise ValueError(f"mixed adaptation provenance in {path}")
-            run_path = adaptation_run_path(path)
-            if not run_path.exists():
-                raise ValueError(f"adaptation provenance sidecar is missing: {run_path}")
-            recorded = json.loads(run_path.read_text()).get("run_fingerprint")
-            if recorded != next(iter(fingerprints)):
-                raise ValueError(f"adaptation provenance mismatch: {path}")
+        if len(fingerprints) != 1 or "" in fingerprints:
+            raise ValueError(f"missing or mixed adaptation provenance in {path}")
+        run_path = adaptation_run_path(path)
+        if not run_path.exists():
+            raise ValueError(f"adaptation provenance sidecar is missing: {run_path}")
+        run_record = json.loads(run_path.read_text())
+        configuration = run_record.get("configuration")
+        if not isinstance(configuration, dict):
+            raise ValueError(f"adaptation sidecar lacks configuration: {run_path}")
+        canonical = json.dumps(configuration, sort_keys=True, separators=(",", ":"))
+        computed_fingerprint = hashlib.sha256(canonical.encode()).hexdigest()
+        recorded_fingerprint = run_record.get("run_fingerprint")
+        if (
+            recorded_fingerprint != computed_fingerprint
+            or recorded_fingerprint != next(iter(fingerprints))
+        ):
+            raise ValueError(f"adaptation provenance mismatch: {path}")
+        missing = [
+            field for field in ADAPTATION_COMPATIBILITY_FIELDS
+            if field not in configuration
+        ]
+        missing.extend(
+            field for field in (
+                "shard_index", "assigned_sources", "source_cache_sha256",
+                "source_cache_metadata_sha256", "source_cache_index_sha256",
+            )
+            if field not in configuration
+        )
+        if missing:
+            raise ValueError(f"adaptation sidecar lacks corrected fields: {missing}")
+        if configuration["screening_manifest_sha256"] != sha256_file(manifest_path):
+            raise ValueError(f"adaptation input uses a different screening manifest: {path}")
+        if configuration["encoder"] != manifest["encoder"]:
+            raise ValueError(f"adaptation encoder does not match manifest: {path}")
+        if configuration["encoder_provenance"] != manifest.get("encoder_provenance"):
+            raise ValueError(f"adaptation encoder provenance does not match manifest: {path}")
+        if configuration["targets"] != manifest["targets"]:
+            raise ValueError(f"adaptation targets do not match manifest: {path}")
+
+        shard_index = int(configuration["shard_index"])
+        shard_count = int(configuration["shard_count"])
+        if not 0 <= shard_index < shard_count or shard_index in observed_shards:
+            raise ValueError(f"invalid or duplicate adaptation shard: {shard_index}/{shard_count}")
+        observed_shards.add(shard_index)
+        current_sources = list(configuration.get("assigned_sources", []))
+        if len(current_sources) != len(set(current_sources)):
+            raise ValueError(f"duplicate assigned source in {run_path}")
+        overlap = assigned_sources & set(current_sources)
+        if overlap:
+            raise ValueError(f"sources occur in multiple adaptation shards: {sorted(overlap)}")
+        assigned_sources.update(current_sources)
+        for key in (
+            "source_cache_sha256", "source_cache_metadata_sha256",
+            "source_cache_index_sha256",
+        ):
+            values = configuration.get(key, {})
+            if (
+                not isinstance(values, dict)
+                or set(values) != set(current_sources)
+                or any(not _valid_sha256(value) for value in values.values())
+            ):
+                raise ValueError(f"{key} does not cover assigned sources in {run_path}")
+
+        expected_target_keys = {
+            f"{target}:train" for target in manifest["targets"]
+        }
+        for key in (
+            "target_cache_sha256", "target_cache_metadata_sha256",
+            "target_cache_index_sha256",
+        ):
+            values = configuration.get(key, {})
+            if (
+                not isinstance(values, dict)
+                or set(values) != expected_target_keys
+                or any(not _valid_sha256(value) for value in values.values())
+            ):
+                raise ValueError(f"{key} does not cover target-train caches in {run_path}")
+
+        expected_seeds = set(range(
+            int(configuration["seed_start"]),
+            int(configuration["seed_start"]) + int(configuration["n_seeds"]),
+        ))
+        expected_targets = set(manifest["targets"])
+        expected_keys = {
+            (source, seed, target)
+            for source in current_sources
+            for seed in expected_seeds
+            for target in expected_targets
+        }
+        current_keys = {
+            (row["source"], int(row["adapter_seed"]), row["target"])
+            for row in current
+        }
+        if {row["encoder"] for row in current} != {manifest["encoder"]}:
+            raise ValueError(f"adaptation rows use the wrong encoder: {path}")
+        if current_keys != expected_keys or len(current) != len(expected_keys):
+            raise ValueError(f"adaptation shard is incomplete or contains extra rows: {path}")
+        validate_adaptation_row_protocol(current, configuration, path)
+        configurations.append(configuration)
         rows.extend(current)
+
+    reference = configurations[0]
+    if reference["script_sha256"] != sha256_file(Path(__file__)):
+        raise ValueError("adaptation results were produced by a different script revision")
+    for configuration in configurations[1:]:
+        mismatches = [
+            field for field in ADAPTATION_COMPATIBILITY_FIELDS
+            if configuration[field] != reference[field]
+        ]
+        if mismatches:
+            raise ValueError(f"adaptation shard configurations differ: {mismatches}")
+    shard_count = int(reference["shard_count"])
+    if observed_shards != set(range(shard_count)):
+        raise ValueError(
+            f"adaptation shards are incomplete: got {sorted(observed_shards)}, "
+            f"expected {list(range(shard_count))}"
+        )
+    if assigned_sources != set(manifest["sources"]):
+        raise ValueError("adaptation shards do not cover the manifest source set")
     keys = [(row["encoder"], row["source"], row["adapter_seed"], row["target"]) for row in rows]
     if len(keys) != len(set(keys)):
         raise ValueError("duplicate encoder/source/seed/target rows in adaptation inputs")
@@ -959,7 +1522,7 @@ def tolerance_column(tolerance: float) -> str:
 
 def paired_bootstrap_confidence_tier(
     ranking: list[str],
-    source_values: dict[str, list[tuple[float, float, int]]],
+    source_values: dict[str, list[tuple[float, int]]],
     confidence: float,
     replicates: int,
     seed: int,
@@ -969,12 +1532,12 @@ def paired_bootstrap_confidence_tier(
     if not 0.0 < confidence < 1.0 or replicates < 1:
         raise ValueError("bootstrap confidence and replicate count are invalid")
     winner = ranking[0]
-    winner_values = {seed_id: validation for validation, _, seed_id in source_values[winner]}
+    winner_values = {seed_id: validation for validation, seed_id in source_values[winner]}
     result = {winner}
     rng = np.random.default_rng(seed)
     for source in ranking[1:]:
         candidate_values = {
-            seed_id: validation for validation, _, seed_id in source_values[source]
+            seed_id: validation for validation, seed_id in source_values[source]
         }
         if set(candidate_values) != set(winner_values):
             raise ValueError(f"adapter seeds differ between {winner} and {source}")
@@ -996,9 +1559,87 @@ def paired_bootstrap_confidence_tier(
     return result
 
 
+def adaptation_artifacts_for_selection(
+    paths: list[Path], output_dir: Path,
+) -> tuple[dict[str, object], dict[str, dict[str, str]]]:
+    configurations = [
+        json.loads(adaptation_run_path(path).read_text())["configuration"]
+        for path in paths
+    ]
+    reference = configurations[0]
+    source_maps: dict[str, dict[str, str]] = {
+        field: {} for field in (
+            "source_cache_sha256", "source_cache_metadata_sha256",
+            "source_cache_index_sha256",
+        )
+    }
+    for configuration in configurations:
+        for field, merged in source_maps.items():
+            for source, value in configuration[field].items():
+                if source in merged and merged[source] != value:
+                    raise ValueError(f"adaptation {field} differs for source {source}")
+                merged[source] = value
+
+    adapter_states: dict[str, dict[str, str]] = {}
+    for path in paths:
+        with path.open(newline="") as stream:
+            for row in csv.DictReader(stream):
+                key = f"{row['source']}:{int(row['adapter_seed'])}"
+                resolved = path.parent / row["adapter_state_path"]
+                record = {
+                    "path": os.path.relpath(resolved, output_dir),
+                    "file_sha256": row["adapter_state_file_sha256"],
+                    "state_sha256": row["adapter_state_sha256"],
+                }
+                if key in adapter_states and adapter_states[key] != record:
+                    raise ValueError(f"adapter checkpoint differs across target rows: {key}")
+                adapter_states[key] = record
+
+    protocol_fields = (
+        "schema_version", "script_sha256", "screening_manifest_sha256", "encoder",
+        "encoder_provenance", "targets", "target_cache_sha256",
+        "target_cache_metadata_sha256", "target_cache_index_sha256",
+        "target_test_access", "cache_samples", "adapter_samples", "allow_short_source",
+        "source_sample_seed", "target_cv_folds", "target_cv_seeds", "seed_start",
+        "n_seeds", "width", "steps", "batch_size", "ridge",
+        "adapter_state_format", "deterministic_algorithms",
+    )
+    protocol = {field: reference[field] for field in protocol_fields}
+    protocol.update(source_maps)
+    protocol["sources"] = sorted(source_maps["source_cache_sha256"])
+    expected_state_keys = {
+        f"{source}:{seed}"
+        for source in protocol["sources"]
+        for seed in range(
+            int(reference["seed_start"]),
+            int(reference["seed_start"]) + int(reference["n_seeds"]),
+        )
+    }
+    if set(adapter_states) != expected_state_keys:
+        raise ValueError("adapter checkpoints do not cover every source/seed pair")
+    return protocol, adapter_states
+
+
 def run_summarize(args: argparse.Namespace) -> None:
     manifest = json.loads(args.manifest.read_text())
-    rows = read_adaptation(args.adaptation_csv)
+    adaptation_manifest_path = getattr(args, "adaptation_manifest", None) or args.manifest
+    adaptation_manifest = json.loads(adaptation_manifest_path.read_text())
+    if (
+        adaptation_manifest.get("encoder") != manifest.get("encoder")
+        or adaptation_manifest.get("targets") != manifest.get("targets")
+        or adaptation_manifest.get("encoder_provenance") != manifest.get("encoder_provenance")
+    ):
+        raise ValueError("adaptation and evaluation manifests are incompatible")
+    if not set(manifest["sources"]).issubset(set(adaptation_manifest["sources"])):
+        raise ValueError("evaluation sources are not a subset of the adaptation manifest")
+    rows = read_adaptation(
+        args.adaptation_csv,
+        manifest=adaptation_manifest,
+        manifest_path=adaptation_manifest_path,
+    )
+    adaptation_protocol, adapter_states = adaptation_artifacts_for_selection(
+        args.adaptation_csv, args.out_dir,
+    )
     manifest_sources = set(manifest["sources"])
     manifest_targets = set(manifest["targets"])
     equivalence_tolerances = sorted(set(
@@ -1010,7 +1651,7 @@ def run_summarize(args: argparse.Namespace) -> None:
         "source_families",
         {source: SOURCE_FAMILIES[source] for source in manifest_sources},
     )
-    grouped: dict[tuple[str, str], dict[str, list[tuple[float, float]]]] = {}
+    grouped: dict[tuple[str, str], dict[str, list[tuple[float, int]]]] = {}
     for row in rows:
         if (
             row["encoder"] != manifest["encoder"]
@@ -1020,8 +1661,7 @@ def run_summarize(args: argparse.Namespace) -> None:
             continue
         key = row["encoder"], row["target"]
         grouped.setdefault(key, {}).setdefault(row["source"], []).append((
-            float(row["validation_accuracy"]), float(row["test_accuracy"]),
-            int(row["adapter_seed"]),
+            float(row["validation_accuracy"]), int(row["adapter_seed"]),
         ))
     observed_targets = {target for _, target in grouped}
     if observed_targets != manifest_targets:
@@ -1037,7 +1677,6 @@ def run_summarize(args: argparse.Namespace) -> None:
         utility = {
             source: {
                 "validation": float(np.mean([value[0] for value in values])),
-                "test": float(np.mean([value[1] for value in values])),
                 "seeds": len(values),
             }
             for source, values in source_values.items()
@@ -1050,7 +1689,6 @@ def run_summarize(args: argparse.Namespace) -> None:
         )
         oracle_source = ranking[0]
         oracle_validation = utility[oracle_source]["validation"]
-        oracle_test = utility[oracle_source]["test"]
         worst_validation = utility[ranking[-1]]["validation"]
         oracle_sources = utility_tier(ranking, utility, 1, args.tie_tolerance)
         equivalence_oracles = {
@@ -1093,7 +1731,6 @@ def run_summarize(args: argparse.Namespace) -> None:
                     key=lambda source: (-utility[source]["validation"], source),
                 )
                 validation = utility[selected_source]["validation"]
-                test = utility[selected_source]["test"]
                 scale = max(oracle_validation - worst_validation, 1e-12)
                 result = {
                     "encoder": encoder,
@@ -1135,9 +1772,6 @@ def run_summarize(args: argparse.Namespace) -> None:
                     "selected_validation_accuracy": validation,
                     "validation_regret": oracle_validation - validation,
                     "normalized_validation_regret": (oracle_validation - validation) / scale,
-                    "oracle_selected_test_accuracy": oracle_test,
-                    "selected_test_accuracy": test,
-                    "test_regret_vs_exhaustive_validation_selection": oracle_test - test,
                     "adapter_seeds": next(iter(seed_counts)),
                     "primary_tie_tolerance": args.tie_tolerance,
                     "oracle_validation_margin_to_second": (
@@ -1194,9 +1828,6 @@ def run_summarize(args: argparse.Namespace) -> None:
             "normalized_validation_regret_mean": float(np.mean([
                 float(value["normalized_validation_regret"]) for value in values
             ])),
-            "test_regret_mean": float(np.mean([
-                float(value["test_regret_vs_exhaustive_validation_selection"]) for value in values
-            ])),
             "removed_fraction": values[0]["removed_fraction"],
             "selected_family_count_mean": float(np.mean([
                 float(value["selected_family_count"]) for value in values
@@ -1220,7 +1851,572 @@ def run_summarize(args: argparse.Namespace) -> None:
         writer = csv.DictWriter(stream, fieldnames=list(summary_rows[0]))
         writer.writeheader()
         writer.writerows(summary_rows)
+    summary_manifest = {
+        "schema_version": 2,
+        "created_utc": utc_now(),
+        "encoder": manifest["encoder"],
+        "script_sha256": sha256_file(Path(__file__)),
+        "screening_manifest": str(args.manifest),
+        "screening_manifest_sha256": sha256_file(args.manifest),
+        "adaptation_manifest": str(adaptation_manifest_path),
+        "adaptation_manifest_sha256": sha256_file(adaptation_manifest_path),
+        "adaptation_inputs_sha256": {
+            str(path): sha256_file(path) for path in args.adaptation_csv
+        },
+        "adaptation_sidecars_sha256": {
+            str(adaptation_run_path(path)): sha256_file(adaptation_run_path(path))
+            for path in args.adaptation_csv
+        },
+        "adaptation_protocol": adaptation_protocol,
+        "adapter_states": adapter_states,
+        "sources": manifest["sources"],
+        "targets": manifest["targets"],
+        "shortlist_sizes": manifest["shortlist_sizes"],
+        "methods": sorted({str(row["method"]) for row in detailed}),
+        "n_random": args.n_random,
+        "random_seed": args.random_seed,
+        "tie_tolerance": args.tie_tolerance,
+        "equivalence_tolerances": equivalence_tolerances,
+        "confidence_level": float(getattr(args, "confidence_level", 0.95)),
+        "bootstrap_replicates": int(getattr(args, "bootstrap_replicates", 5_000)),
+        "selection_metric": "mean_target_training_cv_accuracy",
+        "selection_detail": detail_path.name,
+        "target_test_used_for_selection": False,
+        "target_test_read_during_adaptation_or_selection": False,
+        "selection_frozen_before_target_test": True,
+        "detail_rows": len(detailed),
+        "detail_sha256": sha256_file(detail_path),
+        "summary_rows": len(summary_rows),
+        "summary_sha256": sha256_file(summary_path),
+    }
+    write_json_atomic(
+        args.out_dir / f"{manifest['encoder']}_shortlist_manifest.json",
+        summary_manifest,
+    )
     print(json.dumps(summary_rows, indent=2), flush=True)
+
+
+def heldout_manifest_path(output: Path) -> Path:
+    return output.with_name(f"{output.stem}_manifest.json")
+
+
+def validate_selection_freeze(path: Path) -> tuple[dict[str, object], Path, list[dict[str, str]]]:
+    manifest = json.loads(path.read_text())
+    if manifest.get("schema_version") != 2:
+        raise ValueError("selection manifest does not use the held-out isolation schema")
+    if manifest.get("script_sha256") != sha256_file(Path(__file__)):
+        raise ValueError("selection freeze was produced by a different script revision")
+    if (
+        manifest.get("target_test_used_for_selection") is not False
+        or manifest.get("target_test_read_during_adaptation_or_selection") is not False
+        or manifest.get("selection_frozen_before_target_test") is not True
+    ):
+        raise ValueError("selection manifest does not prove held-out target isolation")
+    detail_name = manifest.get("selection_detail")
+    if not isinstance(detail_name, str) or not detail_name:
+        raise ValueError("selection manifest lacks its frozen detail file")
+    detail_path = path.parent / detail_name
+    if sha256_file(detail_path) != manifest.get("detail_sha256"):
+        raise ValueError("frozen selection detail checksum mismatch")
+    with detail_path.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    if len(rows) != int(manifest.get("detail_rows", -1)):
+        raise ValueError("frozen selection detail row count mismatch")
+    if not rows or any(
+        row.get(field, "") != ""
+        for row in rows
+        for field in (
+            "selected_test_accuracy", "oracle_selected_test_accuracy",
+            "test_regret_vs_exhaustive_validation_selection",
+        )
+    ):
+        raise ValueError("selection freeze already contains target-test metrics")
+    protocol = manifest.get("adaptation_protocol")
+    states = manifest.get("adapter_states")
+    if not isinstance(protocol, dict) or not isinstance(states, dict):
+        raise ValueError("selection manifest lacks adaptation/checkpoint provenance")
+    if protocol.get("target_test_access") != "forbidden_during_adaptation_and_selection":
+        raise ValueError("adaptation protocol did not forbid early target-test access")
+    return manifest, detail_path, rows
+
+
+def heldout_target_metadata(
+    target_dir: Path,
+    encoder: str,
+    targets: list[str],
+    cache_samples: int,
+    expected_provenance: dict[str, object],
+    expected_train_hashes: dict[str, str],
+    expected_train_metadata_hashes: dict[str, str],
+    expected_train_index_hashes: dict[str, str],
+) -> tuple[dict[str, dict[str, object]], dict[str, dict[str, object]]]:
+    train_metadata: dict[str, dict[str, object]] = {}
+    test_metadata: dict[str, dict[str, object]] = {}
+    for target in targets:
+        train_key = f"{target}:train"
+        train = stage2_cache_metadata(
+            target_path(target_dir, encoder, target, "train", cache_samples),
+            expected_encoder=encoder,
+            expected_dataset=target,
+            expected_split="train",
+            expected_samples=cache_samples,
+            label_read_field="stage2_sampling_reads_labels",
+        )
+        if (
+            train["encoder_provenance"] != expected_provenance
+            or train["computed_feature_file_sha256"] != expected_train_hashes.get(train_key)
+            or train["metadata_file_sha256"] != expected_train_metadata_hashes.get(train_key)
+            or train["computed_index_sha256"] != expected_train_index_hashes.get(train_key)
+        ):
+            raise ValueError(f"held-out target train cache changed after selection: {target}")
+        test = stage2_cache_metadata(
+            target_path(target_dir, encoder, target, "test", cache_samples),
+            expected_encoder=encoder,
+            expected_dataset=target,
+            expected_split="test",
+            expected_samples=cache_samples,
+            label_read_field="stage2_sampling_reads_labels",
+        )
+        if test["encoder_provenance"] != expected_provenance:
+            raise ValueError(f"held-out target test encoder differs for {target}")
+        train_metadata[train_key] = train
+        test_metadata[f"{target}:test"] = test
+    return train_metadata, test_metadata
+
+
+def load_frozen_adapter(
+    checkpoint: Path,
+    expected_file_sha256: str,
+    expected_state_sha256: str,
+    dimension: int,
+    width: int,
+    device: torch.device,
+) -> Adapter:
+    if sha256_file(checkpoint) != expected_file_sha256:
+        raise ValueError(f"adapter checkpoint checksum mismatch: {checkpoint}")
+    state = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    if not isinstance(state, dict):
+        raise ValueError(f"adapter checkpoint is not a state dict: {checkpoint}")
+    adapter = Adapter(dimension, width)
+    adapter.load_state_dict(state, strict=True)
+    if module_state_sha256(adapter) != expected_state_sha256:
+        raise ValueError(f"adapter parameter hash mismatch: {checkpoint}")
+    adapter.eval().to(device)
+    return adapter
+
+
+def finite_metric(
+    row: dict[str, object] | dict[str, str],
+    field: str,
+    *,
+    lower: float | None = None,
+    upper: float | None = None,
+) -> float:
+    try:
+        value = float(row[field])
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError(f"invalid held-out field {field}") from error
+    if not np.isfinite(value):
+        raise ValueError(f"non-finite held-out field {field}")
+    if lower is not None and value < lower:
+        raise ValueError(f"held-out field {field} is below {lower}")
+    if upper is not None and value > upper:
+        raise ValueError(f"held-out field {field} is above {upper}")
+    return value
+
+
+def validate_heldout_baseline_resume(
+    rows: list[dict[str, str]],
+    expected_keys: set[tuple[str, int, str]],
+    fingerprint: str,
+    encoder: str,
+) -> None:
+    keys = {
+        (row["baseline"], int(row["adapter_seed"]), row["target"])
+        for row in rows
+    }
+    if keys != expected_keys or len(rows) != len(expected_keys):
+        raise ValueError("held-out baseline output has duplicate or unplanned rows")
+    for row in rows:
+        if row.get("run_fingerprint") != fingerprint or row.get("encoder") != encoder:
+            raise ValueError("held-out baseline output has incompatible provenance")
+        finite_metric(row, "test_accuracy", lower=0.0, upper=1.0)
+        finite_metric(row, "evaluation_seconds", lower=0.0)
+        if not row.get("device"):
+            raise ValueError("held-out baseline output lacks its evaluation device")
+
+
+def validate_heldout_evaluation_resume(
+    rows: list[dict[str, str]],
+    expected_keys: set[tuple[str, int, str]],
+    fingerprint: str,
+    encoder: str,
+    adapter_states: dict[str, object],
+    selection_dir: Path,
+) -> set[tuple[str, int, str]]:
+    completed = {
+        (row["source"], int(row["adapter_seed"]), row["target"])
+        for row in rows
+    }
+    if not completed.issubset(expected_keys) or len(completed) != len(rows):
+        raise ValueError("held-out resume contains duplicate or unplanned evaluations")
+    verified_checkpoints: set[Path] = set()
+    for row in rows:
+        if row.get("run_fingerprint") != fingerprint or row.get("encoder") != encoder:
+            raise ValueError("held-out resume has incompatible provenance")
+        finite_metric(row, "test_accuracy", lower=0.0, upper=1.0)
+        finite_metric(row, "evaluation_seconds", lower=0.0)
+        if not row.get("device"):
+            raise ValueError("held-out resume lacks its evaluation device")
+        state = adapter_states.get(f"{row['source']}:{int(row['adapter_seed'])}")
+        if not isinstance(state, dict):
+            raise ValueError("held-out resume references an unknown adapter state")
+        expected_fields = {
+            "adapter_state_path": state.get("path"),
+            "adapter_state_file_sha256": state.get("file_sha256"),
+            "adapter_state_sha256": state.get("state_sha256"),
+        }
+        if any(
+            str(row.get(field, "")) != str(value)
+            for field, value in expected_fields.items()
+        ):
+            raise ValueError("held-out resume does not match the frozen adapter state")
+        checkpoint = selection_dir / str(state.get("path", ""))
+        if checkpoint not in verified_checkpoints:
+            if (
+                not checkpoint.is_file()
+                or sha256_file(checkpoint) != state.get("file_sha256")
+            ):
+                raise ValueError(f"frozen adapter checkpoint checksum mismatch: {checkpoint}")
+            verified_checkpoints.add(checkpoint)
+    return completed
+
+
+def run_heldout_baselines(
+    output: Path,
+    encoder: str,
+    targets: dict[str, dict[str, object]],
+    protocol: dict[str, object],
+    fingerprint: str,
+    device: torch.device,
+) -> Path:
+    path = output.with_name(f"{encoder}_heldout_stage2_baselines.csv")
+    fields = [
+        "run_fingerprint", "encoder", "baseline", "adapter_seed", "target",
+        "test_accuracy", "evaluation_seconds", "device",
+    ]
+    expected_keys = {
+        ("frozen_identity", -1, target) for target in targets
+    } | {
+        ("random_adapter", seed, target)
+        for seed in range(
+            int(protocol["seed_start"]),
+            int(protocol["seed_start"]) + int(protocol["n_seeds"]),
+        )
+        for target in targets
+    }
+    if path.exists():
+        with path.open(newline="") as stream:
+            rows = list(csv.DictReader(stream))
+        validate_heldout_baseline_resume(rows, expected_keys, fingerprint, encoder)
+        return path
+
+    rows: list[dict[str, object]] = []
+    for target, data in targets.items():
+        train_labels = torch.from_numpy(data["train_labels"]).to(device)
+        test_labels = torch.from_numpy(data["test_labels"]).to(device)
+        started = time.perf_counter()
+        identity_train = torch.from_numpy(data["train_features"]).to(device)
+        identity_test = torch.from_numpy(data["test_features"]).to(device)
+        identity_accuracy = ridge_accuracy(
+            identity_train, train_labels, identity_test, test_labels,
+            float(protocol["ridge"]),
+        )
+        torch.npu.synchronize()
+        rows.append({
+            "run_fingerprint": fingerprint,
+            "encoder": encoder,
+            "baseline": "frozen_identity",
+            "adapter_seed": -1,
+            "target": target,
+            "test_accuracy": identity_accuracy,
+            "evaluation_seconds": time.perf_counter() - started,
+            "device": str(device),
+        })
+        for seed in range(
+            int(protocol["seed_start"]),
+            int(protocol["seed_start"]) + int(protocol["n_seeds"]),
+        ):
+            started = time.perf_counter()
+            torch.manual_seed(seed)
+            torch.npu.manual_seed_all(seed)
+            np.random.seed(seed)
+            random.seed(seed)
+            adapter = Adapter(data["train_features"].shape[1], int(protocol["width"]))
+            adapter.eval().to(device)
+            encoded_train = encode(adapter, data["train_features"], device)
+            encoded_test = encode(adapter, data["test_features"], device)
+            accuracy = ridge_accuracy(
+                encoded_train, train_labels, encoded_test, test_labels,
+                float(protocol["ridge"]),
+            )
+            torch.npu.synchronize()
+            rows.append({
+                "run_fingerprint": fingerprint,
+                "encoder": encoder,
+                "baseline": "random_adapter",
+                "adapter_seed": seed,
+                "target": target,
+                "test_accuracy": accuracy,
+                "evaluation_seconds": time.perf_counter() - started,
+                "device": str(device),
+            })
+    write_csv_atomic(path, fields, rows)
+    return path
+
+
+def run_heldout(args: argparse.Namespace) -> None:
+    try:
+        import torch_npu  # noqa: F401
+    except ImportError as error:
+        raise RuntimeError("the heldout phase requires torch_npu on an Ascend host") from error
+
+    selection, _, detail_rows = validate_selection_freeze(args.selection_manifest)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    protocol = selection["adaptation_protocol"]
+    encoder = str(selection["encoder"])
+    if encoder != args.encoder:
+        raise ValueError(f"selection encoder {encoder} != {args.encoder}")
+    targets = [str(target) for target in selection["targets"]]
+    sources = set(str(source) for source in selection["sources"])
+    evaluation_pairs = sorted({
+        (row["selected_source"], row["target"])
+        for row in detail_rows
+    } | {
+        (row["oracle_source"], row["target"])
+        for row in detail_rows
+    })
+    if any(source not in sources or target not in targets for source, target in evaluation_pairs):
+        raise ValueError("frozen selection references an unknown source or target")
+
+    cache_samples = int(protocol["cache_samples"])
+    train_metadata, test_metadata = heldout_target_metadata(
+        args.target_dir,
+        encoder,
+        targets,
+        cache_samples,
+        protocol["encoder_provenance"],
+        protocol["target_cache_sha256"],
+        protocol["target_cache_metadata_sha256"],
+        protocol["target_cache_index_sha256"],
+    )
+    configuration = {
+        "schema_version": 1,
+        "phase": "heldout_after_frozen_selection",
+        "script_sha256": sha256_file(Path(__file__)),
+        "selection_manifest_sha256": sha256_file(args.selection_manifest),
+        "selection_detail_sha256": selection["detail_sha256"],
+        "encoder": encoder,
+        "encoder_provenance": protocol["encoder_provenance"],
+        "targets": targets,
+        "evaluation_pairs": evaluation_pairs,
+        "adapter_states": selection["adapter_states"],
+        "target_train_cache_sha256": {
+            key: value["computed_feature_file_sha256"]
+            for key, value in train_metadata.items()
+        },
+        "target_test_cache_sha256": {
+            key: value["computed_feature_file_sha256"]
+            for key, value in test_metadata.items()
+        },
+        "target_train_metadata_sha256": {
+            key: value["metadata_file_sha256"] for key, value in train_metadata.items()
+        },
+        "target_test_metadata_sha256": {
+            key: value["metadata_file_sha256"] for key, value in test_metadata.items()
+        },
+        "target_train_index_sha256": {
+            key: value["computed_index_sha256"] for key, value in train_metadata.items()
+        },
+        "target_test_index_sha256": {
+            key: value["computed_index_sha256"] for key, value in test_metadata.items()
+        },
+        "seed_start": protocol["seed_start"],
+        "n_seeds": protocol["n_seeds"],
+        "width": protocol["width"],
+        "ridge": protocol["ridge"],
+        "deterministic_algorithms": protocol["deterministic_algorithms"],
+        "target_test_access": "after_selection_manifest_was_frozen",
+    }
+    canonical = json.dumps(configuration, sort_keys=True, separators=(",", ":"))
+    fingerprint = hashlib.sha256(canonical.encode()).hexdigest()
+    run_path = adaptation_run_path(args.output)
+    if run_path.exists():
+        existing = json.loads(run_path.read_text())
+        if existing.get("run_fingerprint") != fingerprint:
+            raise ValueError("held-out output has incompatible provenance")
+    else:
+        write_json_atomic(run_path, {
+            "created_utc": utc_now(),
+            "run_fingerprint": fingerprint,
+            "configuration": configuration,
+        })
+
+    target_data: dict[str, dict[str, object]] = {}
+    for target in targets:
+        train_features, train_labels = load_cache(target_path(
+            args.target_dir, encoder, target, "train", cache_samples,
+        ))
+        test_features, test_labels = load_cache(target_path(
+            args.target_dir, encoder, target, "test", cache_samples,
+        ))
+        train_labels, test_labels = remap_target_labels(train_labels, test_labels)
+        target_data[target] = {
+            "train_features": train_features,
+            "train_labels": train_labels,
+            "test_features": test_features,
+            "test_labels": test_labels,
+        }
+
+    seed_range = range(
+        int(protocol["seed_start"]),
+        int(protocol["seed_start"]) + int(protocol["n_seeds"]),
+    )
+    expected_keys = {
+        (source, seed, target)
+        for source, target in evaluation_pairs
+        for seed in seed_range
+    }
+    raw_path = args.output.with_name(f"{args.output.stem}_evaluations.csv")
+    raw_fields = [
+        "run_fingerprint", "encoder", "source", "adapter_seed", "target",
+        "test_accuracy", "adapter_state_path", "adapter_state_file_sha256",
+        "adapter_state_sha256", "evaluation_seconds", "device",
+    ]
+    raw_rows: list[dict[str, object] | dict[str, str]] = []
+    if raw_path.exists():
+        with raw_path.open(newline="") as stream:
+            raw_rows.extend(csv.DictReader(stream))
+    completed = validate_heldout_evaluation_resume(
+        raw_rows,
+        expected_keys,
+        fingerprint,
+        encoder,
+        selection["adapter_states"],
+        args.selection_manifest.parent,
+    )
+
+    torch.use_deterministic_algorithms(
+        bool(protocol["deterministic_algorithms"]), warn_only=False,
+    )
+    device = torch.device(f"npu:{args.npu}")
+    torch.npu.set_device(device)
+    baseline_path = run_heldout_baselines(
+        args.output, encoder, target_data, protocol, fingerprint, device,
+    )
+    pairs_by_source: dict[str, set[str]] = {}
+    for source, target in evaluation_pairs:
+        pairs_by_source.setdefault(source, set()).add(target)
+    for source, source_targets in sorted(pairs_by_source.items()):
+        for seed in seed_range:
+            pending_targets = sorted(
+                target for target in source_targets
+                if (source, seed, target) not in completed
+            )
+            if not pending_targets:
+                continue
+            state_record = selection["adapter_states"].get(f"{source}:{seed}")
+            if not isinstance(state_record, dict):
+                raise ValueError(f"missing frozen adapter state for {source}/seed={seed}")
+            checkpoint = args.selection_manifest.parent / state_record["path"]
+            dimension = int(target_data[pending_targets[0]]["train_features"].shape[1])
+            adapter = load_frozen_adapter(
+                checkpoint,
+                state_record["file_sha256"],
+                state_record["state_sha256"],
+                dimension,
+                int(protocol["width"]),
+                device,
+            )
+            group_rows = []
+            for target in pending_targets:
+                started = time.perf_counter()
+                data = target_data[target]
+                encoded_train = encode(adapter, data["train_features"], device)
+                encoded_test = encode(adapter, data["test_features"], device)
+                accuracy = ridge_accuracy(
+                    encoded_train,
+                    torch.from_numpy(data["train_labels"]).to(device),
+                    encoded_test,
+                    torch.from_numpy(data["test_labels"]).to(device),
+                    float(protocol["ridge"]),
+                )
+                torch.npu.synchronize()
+                group_rows.append({
+                    "run_fingerprint": fingerprint,
+                    "encoder": encoder,
+                    "source": source,
+                    "adapter_seed": seed,
+                    "target": target,
+                    "test_accuracy": accuracy,
+                    "adapter_state_path": state_record["path"],
+                    "adapter_state_file_sha256": state_record["file_sha256"],
+                    "adapter_state_sha256": state_record["state_sha256"],
+                    "evaluation_seconds": time.perf_counter() - started,
+                    "device": str(device),
+                })
+            raw_rows.extend(group_rows)
+            write_csv_atomic(raw_path, raw_fields, raw_rows)
+            completed.update((source, seed, target) for target in pending_targets)
+            print(
+                f"heldout source={source} seed={seed} targets={len(pending_targets)}",
+                flush=True,
+            )
+    if completed != expected_keys:
+        raise ValueError("held-out evaluation did not cover every frozen selection")
+
+    test_values: dict[tuple[str, str], list[float]] = {}
+    for row in raw_rows:
+        test_values.setdefault((row["source"], row["target"]), []).append(
+            float(row["test_accuracy"])
+        )
+    enriched: list[dict[str, object]] = []
+    for row in detail_rows:
+        selected_values = test_values[(row["selected_source"], row["target"])]
+        oracle_values = test_values[(row["oracle_source"], row["target"])]
+        selected_test = float(np.mean(selected_values))
+        oracle_test = float(np.mean(oracle_values))
+        enriched.append({
+            **row,
+            "oracle_selected_test_accuracy": oracle_test,
+            "selected_test_accuracy": selected_test,
+            "test_regret_vs_exhaustive_validation_selection": oracle_test - selected_test,
+            "heldout_adapter_seeds": len(selected_values),
+        })
+    write_csv_atomic(args.output, list(enriched[0]), enriched)
+    heldout_manifest = {
+        "created_utc": utc_now(),
+        "encoder": encoder,
+        "script_sha256": sha256_file(Path(__file__)),
+        "selection_manifest": args.selection_manifest.name,
+        "selection_manifest_sha256": sha256_file(args.selection_manifest),
+        "selection_detail_sha256": selection["detail_sha256"],
+        "heldout_run_sidecar": run_path.name,
+        "heldout_run_sidecar_sha256": sha256_file(run_path),
+        "raw_evaluations": raw_path.name,
+        "raw_evaluation_rows": len(raw_rows),
+        "raw_evaluations_sha256": sha256_file(raw_path),
+        "heldout_results": args.output.name,
+        "heldout_result_rows": len(enriched),
+        "heldout_results_sha256": sha256_file(args.output),
+        "heldout_stage2_baselines": baseline_path.name,
+        "heldout_stage2_baselines_sha256": sha256_file(baseline_path),
+        "target_test_access": "after_selection_manifest_was_frozen",
+        "target_test_used_for_selection": False,
+        "test_evaluation_keys": len(expected_keys),
+    }
+    write_json_atomic(heldout_manifest_path(args.output), heldout_manifest)
+    print(f"wrote {args.output} rows={len(enriched)}", flush=True)
 
 
 def parse_args() -> argparse.Namespace:
@@ -1278,6 +2474,11 @@ def parse_args() -> argparse.Namespace:
 
     summarize = subparsers.add_parser("summarize")
     summarize.add_argument("--manifest", type=Path, required=True)
+    summarize.add_argument(
+        "--adaptation-manifest",
+        type=Path,
+        help="Manifest used to launch adaptation; defaults to --manifest.",
+    )
     summarize.add_argument("--adaptation-csv", nargs="+", type=Path, required=True)
     summarize.add_argument("--out-dir", type=Path, required=True)
     summarize.add_argument("--n-random", type=int, default=100)
@@ -1289,6 +2490,13 @@ def parse_args() -> argparse.Namespace:
     )
     summarize.add_argument("--confidence-level", type=float, default=0.95)
     summarize.add_argument("--bootstrap-replicates", type=int, default=5_000)
+
+    heldout = subparsers.add_parser("heldout")
+    heldout.add_argument("--selection-manifest", type=Path, required=True)
+    heldout.add_argument("--target-dir", type=Path, required=True)
+    heldout.add_argument("--output", type=Path, required=True)
+    heldout.add_argument("--encoder", required=True)
+    heldout.add_argument("--npu", type=int, required=True)
 
     args = parser.parse_args()
     if args.phase == "screen":
@@ -1325,8 +2533,10 @@ def main() -> None:
         run_screen(args)
     elif args.phase == "adapt":
         run_adapt(args)
-    else:
+    elif args.phase == "summarize":
         run_summarize(args)
+    else:
+        run_heldout(args)
 
 
 if __name__ == "__main__":

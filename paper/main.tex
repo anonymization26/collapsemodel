@@ -60,8 +60,8 @@
 \newtheorem{definition}{Definition}
 
 %% ============================================================
-\title{The Collapse Model: Label-Free Data-Pool Compression\\
-       via Spectral Geometry}
+\title{The Collapse Model: Spectral Geometry and\\
+       Auditable Data-Pool Screening}
 
 \author{%
   Anonymous Author(s)\\
@@ -75,36 +75,26 @@
 
 % ============================================================
 \begin{abstract}
-Given $M$ candidate datasets, which $k{\ll}M$ subset best preserves
-representational diversity when their features are merged---without
-access to labels or downstream tasks?
-We address this \emph{label-free data-pool compression} problem
-by deriving the \textbf{Collapse Model}, a structured summary predictor
-motivated by exact local spectral geometry.
-The model predicts the merged effective rank ($\reff$) from a
-$2{\times}2$ Gram-block eigenstructure via two compression-relevant
-SVD channels (energy ratio~$\gamma$, directional alignment~$\alpha$),
-yielding a model-based superadditivity diagnostic $\rho_c(\alpha,\gamma)$
-that drives a greedy compression algorithm using only
-\emph{per-dataset summary statistics}---suitable for
-privacy-constrained or streaming settings where features cannot be
-shared. Across 427 real feature-matrix pairs from 5 encoder families and
-2 modalities the formula attains Pearson $r{=}0.97$.
-Collapse-guided compression is near-optimal (${\leq}1\%$ regret
-vs.\ exhaustive search), matches the closest published
-spectral-diversity baseline (Vendi-Greedy) on retention while
-requiring only summary statistics rather than full feature matrices,
-and strictly outperforms Facility Location / $k$-Medoids on
-downstream linear-probe accuracy (sign test $p{<}10^{-3}$,
-Collapse exceeds Random's $95\%$ CI on the mean LP).
-The comparison reveals two distinct LP-relevant diversity axes
-(\emph{spectral retention} captured by Collapse and
-\emph{centroid coverage} captured by farthest-first traversal),
-clarifying when each signal dominates.
-The framework scales to $M{=}43$ pools at up to $14{\times}$
-compression and identifies a quantitative supervised /
-self-supervised spectral-geometry divide via a bimodal
-principal-angle distribution exposed in CLIP and DINO encoders.
+Given $M$ frozen-representation data pools, which candidates can be
+shortlisted without labels before expensive evaluation?  We separate exact
+spectral claims from empirical screening.  For fixed, label-independent
+preprocessing and declared source weights, the merged spectrum is exactly
+determined by a sum of positive-semidefinite Gram operators.  Under explicit
+block-compatible singular directions this sum has an exact local
+$2{\times}2$ decomposition; a constructive counterexample shows that
+marginal spectra and principal angles---and hence the earlier four-scalar
+summary---do not determine merged effective rank in general.  Our primary
+Stage-1 method is a composable rank-$L$ PSD Gram sketch.  Transmitted tail
+statistics give deterministic Fannes--Audenaert intervals for
+log-effective-rank error and a sufficient certificate for one Full-Gram
+greedy step.  Controlled sweeps across four encoders show that all 2,880
+selected-prefix intervals cover the exact score, but none of 7,200 greedy
+steps is certified for $L\leq50$, and DPP is at least as competitive.  In 28
+held-out encoder-target units, even validation-oracle source-supervised
+adapters trail frozen identity by $0.067$ (target-cluster 95\% CI
+$[-0.098,-0.044]$); small shortlist regret is therefore not downstream
+benefit.  We make no global-optimality, privacy, practical-compression, or
+downstream-benefit claim.
 Code is available at \url{https://anonymous.4open.science/r/collapsemodel-1DB6}.
 \end{abstract}
 
@@ -134,7 +124,11 @@ forcing practitioners to rely on exhaustive search or heuristics
 that scale poorly with $M$.
 
 Prior work addresses related but distinct problems.
-\emph{Spectral diversity metrics} such as RankMe~\citep{garrido2023rankme}, VNE~\citep{kim2023vne}, and the Vendi Score~\citep{friedman2023vendi,pasarkar2024cousins} quantify the diversity of a single set via entropy of a singular-value or similarity-matrix spectrum; they do not predict how two sets' diversity combines under concatenation.
+\emph{Spectral diversity metrics} such as RankMe~\citep{garrido2023rankme},
+VNE~\citep{kim2023vne}, the Vendi Score~\citep{friedman2023vendi}, and its
+generalized form~\citep{pasarkar2024cousins} quantify the diversity of a
+single set via entropy of a singular-value or similarity-matrix spectrum;
+they do not predict how two sets' diversity combines under concatenation.
 \emph{Label-free coreset selection} (ELFS~\citep{shen2025elfs}, ZCore~\citep{griffin2024zcore}, DEFT-UCS~\citep{das2024deft}) selects a subset of \emph{samples} using geometry or proxy dynamics; it is complementary but orthogonal to our dataset-level formulation.
 \emph{Pool-level curation} (DataComp~\citep{gadre2023datacomp}, DataComp-LM~\citep{li2024dclm}, DsDm~\citep{engstrom2024dsdm}, Quad~\citep{zhang2025quad}) uses filtering or model-aware heuristics without a closed-form diversity criterion.
 \emph{Representation similarity measures} (SVCCA \citep{raghu2017svcca}, PWCCA \citep{morcos2018pwcca}, CKA \citep{kornblith2019similarity}, PARC \citep{bolya2021parc}) compare two representations but do not predict merged rank.
@@ -145,88 +139,67 @@ Intrinsic-dimensionality work \citep{pope2021intrinsic,ansuini2019intrinsic} cha
 To our knowledge, no existing work combines an exact local spectral analysis
 of $\reff([H_A;H_B])$ with a summary-statistic predictor for dataset-level selection.
 
-We derive the \textbf{Collapse Model} from the exact identity
-$G_{A\cup B}=G_A+G_B$.
-Under explicit paired-direction conditions, Lemma~\ref{lem:gram} gives exact
-$2\times2$ block eigenvalues using mode-wise energy ratios $\gamma_i$ and
-alignments $\alpha_i$; under proportional spectra and uniform alignment,
-Proposition~\ref{prop:proportional} gives an exact two-branch entropy formula.
-For general spectra, Eq.~\eqref{eq:pred} compresses this structure into four
-summaries---$r_A$, $r_B$, the global energy ratio $\gamma$, and mean alignment
-$\alpha$---and is explicitly treated as an empirical approximation.
-Its diagnostic threshold $\rho_c(\alpha,\gamma)$ describes three idealized
-behaviour regimes: superadditive, directional collapse, and energy collapse.
-Our $\SAk$ uses mean squared cosine of principal angles, which connects more directly to projection theory than SVCCA's unsigned cosine or PWCCA's energy-weighted form;
-the $U$-channel uses the Two-NN intrinsic dimension estimator \citep{facco2017estimating}.
+We start from the exact identity $G_{A\cup B}=G_A+G_B$ and keep two
+approximations conceptually separate.  The earlier four-summary predictor,
+which we call \textbf{Collapse-4S}, compresses a paired-direction model into
+$(r_A,r_B,\gamma,\alpha)$.  It is useful for mechanism diagnostics and as an
+empirical baseline, but Proposition~\ref{prop:insufficient} proves that these
+summaries are not sufficient in general.  The primary computational method,
+\textbf{Collapse-Gram-$L$}, instead transmits a rank-$L$ PSD factor and
+certified tail statistics for every source.  These summaries compose by
+addition, retain spectral pairing within the retained subspace, and provide a
+deterministic error interval (Theorem~\ref{thm:rank_l_bound}).
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.88\linewidth]{fig_framework.pdf}
-\caption{Label-free data-pool compression pipeline.
-\textbf{Top:}~Per-dataset summaries ($\Sigma{:}\gamma$, $V{:}\alpha$, $U{:}\reff$) compress the exact mode-wise structure of Lemma~\ref{lem:gram} into the approximate predictor Eq.~\eqref{eq:pred} and its diagnostic threshold $\rho_c(\alpha,\gamma)$.
-\textbf{Middle:}~Three behaviour regimes in the $(\alpha,\gamma)$ plane (Cor.~\ref{cor:superadd}): superadditive, directional collapse ($\alpha{\to}1$), energy collapse ($\gamma{\gg}1$ or ${\ll}1$).
-\textbf{Bottom:}~Greedy loop (Alg.~\ref{alg:collapse_greedy}): score remaining candidates, pick $\arg\max$, repeat $k$ times; outputs compressed pool $S$.}
+\caption{Spectral mechanism and selection abstraction.
+\textbf{Top/middle:}~the paired-direction special case and Collapse-4S
+diagnostic; these panels explain local behaviour but are not a general
+guarantee.  \textbf{Bottom:}~the common greedy loop.  Our primary selector
+scores this loop by composing rank-$L$ PSD factors; Collapse-4S is retained as
+an ablation.}
 \label{fig:framework}
 \end{figure}
 
-\textbf{Why summary-based compression?}
-Exhaustive search over $M$ candidates requires $\binom{M}{k}$ merged
-SVDs at $O(Nd^2)$ each, with simultaneous access to all feature matrices
-($M{=}14, k{=}5$: $2002$ SVDs; $M{=}100, k{=}10$: $1.7{\times}10^{13}$).
-The Collapse Model reduces this to $O(kM)$ rank predictions from
-per-dataset summary statistics, enabling compression in
-privacy-constrained and streaming settings.
+\textbf{Why summary-based screening?}
+Exhaustive search requires $\binom{M}{k}$ merged decompositions and access to
+all feature rows.  Collapse-Gram-$L$ uses $O(kM)$ candidate evaluations and
+communicates $O(Ld)$ values plus three tail statistics per source.  It does
+not require raw sample features at the coordinator, but this compression is
+not a differential-privacy guarantee.
 
 \textbf{Contributions.}
-(1)~\emph{Problem formulation}---\emph{label-free data-pool compression}
-(Sec.~\ref{sec:compression}): an $\mathcal{O}(kM)$ greedy algorithm
-operating from per-dataset summary statistics
-($\reff,\|\cdot\|_*,V_{\mathrm{top}\text{-}k}$),
-suitable for privacy-constrained and streaming settings where
-feature matrices cannot be shared.
-(2)~\emph{Exact local theory and structured approximation}
-(Proposition~\ref{prop:gram_general}, Lemma~\ref{lem:gram},
-Proposition~\ref{prop:proportional}): an unconditional Gram representation,
-an exact paired-direction eigendecomposition, and a proportional-spectrum
-entropy formula.  For general spectra we derive a low-dimensional summary
-predictor and prove by counterexample that its four inputs are not sufficient
-for universal exact prediction.
-(3)~\emph{Two-signal decomposition of LP-relevant diversity}
-(Sec.~\ref{sec:compression}): benchmarking against modern baselines
-reveals that downstream-relevant diversity factors into two orthogonal
-signals---\emph{spectral retention} (captured by Collapse, $r_A{+}r_B$,
-Vendi-Greedy) and \emph{centroid coverage} (captured by farthest-first
-traversal). A two-stage Cen$\to$Col hybrid composes both signals and
-dominates pure Collapse on \emph{both} LP and retention simultaneously
-at $k{=}10$ (Appendix~\ref{app:p2e_hybrid}), positioning the structured
-formula as a composable primitive rather than a standalone strategy.
+(1)~\emph{Exact algebra and an information limit}: an unconditional Gram
+representation, an exact block-compatible decomposition, and an explicit
+counterexample to low-dimensional identifiability
+(Propositions~\ref{prop:gram_general}--\ref{prop:insufficient}).
+(2)~\emph{Certified compression}: a composable rank-$L$ PSD sketch with a
+tail-dependent log-effective-rank interval and a sufficient certificate for
+matching one step of Full-Gram greedy
+(Theorem~\ref{thm:rank_l_bound}, Corollary~\ref{cor:rank_l_choice}).
+(3)~\emph{An audited two-stage protocol}: label-blind Stage-1 sampling,
+declared equal-source weighting, target-isolated Stage-2 evaluation, matched
+overlap diagnostics, source-independent controls, and provenance-checked
+resume semantics (Sec.~\ref{sec:compression}).
 
-\textbf{Empirical findings.}
-The formula is validated on 280 controlled + 120 non-principal-angle
-synthetic + 427 real pairs across 5 encoder families and 2 modalities
-(Pearson $r{=}0.97$, $R^2_{\mathrm{cal}}{=}0.95$).
-The framework identifies a quantitative supervised/self-supervised
-spectral-geometry divide: ResNet-50 achieves $100\%$ superadditivity
-across 91 pairs, while CLIP and DINO reach only $29$--$36\%$ on
-cross-domain merges---a gap mechanistically explained by a bimodal
-principal-angle distribution that the model isolates as the responsible
-mechanism.
-
-Among label-free analyses, only the Collapse Model simultaneously
-provides summary-based merged-rank prediction
-($R^2_{\mathrm{cal}}{=}0.95$ on 427 pairs, Table~\ref{tab:e1d}),
-behaviour-regime diagnosis via $\rho_c(\alpha,\gamma)$, and
-superadditivity diagnosis at the same $O(Nd\min(N,d))$ cost as
-SVCCA/PWCCA; the naive $r_A{+}r_B$ matches Collapse in ordinal ranking
-($\rho{=}0.963$ vs.\ $0.966$, not significant) but lacks absolute $R^2$, regime diagnosis, and redundancy detection.
+\textbf{Empirical scope.}
+The existing pairwise experiments evaluate Collapse-4S, not the new
+rank-$L$ guarantee.  They show strong ordering correlation on the evaluated
+pairs, but only a $0.003$ Spearman improvement over $r_A{+}r_B$ and
+encoder-dependent calibration.  Historical pool experiments likewise show
+that spectral methods often select similar clean-pool subsets.  We retain
+these results as bounded evidence and report corrected rank-$L$, matched
+overlap, and task-aware comparisons separately rather than treating the old
+tables as validation of Theorem~\ref{thm:rank_l_bound}.
 
 % ============================================================
-\section{Background: SVD Three-Channel Decomposition}
+\section{Spectral Background}
 \label{sec:background}
 
-For any feature matrix $H\in\R^{N\times d}$ with thin SVD $H=U\Sigma V^\top$
-($U\in\R^{N\times r}$, $\Sigma=\mathrm{diag}(\sigma_1\geq\cdots\geq\sigma_r>0)$,
-$V\in\R^{d\times r}$), the decomposition separates three orthogonal aspects of representation.
+For a feature matrix $H\in\R^{N\times d}$ with compact SVD
+$H=U\Sigma V^\top$, let
+$\Sigma=\operatorname{diag}(\sigma_1\geq\cdots\geq\sigma_r>0)$.
 
 \textbf{$\Sigma$ channel --- spectral energy.}
 The \textbf{effective rank} summarizes spectral distribution:
@@ -236,10 +209,7 @@ The \textbf{effective rank} summarizes spectral distribution:
   \label{eq:reff}
 \end{equation}
 where $p_i$ is the singular-value share (not squared), so $r_{\mathrm{eff}}\in[1,r]$.
-The nuclear norm $\|H\|_*=\sum_i\sigma_i$ captures total energy.
-A spectrum-difference quantity (Spectral Transfer Gap, used in the
-Gram-block transfer bound of Appendix~\ref{app:proof_prop1})
-is defined there.
+The nuclear norm $\|H\|_*=\sum_i\sigma_i$ is the normalizing mass.
 
 \textbf{$V$ channel --- directional structure.}
 Right singular vectors $V$ encode which directions are activated.
@@ -255,32 +225,9 @@ The \textbf{Subspace Alignment} at level $k$ is:
 \end{equation}
 where $\theta_1\leq\cdots\leq\theta_k$ are the principal angles.
 \end{definition}
-$\SAk\in[0,1]$: $\SAk=0$ means perfectly orthogonal subspaces (maximum complementarity);
-$\SAk=1$ means identical subspaces (no new directions from merging).
-
-\textbf{$U$ channel --- sample geometry.}
-Left singular vectors $U\in\R^{N\times r}$ encode the geometric distribution of samples.
-The \textbf{U-space Intrinsic Dimension (\UID)} via the Two-NN estimator:
-\begin{equation}
-  \mathrm{UID}(H) = \frac{1}{\log 2\cdot\mathbb{E}[\log(\mu_2/\mu_1)]},
-  \label{eq:uid}
-\end{equation}
-where $\mu_1,\mu_2$ are geodesic distances to the nearest and second-nearest neighbors
-on the unit sphere $S^{k-1}$ (L2-normalized $U_k$ rows).
-
-\textbf{Role of each channel.}
-$\gamma$ and $\alpha$ enter the merged-rank prediction formula
-(Sec.~\ref{sec:method}) and drive the compression algorithm.
-\UID\ characterizes the intrinsic geometry of individual datasets
-and is used for encoder diagnostics (Sec.~\ref{sec:e1d}) but
-does \emph{not} appear in the prediction formula; it is included
-here to complete the orthogonal decomposition of representation space.
-
-\textbf{Independence.}
-Pairwise Spearman tests (Bonferroni-corrected, $n{=}15$ per probe) detect
-no significant correlation among the three channels on ResNet-50 or
-ViT-B/16 (all $p_{\mathrm{Bonf}}{>}0.38$), consistent with
-$\gamma,\alpha,\UID$ capturing distinct properties.
+$\SAk\in[0,1]$ summarizes top-subspace overlap, but discards the
+principal-vector basis and its coupling to singular values.  This loss of
+information is central to Proposition~\ref{prop:insufficient}.
 
 % ============================================================
 \section{The Collapse Model}
@@ -302,6 +249,13 @@ Define:
 \end{equation}
 $\gamma$ is the \textbf{energy ratio} of the two matrices;
 $r_{\mathrm{dom}}$ is the effective rank of the higher-energy matrix.
+
+All source preprocessing is fixed before subset selection.  For source $j$
+with $N_j$ rows, we declare a total source weight $\beta_j>0$ and use
+$X_j=\sqrt{\beta_j/N_j}\,H_j$.  Our unequal-size default is $\beta_j=1$
+(equal total mass per source); $\beta_j=N_j$ is the declared equal-per-sample
+alternative.  Although effective rank is invariant to a common scale, it is
+not invariant to changing relative source weights.
 
 \subsection{Main Results}
 \label{sec:theorem}
@@ -443,63 +397,131 @@ overlap gives $q=1$ and no predicted gain.
 The proofs and model scope are in
 Appendices~\ref{app:proof_thm},~\ref{app:pa_scope}.
 
-\subsection{The Four Summaries Are Not Sufficient}
+\subsection{Marginal Spectra and Principal Angles Are Not Sufficient}
 \label{sec:insufficiency}
 
-\begin{proposition}[Non-identifiability from Four Scalars]
+\begin{proposition}[Non-identifiability from Marginal Geometry]
 \label{prop:insufficient}
-The tuple $(r_A,r_B,\gamma,\alpha)$ does not uniquely determine
-$\reff([H_A;H_B])$.
+Even the two marginal singular spectra together with the complete set of
+principal angles between the right singular subspaces do not uniquely
+determine $\reff([H_A;H_B])$.  Consequently, neither does the tuple
+$(r_A,r_B,\gamma,\alpha)$.
 \end{proposition}
 
 \textbf{Counterexample.}
-Let both inputs have singular values $(1,1)$, so $r_A=r_B=2$ and
-$\gamma=1$, and let $V_A=(e_1,e_2)$ in $\R^4$.
-For pair X take $V_B=(e_1,e_3)$, giving per-mode alignments $(1,0)$.
-For pair Y take
-$V_B=((e_1+e_3)/\sqrt2,(e_2+e_4)/\sqrt2)$, giving alignments
-$(1/2,1/2)$.  Both pairs have the same mean alignment $\alpha=1/2$.
-Pair X has merged singular values $(\sqrt2,1,1)$ and effective rank
-$2.958$, whereas pair Y has two copies each of
-$\sqrt{1+1/\sqrt2}$ and $\sqrt{1-1/\sqrt2}$ and effective rank $3.661$.
-Thus equal individual ranks, global energy ratio, and average alignment
-can yield different merged ranks.  The predictor necessarily discards
-alignment heterogeneity, spectral pairing, and cross-direction coupling.
+Let $e_1,e_2,e_3$ be standard basis vectors and define the row-normalized
+matrices
+\begin{equation}
+ H_A=[e_1,e_1,e_1,e_1,e_2]^\top,\quad
+ H_B^{(1)}=[e_1,e_1,e_1,e_1,e_3]^\top,\quad
+ H_B^{(2)}=[e_1,e_3,e_3,e_3,e_3]^\top.
+\end{equation}
+All three have nonzero singular values $(2,1)$.  Both right-subspace pairs
+have principal angles $\{0,\pi/2\}$, yet their merged Gram spectra are
+$(8,1,1)$ and $(5,4,1)$, respectively.  The corresponding effective ranks
+are $2.626012$ and $2.849536$.  Thus even complete marginal spectra and
+principal angles omit how spectral mass is assigned to coupled directions;
+the four scalar summaries discard still more information.
 \hfill$\square$
 
-\textbf{Calibration.}
-On the evaluated real-data pairs the formula systematically over-predicts;
-a single multiplicative constant $c$ restores quantitative accuracy and
-follows a universal regression $c{=}0.946{-}0.175\log(N/\reff)$
-across encoder families (Appendix~\ref{app:calibration}).
-Because this is a \emph{one-parameter} linear model in the
-observable $\log(N/\reff)$, a reliable estimate of $c$ requires
-only $5$--$10$ labeled pairs per encoder family---a negligible
-overhead compared to the cost of computing frozen-encoder features.
-In privacy-constrained settings where even summary statistics from
-a single reference pair are available, the per-encoder $c$ can be
-estimated without exposing any raw features.
-The same three channels also bound linear-probe transfer loss
-(Appendix~\ref{app:proof_prop1}): low $\SAk$ implies \emph{high} merge
-gain and \emph{high} transfer loss simultaneously.
+\subsection{Composable Rank-$L$ Gram Sketch}
+\label{sec:rank_l}
+
+The counterexample motivates approximating the PSD operator itself rather
+than compressing it to averaged angles.  For the compact SVD of each
+preweighted source, define
+\begin{equation}
+ B_j=\Sigma_{j,1:L}V_{j,1:L}^{\top},\qquad
+ \widetilde G_j=B_j^\top B_j,\qquad
+ E_j=G_j-\widetilde G_j\succeq0 .
+ \label{eq:rank_l_sketch}
+\end{equation}
+Attach the tail statistics
+$\tau_j=\operatorname{tr}\sqrt{E_j}$,
+$\omega_j=\operatorname{tr}(E_j)$, and
+$u_j=\operatorname{rank}(E_j)$; certified upper bounds may replace their
+exact values.  For a subset $S$, vertically stack the factors into $B_S$.
+Then $\widetilde G_S=B_S^\top B_S$, so its nonzero spectrum is obtained
+from the small core $B_SB_S^\top$ without reconstructing sample features.
+
+For a PSD matrix $G$, write
+$\mathcal R(G)=\exp\mathcal H(\sqrt{\lambda(G)}/
+\operatorname{tr}\sqrt G)$; hence
+$\mathcal R(H^\top H)=\reff(H)$.  Define
+\begin{equation}
+ T_S=\min\!\left\{\sum_{j\in S}\tau_j,
+ \sqrt{\min(d,\sum_{j\in S}u_j)\sum_{j\in S}\omega_j}\right\},
+ \quad
+ \varepsilon_S=\frac{T_S}{\operatorname{tr}\sqrt{\widetilde G_S}+T_S}.
+ \label{eq:tail_bound}
+\end{equation}
+
+\begin{theorem}[Rank-$L$ Log-Effective-Rank Bound]
+\label{thm:rank_l_bound}
+Assume $\widetilde G_S\neq0$, and let
+$D_S=\min(d,\sum_{j\in S}\operatorname{rank}(G_j))$.  For $D\ge2$, set
+\begin{equation}
+ \Phi_D(\varepsilon)=
+ \begin{cases}
+ h_b(\varepsilon)+\varepsilon\log(D-1),
+ &0\leq\varepsilon\leq1-1/D,\\
+ \log D,&1-1/D<\varepsilon\leq1.
+ \end{cases}
+\end{equation}
+Then, without a block-compatibility assumption,
+\begin{equation}
+ \left|\log\mathcal R(G_S)-\log\mathcal R(\widetilde G_S)\right|
+ \leq \Phi_{D_S}(\varepsilon_S).
+ \label{eq:rank_l_bound}
+\end{equation}
+For $D_S=1$ the error is zero.
+\end{theorem}
+
+\begin{corollary}[One-Step Full-Gram Certificate]
+\label{cor:rank_l_choice}
+At a greedy step, let
+$\widehat F_j=\log\mathcal R(\widetilde G_{S\cup\{j\}})$ and
+$e_j=\Phi_{D_{S\cup\{j\}}}(\varepsilon_{S\cup\{j\}})$.
+If a candidate $j^*$ satisfies
+\begin{equation}
+ \widehat F_{j^*}-e_{j^*}>
+ \max_{j\neq j^*}(\widehat F_j+e_j),
+ \label{eq:rank_l_certificate}
+\end{equation}
+then $j^*$ uniquely maximizes the exact Full-Gram score in that round.
+\end{corollary}
+
+The interval accumulates tails from the selected set and the candidate;
+using only the candidate tail is invalid.  Failure to separate intervals is
+a diagnostic to increase $L$ or fall back to Full-Gram scoring.  The
+certificate is local to one greedy step: effective rank is generally
+nonmonotone and nonsubmodular, so it gives no global subset-optimality claim
+(Appendix~\ref{app:optimization_limits}).
+
+\textbf{Legacy Collapse-4S calibration.}
+On the evaluated real-data pairs Eq.~\eqref{eq:pred} systematically
+over-predicts.  A fitted multiplicative constant reduces average scale error;
+the reported relation $c{=}0.946{-}0.175\log(N/\reff)$ is an empirical fit
+over the evaluated encoder families, not a universal law
+(Appendix~\ref{app:calibration}).
 
 
 % ============================================================
-\section{Evaluation of the Summary Predictor}
+\section{Evaluation of the Legacy Four-Summary Predictor}
 \label{sec:experiments}
 
-Before applying the Collapse Model to compression (Sec.~\ref{sec:applications}),
-we establish a three-step evaluation chain:
+This section reports the historical evaluation of Collapse-4S.  These
+experiments test Eq.~\eqref{eq:pred}, not the rank-$L$ approximation or its
+certificate.  We organize the evidence as:
 (i)~\textbf{idealized-model agreement}---the predictor agrees with data
 generated under its summary assumptions (§\ref{sec:e1a_main}, synthetic grid);
-(ii)~\textbf{real-data predictive validity}---the formula remains a strong
+(ii)~\textbf{real-data association}---the formula remains correlated with
 approximation across 5 encoder families, 14 vision datasets,
 and 19 text corpora (§\ref{sec:e1d}, 427 pairs);
 (iii)~\textbf{behavioral regime agreement}---empirical superadditivity
 patterns match the three regimes predicted by
 Corollary~\ref{cor:superadd} (§\ref{sec:e1d}, Table~\ref{tab:e1d}).
-Together these test where the approximation succeeds, how it transfers to
-real encoders, and whether its qualitative diagnostics are observable.
+Together these locate useful and failing regimes of the heuristic.
 Additional controls (E1a-Ind 120 non-principal-angle pairs,
 E1b 30 real pairs, E1c 57 pairs, E\_diverse cross-architecture,
 E\_downstream $\reff$/LP-accuracy) all agree with the same picture
@@ -511,7 +533,7 @@ bootstrap CIs use $B=10{,}000$ resamples.
 \subsection{Step 1 --- Idealized-Model Agreement: Synthetic Controlled Grid (E1a, 280 pairs)}
 \label{sec:e1a_main}
 
-Before validating on real data, we verify the Collapse Model on
+As a within-model sanity check, we evaluate Collapse-4S on
 280 controlled synthetic pairs generated under the proportional-spectrum,
 paired-direction model
 with $\alpha\in\{0,0.05,\ldots,1.0\}$ and $\gamma\in\{0.1,0.33,\ldots,10.0\}$
@@ -526,7 +548,7 @@ with $\alpha\in\{0,0.05,\ldots,1.0\}$ and $\gamma\in\{0.1,0.33,\ldots,10.0\}$
 Method & $R^2$ & Max error & Superadd.\ (\%) & $\alpha<1$ superadd.\ \\
 \midrule
 Naive $\sqrt{1+\alpha\gamma^2}$ & 0.30 & 28.73 & --- & --- \\
-\textbf{Collapse Model (ours)} & \textbf{0.9999} & \textbf{0.27} & \textbf{87.5\%} & \textbf{100\%} (245/245) \\
+\textbf{Collapse-4S} & \textbf{0.9999} & \textbf{0.27} & \textbf{87.5\%} & \textbf{100\%} (245/245) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -534,7 +556,7 @@ Naive $\sqrt{1+\alpha\gamma^2}$ & 0.30 & 28.73 & --- & --- \\
 Table~\ref{tab:e1a} shows $R^2{=}0.9999$ (vs.\ $0.30$ for the naive baseline).
 All 245 configurations with $\alpha{<}1$ achieve 100\% superadditivity;
 all 35 non-superadditive cases concentrate exclusively at $\alpha{=}1$
-(identical subspaces), confirming the degenerate boundary of
+(identical subspaces), as expected from the generator and the boundary of
 Corollary~\ref{cor:superadd}.
 Visualization of the $(\alpha,\gamma)$ heatmap and superadditivity region
 is in Appendix~\ref{app:exp_extras}.
@@ -542,9 +564,8 @@ is in Appendix~\ref{app:exp_extras}.
 \subsection{Steps 2--3 --- Real-Data Generalization and Regime Agreement (E1d, 427 Pairs)}
 \label{sec:e1d}
 
-We next verify that the formula generalizes beyond its synthetic
-derivation, and that its predicted three-regime behavior is empirically
-observable.
+We next measure association beyond the synthetic derivation and test whether
+the predicted three-regime behavior is observable.
 The evaluation spans
 5 encoder families (ResNet-50, ViT-B/16, CLIP ViT-B/32, DINO ViT-S/16, SBERT),
 14 vision datasets (CIFAR-10/100, STL-10, SVHN, MNIST, Fashion-MNIST,
@@ -555,8 +576,9 @@ Total: \textbf{427 pairs} (91 ResNet-50, 55 ViT-B/16, 55 CLIP, 55 DINO, 171 SBER
 
 \begin{table}[h]
 \centering
-\caption{E1d: Large-scale Collapse Model validation (427 pairs, 5 probes).
-Calibration constant $c$ per encoder family restores quantitative accuracy.}
+\caption{E1d: Collapse-4S association study (427 pairs, 5 probes).
+$c$ is fitted separately per encoder family; calibrated $R^2$ is therefore
+descriptive rather than out-of-family generalization.}
 \label{tab:e1d}
 \small
 \setlength{\tabcolsep}{3.5pt}
@@ -575,29 +597,28 @@ DINO ViT-S/16 (11 datasets)    & 55  & 36.4\%            & 0.913 & 0.584 & 0.554
 \end{tabular}\normalsize
 \end{table}
 
-\textbf{Generalization (Step 2).}
-The formula remains a strong approximation on all 427 real-world pairs:
+\textbf{Association (Step 2).}
+Across the 427 evaluated pairs, the formula has
 overall Pearson $r{=}0.970$ (uncalibrated) and
 $R^2_{\mathrm{cal}}{=}0.952$ after per-encoder-family calibration
 (scatter visualization in Appendix~\ref{app:exp_extras}, Fig.~\ref{fig:hero_scatter}).
-This confirms that the summary prediction, motivated by the
-idealized paired-direction model, remains predictive on real encoders
-spanning supervised CNNs, ViT, contrastive/self-distillation transformers,
-and sentence encoders.
+The correlation measures ranking on this benchmark; fitted calibration does
+not remove the non-identifiability of Proposition~\ref{prop:insufficient}.
 
 \textbf{Regime agreement (Step 3).}
-(i)~\textbf{ResNet-50 achieves 100\% superadditivity} across 91 pairs
-(including medical and ImageNet), confirming the balanced-$(\gamma,\alpha)$
-regime predicted by Corollary~\ref{cor:superadd}.
+(i)~\textbf{ResNet-50 achieves 100\% superadditivity} across the 91 evaluated
+pairs (including medical and ImageNet), consistent with the
+balanced-$(\gamma,\alpha)$ diagnostic of Corollary~\ref{cor:superadd}.
 (ii)~\textbf{Supervised/self-supervised divide} emerges in the model's
 directional-overlap regime: CLIP and DINO achieve only 29\%--36\% superadditivity,
 with failures concentrating \emph{entirely} in cross-domain pairs
-(handwritten$\times$ImageNet, natural$\times$digit fail universally)
+(all evaluated handwritten$\times$ImageNet and natural$\times$digit pairs fail)
 while within-domain pairs remain near-perfect.
-The root cause is a bimodal principal-angle distribution combined with
-extreme condition numbers $\kappa{\in}[10^4,10^6]$
-(Figure~\ref{fig:bimodal_structure}), mapping to the \emph{directional-collapse}
-regime of Sec.~\ref{sec:superadd}.
+A bimodal principal-angle distribution and extreme condition numbers
+$\kappa{\in}[10^4,10^6]$ are associated with these failures
+(Figure~\ref{fig:bimodal_structure}).  This pattern is consistent with the
+\emph{directional-collapse} diagnostic of Sec.~\ref{sec:superadd}, but the
+comparison is not a causal identification.
 
 \begin{figure}[t]
 \centering
@@ -621,11 +642,11 @@ summary approximation rather than a black-box failure
 (iii)~\textbf{Energy collapse} appears in ViT's 17 non-superadditive
 pairs, all in $\gamma\notin[0.5,2]$, matching the summary model's
 energy-imbalance diagnostic.
-(iv)~\textbf{Cross-modal transfer}: 171 SBERT text pairs
-(98.8\% superadditive, ranking $r{=}0.793$) confirm that the
-formula's \emph{ordinal} predictions are modality-agnostic.
+(iv)~\textbf{Cross-modal check}: on 171 SBERT text pairs the ranking
+correlation drops to $r{=}0.793$ (98.8\% superadditive), so the data do not
+support a modality-agnostic claim.
 Absolute calibration, however, requires modality-specific tuning:
-the vision universal regression
+the vision-only fitted regression
 ($c{=}0.946{-}0.175\log(N/\reff)$, Appendix~\ref{app:calibration})
 explains $R^2{=}0.96$ of vision variance but only $R^2{=}0.08$ of
 SBERT variance, indicating that text encoders have a qualitatively
@@ -633,268 +654,130 @@ different spectral bias.
 A text-specific calibration is left for future work.
 
 \textbf{Evaluation summary.}
-Steps 1--3 establish agreement in the idealized model, strong empirical
-ranking on real encoders, and observable qualitative regimes.  They do not
-establish universal exactness: Proposition~\ref{prop:insufficient} proves
-that the four summaries cannot determine merged rank in general.
+Steps 1--3 establish within-model agreement, benchmark association, and
+observable qualitative regimes.  They neither validate Collapse-Gram-$L$
+nor establish universal exactness: Proposition~\ref{prop:insufficient}
+proves that four summaries cannot determine merged rank in general.
 Cross-dataset calibration generalization, cross-probe consistency,
 and $\reff$/LP-accuracy correspondence ($\rho{=}0.90$ within ViT family)
 are in Appendix~\ref{app:exp_extras}.
 
 
 % ============================================================
-\section{From Formula to Application: Label-Free Data-Pool Compression}
+\section{Two-Stage Data-Pool Compression}
 \label{sec:applications}
 \label{sec:compression}
 \label{sec:pool_selection}
 
-Having evaluated the predictor (Sec.~\ref{sec:experiments}),
-we now examine its concrete utility:
-given $M$ candidate datasets and a target $D_t$, compress the pool
-to $k{\ll}M$ while preserving $\reff$ of the merged representation.
-Exhaustive search over $\binom{M}{k}$ subsets is intractable;
-the Collapse Model enables compression at $O(kM)$ predictions from
-per-dataset summary statistics.
-At each round, \textbf{Collapse Greedy} scores every remaining candidate
-by applying Eq.~\eqref{eq:pred} to $(H_{\mathrm{cur}},H_{\mathrm{cand}})$
-and selects the highest predicted $\reff$
-(Algorithm~\ref{alg:collapse_greedy}).
-We report two levels of evidence below:
-(a)~a \emph{scale stress test} at $M{=}43$ showing the method holds at
-heterogeneous scale (Table~\ref{tab:scale}), and
-(b)~comparison against modern label-free baselines
-(Table~\ref{tab:p1a_modern}); cross-architecture cross-modal results at
-$M{=}14$ vision and $M{=}7$ text pools are in
-Appendix~\ref{app:compression_m14}.
+The objective of Stage~1 is a label-blind shortlist, not a final utility
+decision.  Collapse-Gram-$L$ applies Algorithm~\ref{alg:collapse_greedy} to
+the composable sketches of Sec.~\ref{sec:rank_l}.  In the current Stage~2
+audit, each candidate adapter is trained with that source's labels; repeated
+cross-validation inside target-train fits ridge probes and selects the source.
+The target-test split is opened once after selection is frozen.  This is a
+source-supervised adaptation protocol with target-validation selection, not a
+target-trained adapter.  The separation is necessary because spectral
+diversity alone cannot determine arbitrary target utility.
 
-At each round Collapse Greedy scores each remaining candidate via
-Eq.~\eqref{eq:pred} applied to $(H_{\mathrm{cur}},H_c)$---requiring
-only $\SAk$ and $\gamma$ computed from per-dataset SVDs---and picks the
-highest-predicted $\reff$
-(pseudocode in Appendix~\ref{app:algorithm}).
-Baselines: \textbf{Max-$\reff$} (highest individual $\reff$, ignores $\alpha$);
-\textbf{$\Ddir$-greedy} (most-orthogonal via $\Ddir=1-\SAk$, ignores $\gamma$);
-\textbf{Random} (10 uniform subsets).
-On a target-conditioned $M{=}10$ pool
-(ResNet-50 features on CIFAR-10/100, STL-10, SVHN, MNIST, Fashion-MNIST,
-BloodMNIST, DermaMNIST, PathMNIST, Oxford-Pets) at budgets $K{\in}\{1,2,3,5\}$,
-\textbf{Collapse Greedy achieves $0\%$ regret at $K{\leq}3$} and $1.0\%$
-at $K{=}5$---matching exhaustive search with $3\times$ speedup.
-Max-$\reff$ drops to $67\%$ recall; $\Ddir$-greedy incurs $13$--$20\%$ regret.
-All strategies produce identical downstream LP accuracy,%
-\footnote{LP and $k$-NN rankings are strongly correlated: across
-11 probes ${\times}$ 5 datasets (53 pairs),
-Spearman $\rho(\mathrm{LP},\mathrm{kNN\text{-}5}){=}0.980$
-($p{<}10^{-33}$).
-We report LP throughout; see Appendix~\ref{app:e7_knn} for $k$-NN details.}
-confirming that maximizing $\reff$ translates to downstream discriminability
-(Appendix~\ref{app:e5_downstream}).
+\paragraph{Corrected protocol.}
+Source rows for Stage~1 are sampled without labels, and unequal-size sources
+use the declared equal-source weighting $X_j=H_j/\sqrt{N_j}$
+($\beta_j=1$).  We compare
+Collapse-Gram-$L$ against rank-only, DPP, Facility Location, agglomerative
+medoids, leverage-score selection, random selection, and Full-Gram greedy;
+an exhaustive merged-rank oracle is included only when the predeclared
+combination-count limit permits it.  All Stage-2 candidates receive
+identical source-supervised optimization steps and seeds, with frozen-identity
+and untrained random-adapter controls.  Target-train cross-validation is the
+only target signal used before selection and all adapter checkpoints are
+hashed.  A selection manifest is then written and hashed before a separate
+held-out command is permitted to open the target-test cache.  Manifests bind
+code, inputs, preprocessing, weights,
+sampled indices, checkpoints, and hyperparameters by SHA-256; incomplete
+source/seed groups are never resumed as completed runs.  Overlap detection is
+reported against same-dataset matched negatives, and the $0\%$ overlap
+condition has no parent ground truth.  To estimate exhaustive shortlist
+regret, the audit trained all candidate adapters offline; its total wall time
+is therefore not a measured deployment saving.
 
-\paragraph{Compression at scale.}
-Collapse-guided compression retains ${>}100\%$ of full-pool diversity
-in every setting tested---a universal phenomenon enabled because
-$\reff$ is not monotone in pool size: adding a redundant dataset shifts
-the normalised spectrum toward its mode and \emph{decreases} entropy,
-so removing redundancies via the $\alpha$ channel yields a compressed
-pool of \emph{higher} diversity than the full pool.
-On a $M{=}14$ vision pool Collapse outperforms Facility Location
-($+7$--$14$\,pp) and $k$-Medoids ($+8$--$14$\,pp); on a $M{=}7$ text
-pool (BERT/RoBERTa/GPT-2) it retains $103$--$106\%$
-(full table in Appendix~\ref{app:compression_m14}).
-On clean curated pools the $r_A{+}r_B$ and Max-$\reff$ heuristics match
-Collapse within $0.7$\,pp at $M{=}43$ (Table~\ref{tab:scale})---a
-predictable consequence of Corollary~\ref{cor:superadd} when
-$\bar\alpha{<}0.2$.
-The Collapse Model's role on such pools is to provide an
-\emph{a priori} low-redundancy diagnostic
-($\rho_c{>}4$ at $\bar\alpha{\leq}0.2$) and to take over when this
-condition fails (clone attacks, fine-grained subset families, bimodal
-cross-domain pairs); see Appendix~\ref{app:rsum_regime}.
-At $k{=}7$ on $M{=}14$, Collapse Greedy runs in seconds versus
-$\binom{14}{7}{=}3432$ exhaustive merged SVDs.
+\paragraph{Audited historical pilot.}
+The pre-correction 21-source pilot used label-stratified source caches,
+queried target test before freezing selection, and did not evaluate
+Collapse-Gram-$L$.  Its DPP and rank-only Recall@10 were both $85.71\%$, with
+strong near-tie sensitivity; we retain it only as a historical audit baseline
+and report the corrected results below.
 
-\paragraph{Scaling to $M{=}43$: stress test.}
-To verify that the compression advantage holds beyond curated pools,
-we assemble 43 ResNet-50 datasets spanning 5 ImageNet-coarse domains,
-19 ImageNet fine-grained categories, 10 MedMNIST clinical datasets,
-and 9 classic benchmarks, and sweep
-$k\in\{3,5,7,10,14,20\}$ (compression ratios $14.3{\times}$ down to $2.1{\times}$).
-Table~\ref{tab:scale} reports the results.
+\paragraph{Corrected controlled evidence.}
+An intermediate \texttt{corrected\_v2} run was invalidated because of a
+statistic-definition mismatch and incomplete provenance.  In the replacement
+\texttt{corrected\_v3} sweep, four encoders, ten construction seeds, six
+overlap levels, and four budgets give 960 configurations per rank.  Table~\ref{tab:v3_rank_sweep}
+reports macro-averages over encoders.  Every selected-prefix interval contains
+the exact score, but all intervals overlap at every evaluated decision.  The
+bound is valid yet operationally vacuous at these ranks.  DPP is stronger in
+this controlled spectral-retention task; this is a recorded unequal-byte
+comparison, not a communication-matched Pareto result.
+A separate $L=20$ exact-reference pilot (four encoders, three seeds, 288
+configurations, Random-100) gives rank-$L$/DPP/Full-Gram gains of
+$3.65/5.37/5.81\%$ over rank-only.  Its intervals cover $288/288$ prefixes,
+but certify $0/720$ steps and match $0/288$ Full-Gram ordered prefixes;
+Full-Gram here is a greedy reference, not a global oracle.
 
-\begin{table}[h]
+\begin{table}[t]
 \centering
-\caption{Scaling stress-test ($M{=}43$ ResNet-50; $M{=}11$ ViT-B/16).
-\textbf{Ret.}: $\reff^{\mathrm{sel}}/\reff^{\mathrm{full}}$ (\%).
-\textbf{LP}: subspace-projection linear-probe accuracy, 5 targets, mean$\pm$std over 10 seeds for Random (§\ref{sec:applications}).
-FacLoc/kMedoids omitted ($O(M^2)$ cost at this scale).}
-\label{tab:scale}
+\caption{Corrected controlled rank sweep.  Gains are relative to rank-only in
+exact final merged effective rank.  All 960 intervals per row cover the exact
+selected-prefix score.}
+\label{tab:v3_rank_sweep}
 \small
-\setlength{\tabcolsep}{3.5pt}
-\begin{tabular}{lcrrrcccc}
+\setlength{\tabcolsep}{3.2pt}
+\begin{tabular}{crrrr}
 \toprule
-& & \multicolumn{3}{c}{Retention (\%)} & \multicolumn{4}{c}{Fair LP accuracy} \\
-\cmidrule(lr){3-5}\cmidrule(lr){6-9}
-Probe & $k$ (ratio) & Collapse & Max-$\reff$ & Random & Collapse & Max-$\reff$ & Random & $\Delta$LP \\
+$L$ & Gram gain & DPP gain & Mean error / bound & Certified steps \\
 \midrule
-\multirow{4}{*}{ResNet-50} & 3 ($14.3{\times}$) & \textbf{112.4} & 112.4 & $71.0_{\pm15.5}$ & \textbf{0.7550} & 0.7550 & $0.7477_{\pm0.0050}$ & \textbf{$+0.0073$} \\
-& 5 ($\phantom{0}8.0{\times}$)  & \textbf{117.2} & 117.2 & $78.1_{\pm20.1}$ & \textbf{0.7560} & 0.7558 & $0.7502_{\pm0.0063}$ & \textbf{$+0.0058$} \\
-& 7 ($\phantom{0}5.7{\times}$)  & \textbf{117.4} & 117.4 & $80.5_{\pm15.1}$ & \textbf{0.7572} & 0.7572 & $0.7522_{\pm0.0048}$ & \textbf{$+0.0050$} \\
-& 10 ($\phantom{0}4.0{\times}$) & \textbf{116.2} & 116.2 & $90.8_{\pm\phantom{0}7.5}$  & 0.7564 & 0.7564 & $0.7575_{\pm0.0024}$ & $-0.0011$ \\
-\midrule
-\multirow{3}{*}{ViT-B/16} & 3 ($\phantom{0}3.7{\times}$) & \textbf{103.6} & 103.6 & $92.0_{\pm\phantom{0}3.1}$ & \textbf{0.7780} & 0.7780 & $0.7749_{\pm0.0018}$ & \textbf{$+0.0031$} \\
-& 5 ($\phantom{0}2.2{\times}$) & \textbf{104.9} & 103.7 & $94.1_{\pm\phantom{0}3.5}$ & \textbf{0.7775} & 0.7763 & $0.7754_{\pm0.0011}$ & \textbf{$+0.0021$} \\
-& 7 ($\phantom{0}1.6{\times}$) & \textbf{104.4} & 104.2 & $98.0_{\pm\phantom{0}2.5}$ & \textbf{0.7777} & 0.7755 & $0.7764_{\pm0.0015}$ & \textbf{$+0.0012$} \\
+10 & $+2.09\%$ & $+4.90\%$ & $2.558/5.944$ & $0/2{,}400$ \\
+20 & $+3.81\%$ & $+5.48\%$ & $1.877/5.505$ & $0/2{,}400$ \\
+50 & $+4.94\%$ & $+5.68\%$ & $0.996/4.455$ & $0/2{,}400$ \\
 \bottomrule
 \end{tabular}\normalsize
 \end{table}
 
-Collapse retains ${>}112\%$ of full-pool diversity at every
-compression ratio---extending the $M{=}14$ finding to a $3{\times}$
-larger, heterogeneous pool.
-The fair-LP column (spectral subspace projection, no distractor classes)
-confirms that retention translates to \emph{downstream} benefit:
-Collapse outperforms Random by $+0.0050$--$+0.0073$ LP
-at $5.7$--$14.3{\times}$ compression.
-\textbf{The LP gap is statistically robust}: at $k{\in}\{3,5,7\}$,
-all $10/10$ random seeds fall strictly below Collapse's LP
-(one-sided sign test $p{=}2^{-10}{\approx}10^{-3}$ per $k$;
-combined over 30 seeds $p{<}10^{-9}$).
-Beyond the sign test, Collapse's LP exceeds the upper bound of Random's
-$95\%$ confidence interval on the mean
-($\bar x_{\mathrm{rand}}{\pm}1.96\sigma/\sqrt{10}$):
-ResNet-50 at $k{=}3$, Collapse $0.7550$ vs.\ Random CI
-$[0.7446,0.7508]$ (margin $+0.0042$);
-$k{=}5$, $0.7560$ vs.\ $[0.7463,0.7541]$ ($+0.0019$);
-$k{=}7$, $0.7572$ vs.\ $[0.7492,0.7552]$ ($+0.0020$).
-ViT-B/16 shows the same pattern at all three $k$ values
-(margins $+0.0020/{+}0.0014/{+}0.0004$).
-The effect size is small in absolute LP units but consistent in direction
-and statistically separable from seed noise---a pattern indicating
-a genuine subspace-quality effect rather than a tail of the random
-distribution.
-At $k{=}10$ ($4{\times}$ compression) the effect reverses
-($\Delta{=}{-}0.0011$, within seed noise): random selection already
-achieves $90.8\%$ retention, saturating the $\reff$ ceiling so that
-$\alpha$-channel steering adds nothing (Corollary~\ref{cor:superadd});
-the residual LP signal shifts to \emph{centroid coverage}
-(Table~\ref{tab:p1a_modern}).
-This sign reversal identifies Collapse's operating regime:
-a high-compression tool ($k{\leq}7$, ${\geq}5.7{\times}$) rather
-than a near-full-budget selector.
+\paragraph{Corrected held-out utility evidence.}
+The natural-pool rerun contains 21 sources, 7 targets, 4 encoders, and 5
+adapter seeds.  At shortlist $10/21$, strict oracle recall is $75.00\%$ for
+rank-$L$, $85.71\%$ for rank-only and DPP, and $89.29\%$ for Full-Gram greedy;
+none reaches the predeclared $90\%$ threshold.  Their held-out regrets within
+the adapter family are small ($0.00022$--$0.00082$), but the family itself
+fails the source-independent control.  Mean held-out accuracy is $0.83654$ for
+frozen identity, $0.77144$ for an untrained random adapter, and $0.76951$ for
+the validation-oracle source-supervised adapter.  Oracle minus identity is
+$-0.06703$ (target-cluster 95\% CI $[-0.09771,-0.04400]$); every deterministic
+selected adapter loses to identity in all 28 encoder-target units.  Thus small
+regret cannot be interpreted as preserved utility or beneficial data use.
 
-A controlled \emph{clone-attack} stress test
-(Appendix~\ref{app:rsum_regime}) confirms the failure mode of
-$r_A{+}r_B$: when the pool contains near-duplicate datasets generated
-by random rotation ($\SAk{>}0.99$), $r_A{+}r_B$ greedy selects $2/3$
-clones at $k{=}3$ while Collapse rejects all $3$ via the $\alpha$
-channel, yielding ${+}25.5\%$ merged $\reff$.
+\paragraph{Interpretation.}
+The theory controls spectral-score approximation only.  The corrected sweep
+confirms interval coverage but shows that coverage alone need not produce a
+usable decision certificate.  Stage~2 then rejects the current
+source-supervised adapter family before any practical-compression claim is
+made.  Exact identity, tie-aware recall, regret, and source-independent utility
+controls are therefore separate quantities.
 
-\paragraph{Comparison against modern baselines.}
-We benchmark Collapse Greedy against three additional baselines beyond
-FacLoc / $k$-Medoids / $r_A{+}r_B$ / Max-$\reff$ already in
-Table~\ref{tab:scale}:
-\textbf{(a)~Vendi-Greedy}~\citep{friedman2023vendi,pasarkar2024cousins}---greedy
-maximization of the Vendi Score on a linear kernel, the closest published
-spectral-diversity baseline that shares Collapse Greedy's
-diversity-maximization objective;
-\textbf{(b)~DomainDiverse-Greedy}---a metadata baseline that picks from the
-least-represented domain across $8$ semantic categories
-(handwritten / natural / digit / medical / inet-animal / inet-object /
-inet-food / inet-scene), tiebreaking on individual~$\reff$;
-\textbf{(c)~Centroid-FF (DataComp adapter)}---farthest-first traversal
-in dataset-centroid space (mean L2-normed feature per dataset),
-adapting DataComp~\citep{gadre2023datacomp}'s similarity-based filtering
-from sample-level to dataset-level.
-On the same $M{=}40$ ResNet-50 pool and 5 LP targets used in
-Table~\ref{tab:scale}, results are summarized in
-Table~\ref{tab:p1a_modern}.
-
-\begin{table}[h]
-\centering
-\caption{Modern baseline comparison ($M{=}40$ ResNet-50, $k{\in}\{3,5,7,10\}$,
-subspace-projection LP, 5 targets).
-\textbf{Bold}: best per column; Random: 10-seed mean$\pm$std.
-\textbf{Requires} (greedy-time access)---\textbf{S}: summary stats only;
-\textbf{F}: full features; \textbf{M}: domain metadata; \textbf{C}: centroids.}
-\label{tab:p1a_modern}
-\small
-\setlength{\tabcolsep}{2pt}
-\begin{tabular}{lccccccccc}
-\toprule
-& \multicolumn{2}{c}{$k{=}3$ ($13.3{\times}$)} & \multicolumn{2}{c}{$k{=}5$ ($8.0{\times}$)} & \multicolumn{2}{c}{$k{=}7$ ($5.7{\times}$)} & \multicolumn{2}{c}{$k{=}10$ ($4.0{\times}$)} & \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}
-Strategy & Ret\% & LP & Ret\% & LP & Ret\% & LP & Ret\% & LP & Requires \\
-\midrule
-\textbf{Collapse}      & \textbf{112.4} & \textbf{0.7572} & \textbf{117.2} & 0.7576 & \textbf{117.4} & 0.7578 & \textbf{116.2} & 0.7576 & \textbf{S} \\
-Vendi-Greedy           & 112.5          & 0.7560          & 117.2          & 0.7572 & 116.9          & 0.7566 & 116.5          & 0.7562 & F \\
-DomainDiverse          & 112.4          & \textbf{0.7572} & 114.7          & \textbf{0.7634} & 111.8          & 0.7596 & 113.8          & 0.7544 & S+M \\
-Centroid-FF            & 74.0           & 0.7564          & 93.4           & 0.7570 & 96.7           & \textbf{0.7624} & 100.5          & \textbf{0.7630} & F (or C) \\
-$r_A{+}r_B$            & 112.4          & \textbf{0.7572} & 117.2          & 0.7574 & 117.4          & 0.7578 & 116.2          & \textbf{0.7578} & \textbf{S} \\
-Max-$\reff$            & 112.4          & \textbf{0.7572} & 117.2          & 0.7574 & 117.4          & 0.7578 & 116.2          & \textbf{0.7578} & \textbf{S} \\
-\midrule
-Random ($\mu{\pm}\sigma$) & $71.0{\pm}15.5$ & $0.7492$ & $78.1{\pm}20.1$ & $0.7513$ & $80.5{\pm}15.1$ & $0.7537$ & $90.8{\pm}7.5$ & $0.7574$ & --- \\
-\bottomrule
-\end{tabular}\normalsize
-\end{table}
-
-\paragraph{Two-signal decomposition and practical selection guide.}
-Table~\ref{tab:p1a_modern} reveals that LP-relevant diversity decomposes
-into two \emph{orthogonal} axes, each captured by a distinct family of
-methods:
-
-\begin{itemize}[leftmargin=1.2em,itemsep=2pt]
-  \item \textbf{Spectral retention} (SR): Collapse, $r_A{+}r_B$,
-    Max-$\reff$, and Vendi-Greedy all converge to
-    $116$--$117\%$ retention---maximizing the entropy of the
-    merged singular-value spectrum.
-    This signal dominates at \emph{high compression ratios}
-    ($k{\leq}7$, i.e., ${\geq}5.7{\times}$), where spectral steering
-    determines which $k$ datasets cover the most directions.
-  \item \textbf{Centroid coverage} (CC): Centroid-FF and DomainDiverse
-    achieve higher LP at $k{\geq}7$ by spreading dataset
-    \emph{mean embeddings} across semantic space, at a
-    $17$--$22$\,pp retention cost.
-    This signal dominates at \emph{low compression ratios}
-    ($k$ near $M$), where random selection already saturates
-    spectral diversity and distributional breadth becomes the
-    bottleneck.
-\end{itemize}
-
-\noindent\textbf{Practical guide.}
-\emph{High compression} ($k{\leq}0.2M$, ${\geq}5{\times}$): use
-Collapse (preferred when $\SAk{>}0.5$, rejecting clones $+25.5\%$;
-Appendix~\ref{app:rsum_regime}) or $r_A{+}r_B$ on clean pools.
-\emph{Low compression} ($k{>}0.2M$): use Centroid-FF or DomainDiverse.
-\emph{Unknown regime}: the Cen$\to$Col hybrid
-(Appendix~\ref{app:p2e_hybrid}) dominates on both SR and LP.
-
-\paragraph{Ablation.}
-On 256 vision pairs, the full model attains Spearman $\rho{=}0.966$
-($r_A{+}r_B$: $0.963$; $\max(r_A,r_B)$: $0.953$; $1{-}\alpha$: $0.450$);
-the $\Delta\rho{=}0.003$ gap reflects a low-$\alpha$/moderate-$\gamma$ degeneracy
-where $\hat{r}_{\mathrm{merged}}\!\approx\!c(r_A{+}r_B)$ on clean pools.
-Calibrated ranking achieves $R^2{=}0.95$ and flags $74\%$ of non-superadditive pairs;
-the clone confirms $\alpha$-channel rejection ($\reff{=}1251$ vs.\ $997$; Appendix~\ref{app:ablation_extra}).
-
-\enlargethispage{2\baselineskip}
 \section{Conclusion}
 \label{sec:conclusion}
 
-We introduced the Collapse Model---an exact local spectral analysis and a
-structured summary predictor for label-free data-pool compression.
-Greedy compression retains ${>}100\%$ of full-pool $\reff$ across 6 probes
-and 2 modalities, outperforming Facility Location and $k$-Medoids by
-$+7$--$+14$\,pp and scaling to $M{=}43$ ($14.3{\times}$ compression,
-$+40$\,pp over random).
-The four-summary $(r_A,r_B,\gamma,\alpha)$ predictor achieves
-Pearson $r{=}0.97$ on 427 real pairs ($R^2_{\mathrm{cal}}{=}0.95$),
-with superadditivity-threshold diagnosis and clone-rejection
-distinguishing it from $r_A{+}r_B$.
-Benchmarking exposes two orthogonal LP-diversity signals---spectral
-retention (Collapse/Vendi) and centroid coverage (Centroid-FF)---and
-a bimodal CLIP/DINO principal-angle structure that quantifies the
-supervised\,/\,SSL spectral-geometry divide.
-Extensions to neural compression remain future work.
+We separated exact spectral structure, bounded approximation, and
+task-dependent evidence.  Gram additivity and the block-compatible local model
+are exact; the counterexample rules out universal prediction from the legacy
+summaries.  The rank-$L$ sketch has a valid deterministic error interval, but
+the corrected sweep obtains zero decision certificates for $L\leq50$ and finds
+DPP at least as competitive.  The held-out audit is more decisive: even the
+validation-oracle source-supervised adapter is substantially worse than frozen
+identity.  The current contribution is therefore an exact local analysis, an
+auditable approximation protocol, and a documented negative result---not a
+validated practical compressor.  Equal-byte Pareto evidence and a downstream
+adapter family that first beats identity are prerequisites for a positive
+application claim.
 Code is available at \url{https://anonymous.4open.science/r/collapsemodel-1DB6}.
 
 \bibliographystyle{abbrvnat}
@@ -911,20 +794,21 @@ determine merged effective rank in general
 (Proposition~\ref{prop:insufficient}).  The exact $2\times2$ decomposition
 requires mode-wise pairing and decoupling; the closed entropy expression
 additionally requires proportional spectra and uniform alignment.  We do
-not claim a universal error bound for the summary predictor.
-The empirical calibration constant (Eq.~\ref{eq:universal_c})
-reduces but does not eliminate per-encoder tuning.
-The uniform-$\alpha$ assumption holds for supervised encoders and
-within-domain self-supervised pairs ($r{>}0.90$), but fails on
-cross-domain CLIP/DINO pairs (bimodal angles,
-Fig.~\ref{fig:bimodal_structure}) and SBERT text pairs
-(universal-$c$ explains $r{=}0.08$ of variance vs.\ $0.96$ for vision);
-ranking remains strong on the evaluated pairs while absolute predictions
-are biased.  Natural clean pools also show only a small average gain over
-$r_A{+}r_B$; the alignment channel's clearest benefit is redundancy
-detection under high overlap.  A piecewise model for non-uniform
-$V_\alpha$ and explicit control of cross-direction coupling are left as
-future work.
+not claim a universal error bound for Collapse-4S.  The empirical
+calibration relation (Eq.~\ref{eq:universal_c}) is fitted on few encoder
+families and transfers poorly to SBERT.  The rank-$L$ theorem requires an
+exact PSD truncation (or valid tail upper bounds) under fixed,
+subset-independent preprocessing; data-dependent global centering would
+break direct composability.  Its intervals are too wide to certify any tested
+choice at $L\leq50$, and increasing $L$ increases communication; the current
+baselines are not equal-byte matched.  Forming a Gram matrix also squares the
+condition number, so extremely ill-conditioned inputs require direct-SVD
+cross-checks or explicit numerical slack.  Finally, unlabeled geometry cannot
+determine arbitrary labels.  The corrected natural pool remains domain
+imbalanced, and the source-supervised bottleneck adapter is a narrow proxy that
+fails against frozen identity.  LoRA and multi-pool training were consequently
+not run under the preregistered stopping rule.  Broader domains and a useful
+adapter family would be required before claiming practical utility.
 
 \section{Proofs of the Exact Gram Results}
 \label{app:proof_thm}
@@ -981,57 +865,67 @@ Exponentiating proves Eq.~\eqref{eq:proportional_exact}.  Proportional
 spectra have identical normalized singular-value distributions, so
 $r_A=r_B$. $\square$
 
+\textbf{Theorem~\ref{thm:rank_l_bound}.}
+Write $E_S=\sum_{j\in S}E_j$.  For PSD matrices,
+$\operatorname{tr}\sqrt{A+B}\leq\operatorname{tr}\sqrt A+
+\operatorname{tr}\sqrt B$: apply the nuclear-norm triangle inequality to
+$[A^{1/2},B^{1/2}]$.  Hence
+\begin{equation}
+ \operatorname{tr}\sqrt{E_S}\leq\sum_j\tau_j,
+ \qquad
+ \operatorname{tr}\sqrt{E_S}
+ \leq\sqrt{\operatorname{rank}(E_S)\operatorname{tr}(E_S)}
+ \leq\sqrt{\min(d,\sum_j u_j)\sum_j\omega_j},
+\end{equation}
+so $\operatorname{tr}\sqrt{E_S}\leq T_S$.  Let
+$a_i=\sqrt{\lambda_i(\widetilde G_S)}$ and
+$b_i=\sqrt{\lambda_i(G_S)}$ in decreasing order.  Since
+$G_S\succeq\widetilde G_S$, eigenvalue monotonicity gives $b_i\geq a_i$.
+With $\widetilde\nu=\sum_i a_i$ and
+$\delta=\sum_i(b_i-a_i)$, trace subadditivity gives $0\leq\delta\leq T_S$.
+If $\delta>0$, the normalized true spectrum is
+\begin{equation}
+ p=\frac{\widetilde\nu}{\widetilde\nu+\delta}\widetilde p
+ +\frac{\delta}{\widetilde\nu+\delta}q,
+ \qquad q_i=\frac{b_i-a_i}{\delta}.
+\end{equation}
+Thus $\operatorname{TV}(p,\widetilde p)\leq
+\delta/(\widetilde\nu+\delta)\leq\varepsilon_S$.
+Fannes--Audenaert entropy continuity on a support of size at most $D_S$
+gives Eq.~\eqref{eq:rank_l_bound}.  The $\delta=0$ and $D_S=1$ cases are
+immediate. $\square$
+
+\textbf{Corollary~\ref{cor:rank_l_choice}.}
+The theorem places every exact candidate score in
+$[\widehat F_j-e_j,\widehat F_j+e_j]$.  Equation~\eqref{eq:rank_l_certificate}
+puts the lower endpoint of $j^*$ strictly above every competing upper
+endpoint. $\square$
+
 \textbf{Status of Eq.~\eqref{eq:pred}.}
 For unequal or non-proportional spectra, the two branches need not inherit
 the input distributions, and $q$ can vary by mode.  Equation~\eqref{eq:pred}
 therefore defines a structured approximation; no exactness or universal
 error bound is asserted for it.
 
-\section{Proof of Proposition~\ref{prop:transfer_bound}}
-\label{app:proof_prop1}
+\section{Optimization Limits}
+\label{app:optimization_limits}
 
-\textbf{Step 0 (bias-variance decomposition).}
-Let $\hat{W}=(H_s^\top H_s)^+H_s^\top Y_s$ (least-squares solution on source).
-Decompose:
+Effective-rank maximization is not generally monotone.  Take
+$G_A=\operatorname{diag}(1/2,1/2)$ and
+$G_B=\operatorname{diag}(1,0)$.  Then $\mathcal R(G_A)=2$, whereas
+$\mathcal R(G_A+G_B)=1.928623<2$.  It is also not generally submodular.
+Let $G_0=\operatorname{diag}(1/5,4/5)$,
+$G_1=\operatorname{diag}(0,1)$, and
+$G_2=\operatorname{diag}(1,0)$.  For
+$A=\{0\}\subset B=\{0,1\}$, direct evaluation of
+$F(S)=\log\mathcal R(\sum_{j\in S}G_j)$ gives
 \begin{equation}
-  \frac{\|H_t\hat{W}-Y_t\|_F^2}{m}
-  = \underbrace{\|H_t\hat{W}-\mathbb{E}[Y_t|H_t]\|_F^2/m}_{\text{bias}^2}
-  + \underbrace{\|\mathbb{E}[Y_t|H_t]-Y_t\|_F^2/m}_{\sigma^2_{\mathrm{Bayes}}}.
+ F(A\cup\{2\})-F(A)=0.051522
+ <0.125701=F(B\cup\{2\})-F(B),
 \end{equation}
-The Bayes error $\varepsilon_{\mathrm{Bayes}}=\sigma^2_{\mathrm{Bayes}}$ is irreducible.
-
-\textbf{Step 1 (directional gap).}
-Let $P_k=V_s^k(V_s^k)^\top$ project onto the top-$k$ source subspace.
-Decompose $H_t=H_t^{\parallel}+H_t^{\perp}$ where $H_t^{\parallel}=H_tP_k$.
-Since $\hat{W}\in\mathrm{col}(V_s^k)$, we have $H_t^{\perp}\hat{W}=0$ only if $\hat{W}=P_k\hat{W}$;
-the residual term $\|H_t^{\perp}\|_F^2=\|H_t\|_F^2(1-\widehat{\mathrm{SA}}_k)$
-with $\widehat{\mathrm{SA}}_k\approx\SAk$ for balanced spectra,
-giving the directional gap $(\|H_t\|_F^2/m)(1-\SAk)$.
-
-\textbf{Step 2 (spectral gap).}
-We first define the \textbf{Spectral Transfer Gap},
-\begin{equation}
-  \mathrm{STG}(H_A,H_B) = W_1(p_A,p_B) = \sum_{i=1}^k |F_A(i)-F_B(i)|,
-  \label{eq:stg}
-\end{equation}
-where $F(i)=\sum_{j\leq i}p_j$ is the CDF of the truncated normalised
-spectrum.
-For the parallel component, $H_t^{\parallel}\hat{W}$ incurs a per-direction scaling
-$({\sigma_i^t}/{\sigma_i^s})^2$ relative to the ideal transfer.
-The STG term $W_1(p_s,p_t)$ upper-bounds the total variation of these ratios
-(by the Kantorovich--Rubinstein duality):
-$\sum_i|(\sigma_i^t/\sigma_i^s)^2-1|\leq C_1\cdot\mathrm{STG}\cdot\|\hat{W}\|_F^2/(\sigma_k^s)^2$
-with $C_1=(\|H_s\|_*+\|H_t\|_*)^2/m$.
-
-\textbf{Step 3 (geometric gap).}
-The $\Delta\mathrm{UID}$ term arises from the Rademacher complexity bound
-on the generalization gap when source and target manifolds have different intrinsic dimensions.
-Following \citet{bartlett2002rademacher} and \citet{pope2021intrinsic}:
-\begin{equation}
-  C_2\cdot|\Delta\mathrm{UID}|
-  = \frac{4\|\hat{W}\|_F^2(\|H_s\|_F+\|H_t\|_F)^2}{\min(n,m)}\cdot|\Delta\mathrm{UID}|.
-\end{equation}
-Adding the three gaps completes the proof. $\square$
+violating diminishing returns.
+Thus standard monotone-submodular greedy guarantees do not apply; exhaustive
+search is used only as a finite small-pool reference.
 
 % ============================================================
 \section{Bootstrap Confidence Intervals}
@@ -1123,13 +1017,13 @@ pairing and cross-direction coupling.  We leave this extension and its
 error analysis to future work.
 
 % ============================================================
-\section{Compression at $M{=}14$ Vision and $M{=}7$ Text Pools}
+\section{Historical Compression Pilot at $M{=}14$ Vision and $M{=}7$ Text Pools}
 \label{app:compression_m14}
 
-We apply Collapse Greedy as a pure compression tool across three
-architectures (ResNet-50, ViT-B/16, BERT/RoBERTa/GPT-2) and two
-modalities (vision, text), using FacLoc / $k$-Medoids as classical
-diversity baselines.
+This pre-audit experiment applies Collapse-4S greedy across three encoder
+families and two modalities, using FacLoc / $k$-Medoids as baselines.  It
+predates the label-blind cache, source weighting, and Collapse-Gram-$L$
+implementation; all numbers below are descriptive historical results.
 
 \begin{table}[h]
 \centering
@@ -1137,15 +1031,14 @@ diversity baselines.
 across strategies, architectures, and modalities.
 FacLoc = Facility Location (submodular greedy on $\SAk$ kernel);
 kMedoids = PAM on $1{-}\SAk$ distance.
-The Collapse Model matches or exceeds submodular and clustering baselines
-in all settings, exploiting superadditivity to select subsets of higher
-diversity than the full pool. Random: 10-seed mean$\pm$std.}
+Random is the 10-seed mean$\pm$std.  The table evaluates spectral retention,
+not a task-utility guarantee.}
 \label{tab:compression}
 \small
 \setlength{\tabcolsep}{2.5pt}
 \begin{tabular}{llcrrrrc}
 \toprule
-Probe & $M$ & $k$ (ratio) & Collapse & FacLoc & kMedoids & Random & LP$_{\mathrm{col}}$ \\
+Probe & $M$ & $k$ (ratio) & Collapse-4S & FacLoc & kMedoids & Random & LP$_{\mathrm{4S}}$ \\
 \midrule
 \multicolumn{8}{l}{\textit{Vision}} \\
 ResNet-50 & 14 & 3 ($4.7{\times}$) & \textbf{101.4} & 87.8 & 87.5 & $84.3_{\pm10.0}$ & 0.754 \\
@@ -1163,14 +1056,11 @@ GPT-2 L6   & 7 & 5 ($1.4{\times}$) & \textbf{106.0} & ---  & ---   & $96.7_{\pm4
 \end{tabular}\normalsize
 \end{table}
 
-On ResNet-50 ($M{=}14$), Collapse Greedy substantially outperforms
-Facility Location ($+13.6$--$+7.5$\,pp) and $k$-Medoids
-($+13.9$--$+7.9$\,pp); both exploit subspace-alignment kernels but
-cannot model superadditivity, limiting them in the high-retention
-regime.
-Downstream LP accuracy on the M=14 ResNet-50 pool yields
-LP $0.747$--$0.779$ for Collapse vs.\ $0.737$--$0.772$ for Random,
-extending the M=43 LP advantage to the smaller pool size.
+On this ResNet-50 pool, Collapse-4S has $7.5$--$13.6$ percentage points
+higher spectral retention than Facility Location and $7.9$--$13.9$ points
+higher than $k$-Medoids.  The accompanying LP values are a narrow pilot and
+were not produced by the corrected two-stage protocol; they do not establish
+that the retention ordering transfers to new targets.
 
 % ============================================================
 \section{$r_A{+}r_B$ Heuristic: Safe Regime and Failure Mode}
@@ -1178,15 +1068,15 @@ extending the M=43 LP advantage to the smaller pool size.
 
 \paragraph{When does $r_A{+}r_B$ suffice, and when does it fail?}
 On clean curated pools, the $r_A{+}r_B$ and Max-$\reff$ heuristics
-select the \emph{same} subset as Collapse Greedy
-(within $0.7$\,pp at $M{=}43$, Table~\ref{tab:scale}).
+often select the same subset as Collapse-4S (within $0.7$\,pp in the
+historical $M{=}43$ stress test).
 This agreement is consistent with the summary diagnostic in
 Corollary~\ref{cor:superadd}: when all top-$\reff$ candidates have low
 mutual alignment ($\bar\alpha{<}0.2$, i.e.\ rank-ratio $r_{\mathrm{dom}}/r_{\mathrm{sub}}{<}\rho_c$),
 the superadditivity bonus $H_b(q)$ is dominated by the rank term
 $q\log r_{\mathrm{dom}}{+}(1{-}q)\log r_{\mathrm{sub}}$,
 making individual rank a near-sufficient statistic.
-The Collapse Model thus serves a different role than ``beating $r_A{+}r_B$
+Collapse-4S thus serves a different role than ``beating $r_A{+}r_B$
 everywhere'':
 \textbf{(i)~A priori low-redundancy diagnostic.}
 $\rho_c(\bar\alpha,\bar\gamma)$ computed from per-dataset summaries
@@ -1198,10 +1088,8 @@ agreement regime ($\rho_c{>}4$ at $\bar\alpha{\leq}0.2$,
 Cor.~\ref{cor:superadd}), matching the observed heuristic-equivalence
 at $M{=}14$ and $M{=}43$.
 \textbf{(ii)~Detection of the unsafe regime.}
-When candidates contain near-duplicate or strongly aligned subspaces---which
-arise in practice from clone-attack data poisoning, augmented dataset
-variants, or fine-grained subset families---the $\alpha$ channel is the
-only discriminative signal.
+When candidates contain near-duplicate or strongly aligned subspaces, the
+$\alpha$ channel supplies information that rank-only omits.
 The clone experiment below ($r_A{+}r_B$ retention drops $25.5\%$,
 Collapse holds) demonstrates this on a controlled stress test;
 the naturally bimodal CLIP/DINO cross-domain pairs
@@ -1209,16 +1097,12 @@ the naturally bimodal CLIP/DINO cross-domain pairs
 are real-world settings where the $\alpha$ signal is non-negligible
 and the rank-only heuristic can fail.
 \textbf{(iii)~Diagnosis without execution.}
-Unlike heuristics that can only be evaluated by running them, the
-Collapse Model's regime classification (superadditive / directional
-collapse / energy collapse) is computable from $(\gamma,\alpha,\UID)$
-alone, turning it into an \emph{ex ante} planning tool.
-\emph{The structured formula is useful not to beat the heuristic on easy
-pools, but to diagnose when alignment is negligible and to take over when
-it is not.}
+The Collapse-4S regime classification is computable from $(\gamma,\alpha)$,
+but Proposition~\ref{prop:insufficient} makes it a heuristic diagnostic, not
+a certified decision rule.
 
 \paragraph{Redundancy clone trap: failure mode of $r_A{+}r_B$.}
-To test the Collapse Model's robustness to informational redundancy,
+To stress-test the alignment term under constructed redundancy,
 we construct a \emph{clone attack} scenario: the highest-$\reff$ dataset
 in the pool (STL-10, $\reff{=}994$) is cloned via random rotation
 $H_{\mathrm{clone}}{=}H_{\mathrm{orig}}Q(\theta)$
@@ -1227,28 +1111,26 @@ that preserve the original $\reff$ but are highly aligned with the
 original ($\SAk{>}0.99$).
 On a pool of 5 real + 5 cloned ResNet-50 datasets, $r_A{+}r_B$ greedy
 at $k{=}3$ selects $2/3$ clones ($\reff^{\mathrm{merged}}{=}997$),
-while the Collapse Model detects redundancy via high $\alpha$,
+while Collapse-4S assigns a redundancy penalty via high $\alpha$,
 \textbf{selecting $0/3$ clones}
 ($\reff^{\mathrm{merged}}{=}1251$, $+25.5\%$).
 At $k{=}5$ the gap persists: $r_A{+}r_B$ selects $4/5$ clones
 ($\reff{=}998$), Collapse only $2/5$ ($\reff{=}1233$).
 This result is consistent across all 5 $\theta$ values
 ($\theta{=}0.01$--$0.10$, $\SAk$ from $0.9999$ to $0.9891$).
-The clone experiment directly demonstrates \emph{the indispensable role
-of the alignment channel $\alpha$ in defending against informational
-redundancy}---$r_A{+}r_B$ lacks this diagnostic capability,
-misidentifying high-$\reff$ clones as high-value candidates.
+Because the duplicated source was deliberately chosen from the highest-rank
+candidate, this is an adversarial stress test rather than evidence about
+natural-pool frequency.  It shows only that alignment can help in this
+constructed case.
 
 % ============================================================
 \section{P2-E: Hybrid Two-Signal Strategy}
 \label{app:p2e_hybrid}
 
-The two-signal decomposition identified in Sec.~\ref{sec:compression}
-(Table~\ref{tab:p1a_modern}) suggests a natural two-stage hybrid:
+The historical $M{=}40$ pilot suggested a two-signal hybrid:
 seed $\lceil k/2\rceil$ datasets via one signal, fill the remaining
 $\lfloor k/2\rfloor$ via the other.
-We test three orderings on the same $M{=}40$ ResNet-50 pool used in
-Table~\ref{tab:p1a_modern}:
+We test three orderings on that same $M{=}40$ ResNet-50 pool:
 \textbf{Col$\to$Cen} (Collapse first, Centroid-FF on residuals),
 \textbf{Cen$\to$Col} (Centroid-FF first, Collapse on residuals), and
 \textbf{Col$\to$Dom} (Collapse first, DomainDiverse on residuals).
@@ -1256,8 +1138,7 @@ Table~\ref{tab:p1a_modern}:
 \begin{table}[h]
 \centering
 \caption{Two-signal hybrid strategies on $M{=}40$ ResNet-50.
-Pure-strategy reference rows (from Table~\ref{tab:p1a_modern}) shown
-for comparison.
+Pure-strategy reference rows are shown for comparison.
 \textbf{Bold} marks the best LP at each $k$.}
 \label{tab:p2e_hybrid}
 \small
@@ -1281,13 +1162,13 @@ Col$\to$Dom               & 114.7 & \textbf{0.7634} & 116.0 & 0.7562 & 113.8 & 0
 \end{tabular}\normalsize
 \end{table}
 
-\textbf{Cen$\to$Col is the consistent hybrid winner.}
+\textbf{Historical result.}
 At $k{\in}\{7,10\}$ (the operational compression range), Cen$\to$Col
 achieves LP $0.7610/0.7602$, exceeding pure Collapse
 ($0.7578/0.7576$) by ${+}0.0032/{+}0.0026$ while sacrificing only
 $3.8/1.2$\,pp of retention.
-At $k{=}10$ specifically, Cen$\to$Col \emph{dominates} pure Collapse on
-both axes simultaneously (LP $+0.0026$, retention only $-1.2$\,pp).
+At $k{=}10$, Cen$\to$Col trades $1.2$ percentage points of retention for
+$0.0026$ higher LP; it does not dominate pure Collapse on both metrics.
 Compared to pure Centroid-FF, Cen$\to$Col recovers $13.3$\,pp of retention
 at $k{=}5$, $16.9$\,pp at $k{=}7$, and $14.5$\,pp at $k{=}10$ while
 keeping LP within $\pm0.0028$.
@@ -1307,8 +1188,9 @@ hybrid is to \emph{fill} the residual budget with diversity-maximizing
 choices, exactly the regime where it operates with summary statistics
 alone (the centroid-FF prefix can be precomputed once from
 already-shared centroids, no feature-matrix exchange needed).
-This validates Collapse Greedy as a \emph{composable} primitive within
-broader compression pipelines, not just a standalone strategy.
+This single-pool result motivates, but does not validate, a composable
+two-signal strategy.  It must be repeated with the corrected protocol and
+independent targets.
 
 % ============================================================
 \section{E5 Supplementary: Per-Target Selection Details}
@@ -1323,7 +1205,7 @@ broader compression pipelines, not just a standalone strategy.
 \cmidrule(lr){2-5}
 Strategy & $K{=}1$ & $K{=}2$ & $K{=}3$ & $K{=}5$ \\
 \midrule
-Collapse Greedy & \textbf{0.0 / 100} & \textbf{0.0 / 100} & \textbf{0.0 / 100} & \textbf{1.0 / 87} \\
+Collapse-4S & \textbf{0.0 / 100} & \textbf{0.0 / 100} & \textbf{0.0 / 100} & \textbf{1.0 / 87} \\
 Max-$\reff$ & 0.0 / 67 & 2.0 / 67 & 0.9 / 89 & 1.0 / 87 \\
 $\Ddir$-greedy & 20.3 / 0 & 16.7 / 17 & 17.0 / 33 & 13.3 / 40 \\
 Random & 15.2 / -- & 17.5 / -- & 16.1 / -- & 11.1 / -- \\
@@ -1332,7 +1214,7 @@ Random & 15.2 / -- & 17.5 / -- & 16.1 / -- & 11.1 / -- \\
 \end{center}
 
 For BloodMNIST ($K{=}1$), Max-$\reff$ selects STL-10
-(highest individual $\reff{=}357$) but Collapse Greedy selects CIFAR-100
+(highest individual $\reff{=}357$) but Collapse-4S selects CIFAR-100
 ($\reff{=}356$, marginally lower) because the latter has lower
 alignment with BloodMNIST ($\alpha{=}0.18$ vs.\ $0.21$),
 yielding a higher predicted merged rank---confirmed by
@@ -1341,9 +1223,9 @@ $\reff^{\mathrm{merged}}=506.8$ vs.\ $506.4$.
 \textbf{$r_A{+}r_B$ greedy baseline.}
 We evaluate an $r_A{+}r_B$ greedy strategy that selects
 the candidate with the highest individual $\reff$ at each round.
-On the $M{=}10$ pool, this baseline matches Collapse Greedy at $K{\leq}3$
+On the $M{=}10$ pool, this baseline matches Collapse-4S at $K{\leq}3$
 (identical subset, $0\%$ regret), diverging only at $K{=}5$ where
-Collapse Greedy retains $100\%$ recall while $r_A{+}r_B$ drops to $87\%$.
+Collapse-4S retains $100\%$ recall while $r_A{+}r_B$ drops to $87\%$.
 This mirrors the ablation finding: $r_A{+}r_B$ suffices when candidates
 have distinct individual ranks, but fails when alignment
 discrimination ($\alpha$) is needed.
@@ -1351,20 +1233,22 @@ discrimination ($\alpha$) is needed.
 \textbf{Downstream LP validation.}
 We train a linear probe on the merged features from each strategy's
 $K$-subset and evaluate on held-out test data.
-All four strategies (Exhaustive, Collapse Greedy, $r_A{+}r_B$, Max-$\reff$)
+All four strategies (Exhaustive, Collapse-4S, $r_A{+}r_B$, Max-$\reff$)
 produce identical LP accuracy across all 6 tested configurations
 (CIFAR-10 and STL-10 targets, $K{\in}\{1,2,3\}$),
 ranging from $0.776$ (CIFAR-10, $K{=}3$) to $0.979$ (STL-10, $K{=}1$).
-This confirms that maximizing merged $\reff$ via the Collapse Model
-translates to downstream discriminability, not merely spectral diversity.
+Because every method has identical LP accuracy here, this experiment does
+not distinguish selectors and cannot show that maximizing merged $\reff$
+improves downstream utility.
 
 % ============================================================
 \section{E7 Supplementary: kNN Downstream Validation}
 \label{app:e7_knn}
 
-The main text uses linear-probe (LP) accuracy as the downstream metric.
-Here we verify that $k$-nearest-neighbour (kNN) accuracy tells the same
-story, justifying LP as sufficient throughout the paper.
+The main text uses linear-probe (LP) accuracy as one downstream metric.
+Here we compare whether $k$-nearest-neighbour (kNN) gives similar rankings
+on the evaluated configurations; this cannot establish LP as sufficient for
+arbitrary downstream tasks.
 
 \textbf{Part B: LP--kNN rank correlation.}
 We compute LP, kNN-5, and kNN-20 accuracy on 5 single datasets
@@ -1401,16 +1285,11 @@ $k$ & Strategy & LP & kNN-5 & kNN-20 \\
 \end{tabular}
 \end{center}
 
-The pattern is consistent: Collapse Greedy's advantage is amplified
-under kNN relative to LP.
-At $k{=}3$ ($2{\times}$ compression), the kNN-20 gap is $8{\times}$ the LP gap.
-This is expected: kNN relies on local neighbourhood geometry, which
-degrades faster when redundant features dominate the merged space;
-LP, being a global linear classifier, is less sensitive to such
-local distortions.
-Since LP and kNN agree on the \emph{ranking} of strategies
-($\rho{>}0.97$), LP accuracy is a sufficient proxy for
-evaluating compression strategies in the main text.
+On this historical $M{=}6$ pool, the Collapse-4S--random difference is
+larger for kNN than for LP; at $k{=}3$, for example, it is $7.4$ percentage
+points for kNN-20 and $0.9$ for LP.  The high single-dataset LP--kNN
+correlation ($\rho{>}0.97$) and the strategy comparison reuse a small,
+shared pool, so we treat LP only as one proxy rather than a sufficient one.
 
 \section{Additional Notes}
 \label{app:method_comparison}
@@ -1495,66 +1374,49 @@ However, $c$ varies across encoder families
 ($c{=}0.78$ for ResNet-50 vs.\ $c{=}0.65$ for ViT-B/16),
 reflecting systematic differences in how each architecture's spectral structure
 deviates from the paired-direction summary model.
-We find that this variation obeys a universal regression:
+On the evaluated encoder families, this variation is fit by:
 \begin{equation}
   c \;=\; 0.946 - 0.175\,\log(N/\reff),
   \quad R^2{=}0.963,\;\text{LOO mean error}{=}0.027,
   \label{eq:universal_c}
 \end{equation}
-indicating that the variation in $c$ is primarily governed by the
-sample-size to effective-rank ratio.
-In practice, $c$ can be estimated directly from this formula without
-a dedicated calibration set;
-for higher precision, a small per-encoder calibration set
-(as few as 6 pairs suffice; see Table~\ref{tab:perprobe_cal})
-can further refine the estimate.
+This small-sample regression is descriptive and requires validation on a
+new encoder family before use; its in-sample $R^2$ is not evidence of a
+universal law.
 \end{remark}
 
-\subsection{Connection to Transfer Learning}
+\subsection{Why a Task-Aware Second Stage Is Necessary}
 \label{sec:transfer_connection}
 
-The same three channels that govern merging also bound transfer loss.
-\begin{proposition}[Gram Block Transfer Bound, informal]
-\label{prop:transfer_bound}
-For source features $H_s$ and target features $H_t$,
-the linear-probe transfer loss satisfies
-\begin{equation}
-  \frac{\|H_t\hat{W}-Y_t\|_F^2}{m}
-  \;\leq\;
-  \underbrace{\frac{\|H_t\|_F^2}{m}(1-\SAk)}_{\text{directional gap}}
-  +\; \underbrace{C_1\cdot\mathrm{STG}\cdot\frac{\|\hat{W}\|_F^2}{(\sigma_k^s)^2}}_{\text{spectral gap}}
-  +\; \underbrace{C_2\cdot|\Delta\mathrm{UID}|}_{\text{geometric gap}}
-  + \varepsilon_{\mathrm{Bayes}},
-  \label{eq:transfer_bound}
-\end{equation}
-where $C_1=({\|H_s\|_*+\|H_t\|_*})^2/m$, $C_2=4\|\hat{W}\|_F^2(\|H_s\|_F+\|H_t\|_F)^2/\min(n,m)$.
-\end{proposition}
-(Full proof in Appendix~\ref{app:proof_prop1}.)
-The same duality applies: low $\SAk$ implies \emph{high} merge gain (Collapse Model)
-and \emph{high} transfer loss (Prop.~\ref{prop:transfer_bound})---opposite monotone maps
-of the same principal angles.
+Unlabeled Grams contain no information about an arbitrary target labeling.
+Indeed, two tasks may share exactly the same frozen features while assigning
+labels to different directions, reversing the utility order of two source
+subsets.  Therefore no label-free spectral score can universally guarantee
+downstream utility.  Our Stage-2 validation is not a consequence of
+Theorem~\ref{thm:rank_l_bound}: it is the separate empirical step needed to
+measure target-conditioned utility under equal training compute.
 
 
-\paragraph{Collapse Greedy pseudocode.}
+\paragraph{Certified Stage-1 pseudocode.}
 
 \begin{algorithm}[h]
-\caption{Collapse-Model-Guided Greedy Selection}
+\caption{Collapse-Gram-$L$ Greedy Screening}
 \label{alg:collapse_greedy}
 \begin{algorithmic}[1]
-\Require Target features $H_t\in\R^{N_t\times d}$, candidate pool
-  $\mathcal{P}=\{H_1,\ldots,H_M\}$, budget $K$
-\Ensure Selected subset $S\subseteq\mathcal{P}$, $|S|=K$
-\State $H_{\mathrm{cur}} \gets H_t$;\quad $S\gets\emptyset$;\quad $C\gets\mathcal{P}$
-\For{$j = 1,\ldots,K$}
-  \State $r_{\mathrm{cur}} \gets \reff(H_{\mathrm{cur}})$;\quad $\nu_{\mathrm{cur}} \gets \nucnorm{H_{\mathrm{cur}}}$
-  \For{each $H_c \in C$}
-    \State $\alpha_c \gets \SAk(H_{\mathrm{cur}}, H_c)$;\quad $\gamma_c \gets \nucnorm{H_c}\,/\,\nu_{\mathrm{cur}}$
-    \State $\hat{r}_c \gets \textproc{CollapsePredict}(r_{\mathrm{cur}},\,\reff(H_c),\,\gamma_c,\,\alpha_c)$
+\Require Summaries $\{(B_j,\tau_j,\omega_j,u_j)\}_{j=1}^M$, budget $K$
+\Ensure Ordered shortlist $S$, with a certificate flag for each step
+\State $S\gets\emptyset$;\quad $C\gets\{1,\ldots,M\}$
+\For{$t = 1,\ldots,K$}
+  \For{each $j \in C$}
+    \State compute $\widehat F_j$ and $e_j$ for $S\cup\{j\}$ using
+      Eqs.~\eqref{eq:rank_l_sketch}--\eqref{eq:rank_l_bound}
   \EndFor
-  \State $H^* \gets \arg\max_{H_c\in C}\;\hat{r}_c$;\quad $S \gets S \cup \{H^*\}$;\quad $C\gets C\setminus\{H^*\}$
-  \State $H_{\mathrm{cur}} \gets [H_{\mathrm{cur}};\, H^*]$
+  \State $j^*\gets\arg\max_{j\in C}\widehat F_j$
+  \State $z_t\gets[\widehat F_{j^*}-e_{j^*}>
+    \max_{j\neq j^*}(\widehat F_j+e_j)]$
+  \State $S\gets S\mathbin{\|}j^*$;\quad $C\gets C\setminus\{j^*\}$
 \EndFor
-\State \Return $S$
+\State \Return $(S,z_1,\ldots,z_K)$
 \end{algorithmic}
 \end{algorithm}
 
@@ -1694,8 +1556,8 @@ Per-probe: ResNet-50 achieves 100\% superadditivity (15/15, Pearson $r=0.968$);
 ViT-B/16 achieves 73.3\% (11/15, Pearson $r=0.945$).
 
 \textbf{All 4 exceptions are ViT-B/16 pairs involving CIFAR-100.}
-The root cause is \emph{energy imbalance}, consistent with the superadditivity
-threshold (Corollary~\ref{cor:superadd}).
+The exceptions are associated with \emph{energy imbalance}, consistent with
+the superadditivity diagnostic (Corollary~\ref{cor:superadd}).
 CIFAR-100 has 100 classes and correspondingly high intrinsic complexity:
 $r_{\mathrm{eff}}(\text{CIFAR-100})\approx526$ under ViT-B/16, far exceeding
 partner datasets such as MNIST ($r_{\mathrm{eff}}\approx140$) and SVHN ($\approx243$).
@@ -1709,7 +1571,8 @@ We verify this by sweeping $N_{\mathrm{sub}}\in\{500,1000,2000,4000\}$:
 at $N{=}500$, CIFAR-100's $r_{\mathrm{eff}}$ is compressed to $\approx343$
 (comparable to partners), giving $\gamma\approx1$ and 100\% superadditivity (5/5);
 as $N$ grows to 2000+, $r_{\mathrm{eff}}$ stabilizes at 526, $\gamma$ increases,
-and exceptions emerge---confirming energy imbalance as the mechanism.
+and exceptions emerge.  These quantities co-vary and are consistent with the
+energy-imbalance explanation, but the sweep does not identify it causally.
 ResNet-50 ($d{=}2048$, $r_{\mathrm{eff}}\approx988$ for CIFAR-100)
 yields even larger $\gamma$ ratios, yet remains 100\% superadditive (36/36)
 because its partner datasets also have higher $r_{\mathrm{eff}}$ in 2048-dimensional space,
@@ -1730,7 +1593,7 @@ Table~\ref{tab:e1c} shows strong and consistent superadditivity across all probe
 
 \begin{table}[h]
 \centering
-\caption{E1c: Large-scale Collapse Model validation.
+\caption{E1c: Historical Collapse-4S association study.
 Superadditivity rate and Pearson $r$ (predicted vs.\ actual merged $r_{\mathrm{eff}}$).
 Bootstrap 95\% CI ($B=10{,}000$). The formula over-predicts on all probes
 in this experiment; ``Bias'' reports the observed multiplicative ratio.}
@@ -1751,8 +1614,8 @@ SBERT (text)                  &  6 & \textbf{100\%} [100,100]  & 0.780          
 \end{table}
 
 \textbf{Key findings.}
-(i) \textbf{93\% superadditivity across three modalities}---natural images, medical scans, and text---shows
-the Collapse Model's predictions are domain-agnostic.
+(i) \textbf{93\% superadditivity on this mixed benchmark} is descriptive;
+the six SBERT pairs are too few to establish domain- or modality-agnostic behavior.
 (ii) \textbf{All 4 exceptions are ViT-B/16 pairs involving CIFAR-100},
 attributable to energy imbalance (same mechanism as E1b, Sec.~\ref{sec:e1b}):
 CIFAR-100's high intrinsic complexity ($r_{\mathrm{eff}}\approx526$, 100 classes)
@@ -1772,7 +1635,7 @@ agreement with the summary diagnostic on this observed set.
 ResNet-50 ($n=2000\gg r_{\mathrm{eff}}\approx350$, $1.24\times$)
 $<$ ViT-B/16 ($n=2000\approx3r_{\mathrm{eff}}\approx650$, $1.45\times$)
 $<$ SBERT ($n=1000\approx r_{\mathrm{eff}}\approx700$, $1.84\times$).
-This confirms the finite-sample upper-bound hypothesis.
+This is an observed trend in a small set, not a finite-sample theorem.
 
 \begin{figure}[t]
 \centering
@@ -1816,7 +1679,7 @@ grouped by WordNet semantic hierarchy, with $N{=}2000$ samples each.
 
 \begin{table}[h]
 \centering
-\caption{E1d: Large-scale Collapse Model validation (427 pairs, 5 probes).}
+\caption{E1d: Historical Collapse-4S association study (427 pairs, 5 probes).}
 \small
 \setlength{\tabcolsep}{3.5pt}
 \begin{tabular}{lccccc}
@@ -1835,36 +1698,32 @@ DINO ViT-S/16 (11 datasets)    & 55  & 36.4\%            & 0.913 & 0.584 & 0.554
 \end{table}
 
 \textbf{Key findings.}
-(i)~\textbf{Scaling confirms the theory}: at 427 pairs the overall Pearson $r{=}0.970$
-exceeds the 57-pair result ($r{=}0.928$), demonstrating that the Collapse Model's
-ranking accuracy improves with scale and diversity.
-(ii)~\textbf{ImageNet subsets behave as predicted}: all 20 ImageNet-only pairs
+(i)~At 427 evaluated pairs the overall Pearson correlation is $r{=}0.970$,
+compared with $r{=}0.928$ in E1c.  Because pairs share datasets and the larger
+set is not an independent replication, this increase does not validate a theorem.
+(ii)~All 20 ImageNet-only pairs
 are superadditive, and all 30 natural$\times$ImageNet cross-domain pairs
-are superadditive---the model correctly predicts that semantically distinct
-ImageNet subgroups contribute orthogonal directions.
+are superadditive; this is an empirical property of these extracted features.
 (iii)~\textbf{ResNet-50 achieves 100\% superadditivity} across 91 pairs
-(14 datasets including medical and ImageNet), the strongest confirmation
-at this scale.
+(14 datasets including medical and ImageNet) on this benchmark.
 In contrast, CLIP ViT-B/32 and DINO ViT-S/16 achieve only 31\% and 38\%
 superadditivity respectively.
 Analysis reveals a clear pattern: \emph{within-domain} pairs
 (natural$\times$natural, ImageNet$\times$ImageNet) achieve near-perfect
 superadditivity (CLIP: 90\% on ImageNet-only, 100\% on natural-only;
 DINO: 100\% on both), while \emph{cross-domain} pairs
-(handwritten$\times$ImageNet, natural$\times$digit) fail almost universally.
+(handwritten$\times$ImageNet, natural$\times$digit) fail for nearly all
+evaluated pairs.
 This suggests that self-supervised encoders learn domain-specific spectral
 structures with heterogeneous alignment and spectral coupling discarded by
 the global summaries---an important boundary condition
 for the Collapse Model's applicability.
-(iv)~\textbf{Cross-modal generalization}: extending to 171 SBERT text pairs
-(98.8\% superadditive, $r{=}0.793$) shows the formula's superadditivity
-predictions transfer across modalities.
-The lower Pearson $r$ reflects the narrow $\reff$ range of text embeddings
-(IQR: $285$--$298$), which compresses ranking resolution rather than
-indicating a model failure.
+(iv)~On 171 SBERT text pairs the correlation drops to $r{=}0.793$
+(98.8\% superadditive).  The narrow $\reff$ range (IQR: $285$--$298$) may
+contribute, but these results do not establish cross-modal generalization.
 (v)~\textbf{Calibration constant varies by encoder family} ($c{\in}[0.57, 0.78]$),
 but a single global $c{=}0.712$ achieves $R^2{=}0.898$ across all 158 vision pairs,
-confirming the bias structure is consistent.
+describing the average bias on this benchmark.
 
 \textbf{Understanding non-superadditive pairs.}
 ViT-B/16 achieves only 69\% superadditivity (38/55), lower than
@@ -1938,7 +1797,7 @@ MAE${=}206$, while $\bar\alpha_w$ yields $r{=}0.935$, MAE${=}218$ (worse);
 DINO shows a similar pattern ($r$ drops from $0.912$ to $0.904$,
 MAE increases by $4\%$);
 ResNet-50 and ViT-B/16 also show no improvement.
-The root cause is that simple energy weighting over-emphasises
+A possible explanation is that simple energy weighting over-emphasises
 the first singular direction's redundancy
 ($\cos^2\theta_1{\approx}0.87$ for that direction),
 while improperly suppressing the estimated contribution of
@@ -1952,10 +1811,11 @@ may break through this bottleneck and are left to future work.
 
 The Collapse Model systematically over-predicts on the evaluated real-data
 pairs (Remark~\ref{rem:calibration}).
-Since the log-space over-prediction is approximately constant across
-probes and domains ($\mathrm{mean}{=}0.293$, $\mathrm{std}{=}0.164$),
-a single multiplicative constant $c$ (Eq.~\ref{eq:calibration})
-suffices to convert the ranking tool into a quantitative predictor.
+The log-space over-prediction is approximately constant on the evaluated
+probes and domains ($\mathrm{mean}{=}0.293$, $\mathrm{std}{=}0.164$), so we
+test whether a multiplicative constant $c$ (Eq.~\ref{eq:calibration}) improves
+within-benchmark calibration.  This does not guarantee out-of-encoder
+quantitative prediction.
 
 \textbf{Cross-dataset generalization.}
 To verify that $c$ is not dataset-specific,
@@ -2019,8 +1879,8 @@ ResNet-50 features ($d{=}2048$, $\reff{\approx}350$) are spectrally
 sparser than ViT features ($d{=}768$, $\reff{\approx}400$),
 so the two-component spectral mixture approximation incurs less error.
 A global $c{=}0.712$ across all vision probes
-yields $R^2{=}0.898$, confirming that a single constant provides
-a strong baseline; per-probe calibration is a refinement, not a necessity.
+yields $R^2{=}0.898$ on the same benchmark; out-of-family validation is
+required before using a shared constant.
 
 Figure~\ref{fig:e1c} shows the E1c scatter plot before and after calibration.
 
@@ -2035,8 +1895,8 @@ as independent probes, giving 12 total configurations.
 \textbf{Results.}
 ResNet-50: $R^2=0.557$, Pearson $r=0.9987$, 100\% superadditive.
 ViT-B/16: $R^2=-16.1$ (systematic over-prediction), Pearson $r=0.9825$, 83.3\% superadditive.
-Cross-architecture Pearson $r\geq0.982$ confirms that \emph{directional rankings} are
-probe-independent even when absolute magnitudes differ.
+Cross-architecture Pearson $r\geq0.982$ on these six pairs suggests similar
+directional rankings, but cannot establish probe independence.
 The Pearson vs.\ $R^2$ gap for ViT-B/16 shows encoder-dependent scale bias
 despite stable ordering.
 
@@ -2052,8 +1912,8 @@ The 6 upper-triangle entries of each matrix are compared via Pearson $r$.
 Cross-probe Pearson $r=0.891$ ($n=6$, $p=0.017$).
 Both probes agree on the direction of domain distance for all 6 pairs.
 CIFAR-10/STL-10 are close in both; CIFAR-10/MNIST are far in both.
-This confirms the $\SAk$ distance matrix reflects intrinsic inter-dataset geometry
-rather than encoder artifacts.
+This small-$n$ agreement does not separate dataset geometry from shared
+encoder biases and is reported only as a consistency check.
 
 \subsection{E\_downstream: Effective Rank as Downstream Quality Proxy}
 \label{sec:edownstream}
@@ -2109,12 +1969,11 @@ where spectral diversity is more tightly coupled to representation quality.
 $\reff$ should be understood as a measure of
 \emph{representational diversity}---the number of independent directions
 activated by the data---rather than a direct proxy for downstream accuracy.
-The Collapse Model predicts when merging \emph{increases diversity},
-which is a necessary (but not sufficient) condition for improving
-downstream performance.
-Within an architecture family, diversity and accuracy are positively
-correlated ($\rho{=}0.90$ for ViTs), justifying the use of
-$\reff$-based selection among candidates extracted from the same encoder.
+Collapse-4S predicts when merging may increase this spectral diversity.
+Within one evaluated architecture family, diversity and accuracy are
+positively correlated ($\rho{=}0.90$ for ViTs), but this association neither
+establishes necessity nor guarantees that $\reff$-based selection improves a
+new task.
 Across architecture families or across datasets of varying difficulty,
 additional task-specific metrics are needed.
 

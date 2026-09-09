@@ -1,0 +1,539 @@
+{
+  "cache_samples": 5000,
+  "classic_script_sha256": "c6302e422732750f5b7664f2ee813af1ac645ab04f0836b46573b82a280ee5f7",
+  "created_utc": "2026-09-08T16:05:37.147671+00:00",
+  "encoder": "clip_b32",
+  "encoder_provenance": {
+    "checkpoint": "/data/Paper06/manual_weights/ViT-B-32.pt",
+    "checkpoint_file_sha256": "40d365715913c9da98579312b702a82c18be219cc2a73407c4526f58eba950af",
+    "encoder_loader_sha256": "db834d7268cf302c458172a0d12f555e7ea42a32d760d6006406b74b9888630f",
+    "model_state_sha256": "1baff5d1e562b2b409b0ff818aef8fa3d2d57aa0dc482df57f8a5eb1678dbb9f",
+    "preprocess_sha256": "c4c7c2276f27ec1b7f9e45f1f76dde5176ca32a245eafeadd607a3c7f4c1660e"
+  },
+  "excluded_source_domains": [],
+  "marginal_scalar_mode": "exact_source_local",
+  "pid": 3638940,
+  "rank_l_diagnostics": [
+    {
+      "absolute_log_error_of_selected_prefix": 2.815474134638415,
+      "approximate_effective_rank": 13.745572141705912,
+      "certified_exact_greedy_choice": false,
+      "choice": "stl10",
+      "exact_effective_rank_of_selected_prefix": 229.56607138940421,
+      "exact_log_effective_rank_of_selected_prefix": 5.4361908808317185,
+      "log_error_bound": 4.979812388653085,
+      "numerical_tail_nuclear_bound": 0.0,
+      "selected_prefix_interval_covers_exact": true,
+      "step": 1
+    },
+    {
+      "absolute_log_error_of_selected_prefix": 2.485833859607058,
+      "approximate_effective_rank": 26.933682830660487,
+      "certified_exact_greedy_choice": false,
+      "choice": "rendered_sst2",
+      "exact_effective_rank_of_selected_prefix": 323.5040110453227,
+      "exact_log_effective_rank_of_selected_prefix": 5.779211512767715,
+      "log_error_bound": 5.234126875988599,
+      "numerical_tail_nuclear_bound": 0.0,
+      "selected_prefix_interval_covers_exact": true,
+      "step": 2
+    },
+    {
+      "absolute_log_error_of_selected_prefix": 2.1933332788083644,
+      "approximate_effective_rank": 37.84228141802551,
+      "certified_exact_greedy_choice": false,
+      "choice": "tiny_imagenet",
+      "exact_effective_rank_of_selected_prefix": 339.2578074650576,
+      "exact_log_effective_rank_of_selected_prefix": 5.826760312348638,
+      "log_error_bound": 5.083886231606726,
+      "numerical_tail_nuclear_bound": 0.0,
+      "selected_prefix_interval_covers_exact": true,
+      "step": 3
+    },
+    {
+      "absolute_log_error_of_selected_prefix": 1.946707482040396,
+      "approximate_effective_rank": 46.9854082207856,
+      "certified_exact_greedy_choice": false,
+      "choice": "fashion_mnist",
+      "exact_effective_rank_of_selected_prefix": 329.16020323057876,
+      "exact_log_effective_rank_of_selected_prefix": 5.7965445721591795,
+      "log_error_bound": 4.862992346468266,
+      "numerical_tail_nuclear_bound": 0.0,
+      "selected_prefix_interval_covers_exact": true,
+      "step": 4
+    },
+    {
+      "absolute_log_error_of_selected_prefix": 1.7823387220777436,
+      "approximate_effective_rank": 55.6023766604088,
+      "certified_exact_greedy_choice": false,
+      "choice": "cifar100_coarse",
+      "exact_effective_rank_of_selected_prefix": 330.48612220630986,
+      "exact_log_effective_rank_of_selected_prefix": 5.800564668111515,
+      "log_error_bound": 4.775118806155598,
+      "numerical_tail_nuclear_bound": 0.0,
+      "selected_prefix_interval_covers_exact": true,
+      "step": 5
+    },
+    {
+      "absolute_log_error_of_selected_prefix": 1.6297495491694756,
+      "approximate_effective_rank": 62.8970133398511,
+      "certified_exact_greedy_choice": false,
+      "choice": "usps",
+      "exact_effective_rank_of_selected_prefix": 320.93808697994183,
+      "exact_log_effective_rank_of_selected_prefix": 5.771248229075259,
+      "log_error_bound": 4.6146983165684015,
+      "numerical_tail_nuclear_bound": 0.0,
+      "selected_prefix_interval_covers_exact": true,
+      "step": 6
+    },
+    {
+      "absolute_log_error_of_selected_prefix": 1.513238023593214,
+      "approximate_effective_rank": 69.50426299250022,
+      "certified_exact_greedy_choice": false,
+      "choice": "svhn",
+      "exact_effective_rank_of_selected_prefix": 315.647508739306,
+      "exact_log_effective_rank_of_selected_prefix": 5.754626112304447,
+      "log_error_bound": 4.498581859876804,
+      "numerical_tail_nuclear_bound": 0.0,
+      "selected_prefix_interval_covers_exact": true,
+      "step": 7
+    },
+    {
+      "absolute_log_error_of_selected_prefix": 1.4298724247265815,
+      "approximate_effective_rank": 75.39220344394387,
+      "certified_exact_greedy_choice": false,
+      "choice": "cifar10",
+      "exact_effective_rank_of_selected_prefix": 315.00115068709334,
+      "exact_log_effective_rank_of_selected_prefix": 5.7525762917938605,
+      "log_error_bound": 4.4599241549257265,
+      "numerical_tail_nuclear_bound": 0.0,
+      "selected_prefix_interval_covers_exact": true,
+      "step": 8
+    },
+    {
+      "absolute_log_error_of_selected_prefix": 1.3370429170905753,
+      "approximate_effective_rank": 81.07410941113388,
+      "certified_exact_greedy_choice": false,
+      "choice": "retinamnist",
+      "exact_effective_rank_of_selected_prefix": 308.7113149768261,
+      "exact_log_effective_rank_of_selected_prefix": 5.732406584470419,
+      "log_error_bound": 4.358987500054884,
+      "numerical_tail_nuclear_bound": 0.0,
+      "selected_prefix_interval_covers_exact": true,
+      "step": 9
+    },
+    {
+      "absolute_log_error_of_selected_prefix": 1.2589934914353993,
+      "approximate_effective_rank": 86.19116256042643,
+      "certified_exact_greedy_choice": false,
+      "choice": "bloodmnist",
+      "exact_effective_rank_of_selected_prefix": 303.5544925040222,
+      "exact_log_effective_rank_of_selected_prefix": 5.715561141348402,
+      "log_error_bound": 4.272984137760779,
+      "numerical_tail_nuclear_bound": 0.0,
+      "selected_prefix_interval_covers_exact": true,
+      "step": 10
+    }
+  ],
+  "rank_l_exact_greedy_prefix_match": {
+    "10": false,
+    "3": false,
+    "5": false
+  },
+  "sample_seed": 20260905,
+  "script_sha256": "346ea753f7a22c47f9227b633627c6148f2af7b50fe2949eadb2c37b393b2393",
+  "selection_seconds_to_max_shortlist": {
+    "agglomerative_subspace": 0.03293849155306816,
+    "dpp_subspace": 0.0074971821159124374,
+    "exact_merged_rank_greedy": 6.250426793470979,
+    "facility_subspace": 0.0013620555400848389,
+    "kcenter_subspace": 0.0012958645820617676,
+    "leverage_centroid": 0.0013769567012786865,
+    "pool_vendi_subspace": 0.011769356206059456,
+    "rank_l_gram": 5.110285617411137,
+    "rank_only": 5.979090929031372e-05
+  },
+  "selections": {
+    "10": {
+      "agglomerative_subspace": [
+        "bloodmnist",
+        "cifar100_coarse",
+        "dermamnist",
+        "fashion_mnist",
+        "mnist",
+        "organsmnist",
+        "pathmnist",
+        "rendered_sst2",
+        "retinamnist",
+        "svhn"
+      ],
+      "dpp_subspace": [
+        "rendered_sst2",
+        "tiny_imagenet",
+        "stl10",
+        "cifar100",
+        "cifar10",
+        "cifar100_coarse",
+        "fashion_mnist",
+        "svhn",
+        "organsmnist",
+        "mnist"
+      ],
+      "exact_merged_rank_greedy": [
+        "rendered_sst2",
+        "tiny_imagenet",
+        "stl10",
+        "cifar100",
+        "cifar100_coarse",
+        "cifar10",
+        "fashion_mnist",
+        "svhn",
+        "mnist",
+        "organcmnist"
+      ],
+      "facility_subspace": [
+        "organcmnist",
+        "cifar100_coarse",
+        "mnist",
+        "rendered_sst2",
+        "tissuemnist",
+        "stl10",
+        "retinamnist",
+        "fashion_mnist",
+        "svhn",
+        "bloodmnist"
+      ],
+      "kcenter_subspace": [
+        "rendered_sst2",
+        "stl10",
+        "retinamnist",
+        "usps",
+        "fashion_mnist",
+        "breastmnist",
+        "svhn",
+        "bloodmnist",
+        "cifar100",
+        "pathmnist"
+      ],
+      "leverage_centroid": [
+        "rendered_sst2",
+        "tiny_imagenet",
+        "retinamnist",
+        "fashion_mnist",
+        "bloodmnist",
+        "stl10",
+        "mnist",
+        "pathmnist",
+        "octmnist",
+        "usps"
+      ],
+      "pool_vendi_subspace": [
+        "rendered_sst2",
+        "stl10",
+        "retinamnist",
+        "usps",
+        "fashion_mnist",
+        "pathmnist",
+        "tiny_imagenet",
+        "svhn",
+        "octmnist",
+        "bloodmnist"
+      ],
+      "rank_l_gram": [
+        "stl10",
+        "rendered_sst2",
+        "tiny_imagenet",
+        "fashion_mnist",
+        "cifar100_coarse",
+        "usps",
+        "svhn",
+        "cifar10",
+        "retinamnist",
+        "bloodmnist"
+      ],
+      "rank_only": [
+        "rendered_sst2",
+        "tiny_imagenet",
+        "stl10",
+        "cifar100",
+        "cifar100_coarse",
+        "cifar10",
+        "fashion_mnist",
+        "svhn",
+        "organcmnist",
+        "organsmnist"
+      ]
+    },
+    "3": {
+      "agglomerative_subspace": [
+        "bloodmnist",
+        "cifar100_coarse",
+        "dermamnist"
+      ],
+      "dpp_subspace": [
+        "rendered_sst2",
+        "tiny_imagenet",
+        "stl10"
+      ],
+      "exact_merged_rank_greedy": [
+        "rendered_sst2",
+        "tiny_imagenet",
+        "stl10"
+      ],
+      "facility_subspace": [
+        "organcmnist",
+        "cifar100_coarse",
+        "mnist"
+      ],
+      "kcenter_subspace": [
+        "rendered_sst2",
+        "stl10",
+        "retinamnist"
+      ],
+      "leverage_centroid": [
+        "rendered_sst2",
+        "tiny_imagenet",
+        "retinamnist"
+      ],
+      "pool_vendi_subspace": [
+        "rendered_sst2",
+        "stl10",
+        "retinamnist"
+      ],
+      "rank_l_gram": [
+        "stl10",
+        "rendered_sst2",
+        "tiny_imagenet"
+      ],
+      "rank_only": [
+        "rendered_sst2",
+        "tiny_imagenet",
+        "stl10"
+      ]
+    },
+    "5": {
+      "agglomerative_subspace": [
+        "bloodmnist",
+        "cifar100_coarse",
+        "dermamnist",
+        "fashion_mnist",
+        "mnist"
+      ],
+      "dpp_subspace": [
+        "rendered_sst2",
+        "tiny_imagenet",
+        "stl10",
+        "cifar100",
+        "cifar10"
+      ],
+      "exact_merged_rank_greedy": [
+        "rendered_sst2",
+        "tiny_imagenet",
+        "stl10",
+        "cifar100",
+        "cifar100_coarse"
+      ],
+      "facility_subspace": [
+        "organcmnist",
+        "cifar100_coarse",
+        "mnist",
+        "rendered_sst2",
+        "tissuemnist"
+      ],
+      "kcenter_subspace": [
+        "rendered_sst2",
+        "stl10",
+        "retinamnist",
+        "usps",
+        "fashion_mnist"
+      ],
+      "leverage_centroid": [
+        "rendered_sst2",
+        "tiny_imagenet",
+        "retinamnist",
+        "fashion_mnist",
+        "bloodmnist"
+      ],
+      "pool_vendi_subspace": [
+        "rendered_sst2",
+        "stl10",
+        "retinamnist",
+        "usps",
+        "fashion_mnist"
+      ],
+      "rank_l_gram": [
+        "stl10",
+        "rendered_sst2",
+        "tiny_imagenet",
+        "fashion_mnist",
+        "cifar100_coarse"
+      ],
+      "rank_only": [
+        "rendered_sst2",
+        "tiny_imagenet",
+        "stl10",
+        "cifar100",
+        "cifar100_coarse"
+      ]
+    }
+  },
+  "shortlist_sizes": [
+    3,
+    5,
+    10
+  ],
+  "source_cache_index_sha256": {
+    "bloodmnist": "68c9376b9581c10e1daf08c2eef4cedb1cbad6b69376a0fdbf92b482cb51fd77",
+    "breastmnist": "001b6ee6bb93210b22e6fbd9397120f7f6a704a77d05a6ee998d1081d332e582",
+    "cifar10": "a12b4234c21be91ca2d9062904ad25ae5c3d8d3fc09821b40988c6d7c170c08a",
+    "cifar100": "a12b4234c21be91ca2d9062904ad25ae5c3d8d3fc09821b40988c6d7c170c08a",
+    "cifar100_coarse": "a12b4234c21be91ca2d9062904ad25ae5c3d8d3fc09821b40988c6d7c170c08a",
+    "dermamnist": "20f0892be5ee81917a80866e3e5e8f1b42b4e721642e42e35ea81f585acbe1b2",
+    "fashion_mnist": "950b3ca6827d18c12ad6643dbd10945f6559b35163d71a039c078bdaadcbb299",
+    "mnist": "950b3ca6827d18c12ad6643dbd10945f6559b35163d71a039c078bdaadcbb299",
+    "octmnist": "227ee8248467f612f0c4178c691b24af6ac7562f894826c3c98750fe33615c46",
+    "organamnist": "a6363cf8f8cbeb27b8c0b1cc49b7157bb4290b854f64291faf11c962d43256e0",
+    "organcmnist": "1510d96f762ba5d6bed51a55b70216d0ebb659bcc851b0c24a69b08730b6f89e",
+    "organsmnist": "ad52574d0f051d9161868cb8c55c8c72b07c1c6b2ea70b0eb67925cf18ddde52",
+    "pathmnist": "9975bd07232929813c98d57a1bb0b1aa71d25e168c8c55d5769ccabda270ea2c",
+    "pneumoniamnist": "41a2ea2495f1aa64753e4fd50bdcda2d110a610c7d2a23998335afd6333d4349",
+    "rendered_sst2": "a3627adb25fa9b72267c9e3023f52cf1e969ab6b4c85b46c5b27c6515ede9dac",
+    "retinamnist": "636b2b0d6828b549b88d0e82c788365544942026c27997311f26fbb042cadcac",
+    "stl10": "a3d44437f284b46e5d827df6101e63efe16f752040ad67db809c061bc367bde5",
+    "svhn": "4a386b6788b10d64c416b2b3123d7bb5b99120c339f5d8096dc52114381d622a",
+    "tiny_imagenet": "1fbb229c19bbac261c379c25ee1fdc8e5d6ed6af4e63b43c63e168cfdfce3f8d",
+    "tissuemnist": "4bb87bff9f49721ddd1869961e14bbd2fbf856acf8507c63a97a722b31aecbf5",
+    "usps": "18197067138ee35f41c3df0807b6bab816cfa1fcfc7cd0179a4093ba8a9acea5"
+  },
+  "source_cache_metadata_sha256": {
+    "bloodmnist": "0f6185a2ffcbd209ed39b4fe528adce1fd2327d74d344dfa8aa6b3371d77a669",
+    "breastmnist": "7540bee0553befa1fd3e926031865674a257556de837f46fee4ff79353eef703",
+    "cifar10": "aa0adfe0cba67c0d3c79b2a68f34c95e22cb6efdf7a80cf6f7ec626668332c29",
+    "cifar100": "13a19c1718d7ef251077159b633cd731eb5cc91d79023b84cf6275e779cc68b7",
+    "cifar100_coarse": "30739282a1c191d3fa11194ccc3d8e8f718b55cef77365370400be23a0a22a2d",
+    "dermamnist": "a0a63292e5928cd8904dc7a427e18291ec8da32b7365edee3a9c92170fcf1bd6",
+    "fashion_mnist": "5f4698da7e62fa31481c5b9025c20b5f332e9454b7a07b757db2e09c2a939dd8",
+    "mnist": "67da7b63694d447d74eca47cbd84966e90353c2a99a29d76f45cf496dfa863f1",
+    "octmnist": "c64723873be60fd199d9f943fc0319cbdadbcee4360723fabbcf415bc9d01bc4",
+    "organamnist": "f14bee34d1f834992a0e7c4da2722ec8aa3343555b6a110437414a89d4c1a747",
+    "organcmnist": "6d2b14250ab22174d7456f34c53f94a2652f75508c9b7b00ef4d7a901ee96bd2",
+    "organsmnist": "94421279cf8385ab4e62af215a16691799f971ae1e052bb108b1f47f759a69e9",
+    "pathmnist": "fd8cb264d7edb70fa6cb13c4945e458c46333e5ac5f3833932b1cdeb26622008",
+    "pneumoniamnist": "3dd36087ffba5e9b1accccc1ffef2903e4682381a27d8fa4f3112192d8344494",
+    "rendered_sst2": "fff34da6fc3c59e2d53a0c814bd7bb87f686270b6e4b5884773629d103af20b0",
+    "retinamnist": "014dd7c2124fb272503e3974f1d4393a7c0ac319382a2d3378bc3486c31c2af5",
+    "stl10": "84bbb983418310ad4213e8b2e6e93d90ee740cd9e3b8d4f3554673833014e6e9",
+    "svhn": "53f6260e89b2f061389d115ac02dab07d7d1f42c59e051d672ce380b4383371c",
+    "tiny_imagenet": "4bfdfa07bbce653de5194bb2bffbe10c5cbe31d4440f4955bdc4567606888b3f",
+    "tissuemnist": "3f51f33dc6370f8c3143e62b720d39fb20ba07bb5fca62300cc7778438268be6",
+    "usps": "1ebba26c9ed6b79b62c5f7f92fad4f436afbcb5002d16131216227fba31e7a66"
+  },
+  "source_cache_sha256": {
+    "bloodmnist": "f3f62c836d6a3c25845ec730b0875c6b9d09a11d873c58944a62f435ef0b4afe",
+    "breastmnist": "5f1752f4299912ea8b46b828bb0e95fbfe97c59161d78aec26b40481caefb3b3",
+    "cifar10": "5ed2e042a30af4e810778ace9e25695d2871fc0951d497e747be483b6a0e1cac",
+    "cifar100": "38700f2d326551b3a94d470181ba9349b4e7e4c71cea72a3a3c198666a365169",
+    "cifar100_coarse": "b909b588fd7e6432b8f6293c40c5d5d247cbbb25e84b11116de35729a7672a28",
+    "dermamnist": "465695c25dd7bc824595ea92325ccaf2423039f3fe3875e58a59f5f3846b5aea",
+    "fashion_mnist": "d96e0a099ad2dd60112cf572a0b1185af723ff1f5d64aeaf8fd6ccae7d5c9c70",
+    "mnist": "36cf261881d562dcf697c6dbe49c413c6d6a7e1c61a6209b9a9da535a6e249ba",
+    "octmnist": "5d683bb6db5f229fb89565592e9aeba8a80db54dc506d6c582109106ada9c900",
+    "organamnist": "a461339737ee3159ed4e8459e123094e85b7f3224d10e71de8ab8bcd8ad827af",
+    "organcmnist": "b1e23fe44f60b7db136f60e4583b34aef71a501021ba0895fe137089e83654e5",
+    "organsmnist": "98b7dfe1a5827c5ff4dbf8d2d5ba09233c919e614d7ff55fcc750f4722cc49b5",
+    "pathmnist": "a7865541ed923a78fbe923cd001d9bbbbadd7ec53bdc28de4b77e85426fddd4b",
+    "pneumoniamnist": "4afca59412ac186d79f714530511ddfbb098ffc71aec5575a560ee3c477c03ef",
+    "rendered_sst2": "49caa1736a0196a691d851482dd52ee1adb03efcba7b4459cb40336eaad46212",
+    "retinamnist": "0a809e81468b2873b9e2cc002b7b4a21e86e6d91b6abe431a39856ae6dbe1f7a",
+    "stl10": "dc5e4bb31497995fbd4b3e8bd4b6116a1bb0f703e34ebee65dfc56a1ef8178a8",
+    "svhn": "1ca10781045a49b4d44ebda330377ecba7f95a798d88cab02d3ac928c2802650",
+    "tiny_imagenet": "1b4413cdc1bf1467cfe291e4c6c41a73f55dd37a04ec9dcc8061e435f74c7bb1",
+    "tissuemnist": "917cc82b6dc09ac9d57b0b7d3ef2eac094cd1758800c6cdef7b50ef90ed1d038",
+    "usps": "874dafb46f26dffa82e6c4f62ac37802a1303a75cd5b2c20cc2b27c681cfc5cc"
+  },
+  "source_dir": "/data/Paper06/features/two_stage_source_splits_n5000_unlabeled",
+  "source_domains": {
+    "bloodmnist": "medical",
+    "breastmnist": "medical",
+    "cifar10": "general_vision",
+    "cifar100": "general_vision",
+    "cifar100_coarse": "general_vision",
+    "dermamnist": "medical",
+    "fashion_mnist": "digits_characters",
+    "mnist": "digits_characters",
+    "octmnist": "medical",
+    "organamnist": "medical",
+    "organcmnist": "medical",
+    "organsmnist": "medical",
+    "pathmnist": "medical",
+    "pneumoniamnist": "medical",
+    "rendered_sst2": "rendered_text",
+    "retinamnist": "medical",
+    "stl10": "general_vision",
+    "svhn": "digits_characters",
+    "tiny_imagenet": "general_vision",
+    "tissuemnist": "medical",
+    "usps": "digits_characters"
+  },
+  "source_families": {
+    "bloodmnist": "bloodmnist",
+    "breastmnist": "breastmnist",
+    "cifar10": "cifar10",
+    "cifar100": "cifar100_shared_images",
+    "cifar100_coarse": "cifar100_shared_images",
+    "dermamnist": "dermamnist",
+    "fashion_mnist": "fashion_mnist",
+    "mnist": "handwritten_digits",
+    "octmnist": "octmnist",
+    "organamnist": "organmnist_views",
+    "organcmnist": "organmnist_views",
+    "organsmnist": "organmnist_views",
+    "pathmnist": "pathmnist",
+    "pneumoniamnist": "pneumoniamnist",
+    "rendered_sst2": "rendered_sst2",
+    "retinamnist": "retinamnist",
+    "stl10": "stl10",
+    "svhn": "svhn",
+    "tiny_imagenet": "tiny_imagenet",
+    "tissuemnist": "tissuemnist",
+    "usps": "handwritten_digits"
+  },
+  "source_weighting": "equal_source",
+  "sources": [
+    "bloodmnist",
+    "breastmnist",
+    "cifar10",
+    "cifar100",
+    "cifar100_coarse",
+    "dermamnist",
+    "fashion_mnist",
+    "mnist",
+    "octmnist",
+    "organamnist",
+    "organcmnist",
+    "organsmnist",
+    "pathmnist",
+    "pneumoniamnist",
+    "rendered_sst2",
+    "retinamnist",
+    "stl10",
+    "svhn",
+    "tiny_imagenet",
+    "tissuemnist",
+    "usps"
+  ],
+  "stage1_reads_labels": false,
+  "stage1_requires_label_independent_cache": true,
+  "stage1_samples": 500,
+  "summary_preprocessing_seconds": 7.542457852512598,
+  "targets": [
+    "beans",
+    "dtd",
+    "eurosat",
+    "flowers102",
+    "food101",
+    "gtsrb",
+    "oxford_pets"
+  ],
+  "top_k": 20
+}

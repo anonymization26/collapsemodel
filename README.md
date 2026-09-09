@@ -17,20 +17,35 @@ mathematical core has four explicitly separated levels:
 
 The original four-summary Collapse formula is retained only as a theory-inspired empirical
 ablation. It is not a generally correct merged-rank formula and is not the primary algorithm.
-The deployable candidate is `rank_l_gram`, which directly scores the sum of transmitted
+The primary computational candidate is `rank_l_gram`, which directly scores the sum of transmitted
 low-rank PSD factors and records tail bounds and per-step certificates.
 
 ## Evidence status
 
-The committed result directories are a historical pilot and audit baseline. They show no
-stable advantage of DPP-subspace or Legacy Collapse over rank-only in the current natural-pool
-Stage-2 protocol. They did not evaluate the corrected `rank_l_gram` implementation, used
-label-stratified source caches, and used a confounded global overlap AUROC. Therefore they must
-not be cited as validation of the corrected method.
+Most older result directories are a historical pilot and audit baseline. They show no stable
+advantage of DPP-subspace or Legacy Collapse over rank-only in the natural-pool Stage-2 protocol.
+Those historical runs used label-stratified source caches and a confounded global overlap AUROC,
+so they must not be cited as validation of the corrected method.
 
-The corrections, affected claims, and required reruns are documented in
-[`AUDIT_2026-09-08.md`](AUDIT_2026-09-08.md) and tracked in [`PLAN.md`](PLAN.md). Until those
-reruns finish, the empirical status of the primary rank-*L* method is **not yet established**.
+The earlier `corrected_v2` rerun has been invalidated: it mixed a truncated marginal scalar with
+the direct Gram sketch and predates the complete encoder/index provenance gate. It must not be
+cited. A clean `corrected_v3` rerun uses exact source-local marginal scalars for the legacy
+ablation, label-independent subsets, model-state and preprocessing hashes, complete shard
+validation, and numerical-tail-aware certificates for `rank_l_gram`.
+
+The four-encoder rank sweep is complete. Across ranks 10, 20, and 50, all 2,880 selected-prefix
+intervals contain the exact score, but none of 7,200 evaluated greedy steps is certified; the
+bounds are valid but operationally vacuous at these ranks. DPP is at least as competitive as
+`rank_l_gram` in this controlled setting. A separate $L=20$ exact-reference pilot covers 288
+configurations with Random-100: rank-$L$, DPP, and Full-Gram greedy improve over rank-only by
+3.65%, 5.37%, and 5.81%, respectively; rank-$L$ matches none of 288 Full-Gram ordered prefixes
+and certifies 0/720 steps. The corrected natural-pool Stage-2 audit also fails its
+utility gate: across 28 encoder-target units, the validation-oracle source-supervised adapter is
+0.0670 below frozen identity on held-out accuracy (target-cluster 95% CI [-0.0977, -0.0440]). No
+method reaches the predeclared 90% top-candidate recall threshold while removing at least half of
+the 21 sources. These results support an auditable screening protocol and a negative result, not a
+validated practical compressor. The corrections and remaining work are documented in
+[`AUDIT_2026-09-08.md`](AUDIT_2026-09-08.md) and tracked in [`PLAN.md`](PLAN.md).
 
 ---
 
@@ -65,7 +80,7 @@ PLAN.md                     Experiment plan and correction checklist
 AUDIT_2026-09-08.md         Evidence audit and historical-result limitations
 scripts/                    Corrected two-stage screening/adaptation/aggregation scripts
 tests/                      Protocol and numerical unit tests
-results/                    Versioned historical pilot outputs (not corrected reruns)
+results/                    Versioned historical pilots and explicitly marked corrected reruns
 ```
 
 ---
@@ -93,9 +108,42 @@ python run_all.py --dry-run
 See `code/REPRODUCE.md` for the full step-by-step guide, including how to point the pipeline
 at pre-downloaded datasets and how to run on CPU-only machines (all experiments except E1d).
 The corrected two-stage pipeline uses locally cached feature archives. `screen` and `summarize`
-run on CPU; only `adapt` requires `torch_npu` and an Ascend host. Source caches used by Stage-1
-must have label-independent sampling metadata unless an explicitly non-strict compatibility run
-is requested.
+run on CPU; `adapt` and `heldout` require `torch_npu` and an Ascend host. Source caches used by
+Stage-1 must have label-independent sampling metadata unless an explicitly non-strict compatibility
+run is requested. Corrected runs follow four ordered phases: label-blind screening,
+source-supervised adapter training with target-train cross-validation and hashed checkpoints,
+immutable selection-manifest creation, and held-out test evaluation. The `adapt` and `summarize`
+phases do not open target-test caches. The audit trained every source adapter offline to estimate
+exhaustive shortlist regret; therefore its wall-clock total is not a measured deployment saving.
+
+The corrected workflows use explicit environment variables rather than assuming the paths on the
+reported Ascend host:
+
+```bash
+# Controlled rank-L sweep and exact-reference pilot (CPU).
+PROJECT_ROOT="$PWD" FEATURE_DIR=/path/to/source/features RESULT_ROOT=/path/to/output \
+  bash scripts/run_two_stage_controlled_rank_sweep.sh
+PROJECT_ROOT="$PWD" FEATURE_DIR=/path/to/source/features RESULT_ROOT=/path/to/output \
+  bash scripts/run_two_stage_controlled_exact_pilot.sh
+
+# Natural-pool screening (CPU), then source-supervised validation and held-out evaluation (Ascend).
+PROJECT_ROOT="$PWD" SOURCE_DIR=/path/to/source/features RESULT_ROOT=/path/to/screening \
+  bash scripts/run_two_stage_corrected_screen.sh resnet50 vit_b16 clip_b32 dinov2_b14
+PROJECT_ROOT="$PWD" SOURCE_DIR=/path/to/source/features TARGET_DIR=/path/to/target/features \
+  BASE_RESULTS=/path/to/screening RESULT_ROOT=/path/to/stage2 \
+  bash scripts/run_two_stage_repeated_cv_utility_npu.sh 4 resnet50
+
+# Run after all four encoder directories are complete.
+python3 scripts/summarize_two_stage_cross_encoder.py \
+  --results-dir /path/to/stage2 \
+  --expected-encoders resnet50 vit_b16 clip_b32 dinov2_b14
+```
+
+The committed corrected outputs and their interpretation are under
+`results/two_stage_controlled_rank_sweep_corrected_v3/`,
+`results/two_stage_controlled_exact_corrected_v3/`,
+`results/two_stage_natural_shortlist_corrected_v3/`, and
+`results/two_stage_repeated_cv_utility_corrected_v3/`.
 
 ---
 
@@ -119,8 +167,11 @@ character, and general-vision candidate/target collections remain required work.
 
 Original-paper table mappings remain in `code/configs/repro_config.yaml`. Corrected two-stage
 runs additionally bind every adaptation CSV to the screening manifest, script, configuration,
-and all source/target feature hashes. Resume is accepted only for complete source/seed groups
-with the same run fingerprint.
+encoder state, preprocessing, sampled indices, source/target-train feature hashes, and generated
+adapter checkpoints. Resume is accepted only for complete source/seed groups with the same run
+fingerprint. Held-out evaluation is accepted only when its input selection manifest and unchanged
+validation-only detail file pass their SHA-256 checks; target-test hashes first appear in the
+held-out run sidecar.
 
 Exact top-1 recall remains the historical primary metric. Practical tolerance curves and a
 paired-bootstrap candidate confidence-set recall are reported alongside it rather than replacing

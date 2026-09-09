@@ -12,8 +12,8 @@ shift
 PROJECT_ROOT="${PROJECT_ROOT:-/home/67/collapsemodel-two-stage}"
 SOURCE_DIR="${SOURCE_DIR:-/data/Paper06/features/two_stage_source_splits_n5000_unlabeled}"
 TARGET_DIR="${TARGET_DIR:-/data/Paper06/features/two_stage_target_splits_n5000}"
-BASE_RESULTS="${BASE_RESULTS:-/data/Paper06/results/two_stage_natural_shortlist_corrected_v2}"
-RESULT_ROOT="${RESULT_ROOT:-/data/Paper06/results/two_stage_split_sensitivity_corrected_v2}"
+BASE_RESULTS="${BASE_RESULTS:-/data/Paper06/results/two_stage_natural_shortlist_corrected_v3}"
+RESULT_ROOT="${RESULT_ROOT:-/data/Paper06/results/two_stage_split_sensitivity_corrected_v3}"
 
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
 set -u
@@ -61,6 +61,13 @@ for spec in "$@"; do
     --random-seed 20260905 \
     --tie-tolerance 1e-12 \
     > "$out_dir/summarize.log" 2>&1
+  python3 -u scripts/two_stage_natural_shortlist.py heldout \
+    --selection-manifest "$out_dir/${encoder}_shortlist_manifest.json" \
+    --target-dir "$TARGET_DIR" \
+    --output "$out_dir/${encoder}_heldout_results.csv" \
+    --encoder "$encoder" \
+    --npu "$NPU" \
+    > "$out_dir/heldout.log" 2>&1
   echo "JOB_DONE=$spec UTC=$(date -u +%FT%TZ) ROWS=$(wc -l < "$out_dir/adaptation_results.csv")"
 done
 echo "DONE_UTC=$(date -u +%FT%TZ)"

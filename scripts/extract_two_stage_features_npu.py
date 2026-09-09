@@ -18,7 +18,12 @@ import torch_npu  # noqa: F401 - registers the NPU backend
 from torch.utils.data import DataLoader, Dataset, Subset
 from torchvision import datasets
 
-from benchmark_two_stage_encoders_npu import flatten_output, load_encoder
+from benchmark_two_stage_encoders_npu import (
+    checkpoint_file_sha256,
+    flatten_output,
+    load_encoder,
+    model_state_sha256,
+)
 
 
 DATASET_CHOICES = ("cifar10", "cifar100", "dtd", "eurosat", "svhn")
@@ -262,6 +267,8 @@ def main() -> None:
     torch.npu.set_device(device)
     load_started = time.perf_counter()
     model, preprocess, checkpoint = load_encoder(args.variant)
+    model_state_hash = model_state_sha256(model)
+    checkpoint_file_hash = checkpoint_file_sha256(checkpoint)
     model.eval().to(device)
     model_load_seconds = time.perf_counter() - load_started
     script_sha256 = sha256_file(script_path)
@@ -279,6 +286,8 @@ def main() -> None:
         expected_metadata = {
             "variant": args.variant,
             "checkpoint": checkpoint,
+            "checkpoint_file_sha256": checkpoint_file_hash,
+            "model_state_sha256": model_state_hash,
             "preprocess_sha256": preprocess_sha256,
             "dataset": dataset_name,
             "requested_samples": args.samples,
@@ -326,6 +335,8 @@ def main() -> None:
             "finished_utc": datetime.now(timezone.utc).isoformat(),
             "variant": args.variant,
             "checkpoint": checkpoint,
+            "checkpoint_file_sha256": checkpoint_file_hash,
+            "model_state_sha256": model_state_hash,
             "preprocess": repr(preprocess),
             "preprocess_sha256": preprocess_sha256,
             "dataset": dataset_name,

@@ -1,5 +1,6 @@
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import numpy as np
@@ -40,6 +41,28 @@ class ClassicBaselineTests(unittest.TestCase):
             places=8,
         )
 
+    def test_svd_nonconvergence_uses_deterministic_eigen_fallback(self):
+        rng = np.random.default_rng(31)
+        matrix = rng.normal(size=(5, 8))
+        expected = np.linalg.svd(matrix, compute_uv=False)
+        with mock.patch.object(
+            baselines.np.linalg, "svd", side_effect=np.linalg.LinAlgError("forced"),
+        ):
+            singular, vh = baselines.stable_singular_values_and_vh(matrix)
+            ranks, nuclear, _, subspaces = baselines.pool_statistics(
+                {"matrix": matrix}, top_k=3,
+            )
+        np.testing.assert_allclose(singular, expected, rtol=1e-10, atol=1e-10)
+        np.testing.assert_allclose(
+            vh.T @ np.diag(singular ** 2) @ vh,
+            matrix.T @ matrix,
+            rtol=1e-10,
+            atol=1e-10,
+        )
+        self.assertTrue(np.isfinite(ranks["matrix"]))
+        self.assertTrue(np.isfinite(nuclear["matrix"]))
+        self.assertEqual(subspaces["matrix"].shape, (3, matrix.shape[1]))
+
     def test_full_rank_gram_sketch_matches_exact_greedy(self):
         sketches = baselines.pool_gram_sketches(self.features, rank=6)
         selected = baselines.rank_l_gram_greedy(sketches, 3)
@@ -52,6 +75,18 @@ class ClassicBaselineTests(unittest.TestCase):
                 atol=1e-10,
             )
 
+    def test_rank_l_ties_use_the_common_lexicographic_rule(self):
+        identical = {
+            "b": np.eye(3, dtype=np.float64),
+            "a": np.eye(3, dtype=np.float64),
+            "c": np.eye(3, dtype=np.float64),
+        }
+        sketches = baselines.pool_gram_sketches(identical, rank=3)
+        self.assertEqual(
+            baselines.rank_l_gram_greedy(sketches, 3),
+            ["a", "b", "c"],
+        )
+
     def test_truncated_gram_interval_contains_exact_log_rank(self):
         sketches = baselines.pool_gram_sketches(self.features, rank=2)
         selected = ["a", "c", "e"]
@@ -61,6 +96,19 @@ class ClassicBaselineTests(unittest.TestCase):
         ])))
         self.assertLessEqual(float(statistics["log_rank_lower"]), exact + 1e-10)
         self.assertGreaterEqual(float(statistics["log_rank_upper"]), exact - 1e-10)
+
+    def test_roundoff_scale_sketch_modes_are_added_to_the_tail_bound(self):
+        matrix = np.diag([1.0, 1e-18]).astype(np.float64)
+        sketch = baselines.make_gram_sketch(matrix, rank=2)
+        statistics = baselines.gram_sketch_statistics([sketch])
+        self.assertGreater(
+            float(statistics["numerical_tail_nuclear_bound"]), 0.0,
+        )
+        self.assertEqual(statistics["numerical_tail_rank_bound"], 1)
+        self.assertGreaterEqual(
+            float(statistics["tail_nuclear_bound"]),
+            float(statistics["numerical_tail_nuclear_bound"]),
+        )
 
     def test_similarity_matrices_are_symmetric_with_unit_diagonal(self):
         for representation in baselines.REPRESENTATIONS:

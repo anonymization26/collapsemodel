@@ -87,13 +87,17 @@ def run(args: argparse.Namespace) -> None:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     all_features = {}
     source_cache_sha256 = {}
+    source_cache_metadata = {}
     for source in natural.SOURCES:
         path = natural.source_path(
             args.source_dir, args.encoder, source, args.cache_samples,
         )
-        natural.stage1_cache_metadata(path, args.allow_label_informed_cache)
+        cache_metadata = natural.stage1_cache_metadata(
+            path, args.allow_label_informed_cache,
+        )
         features = natural.load_features(path)
         source_cache_sha256[source] = sha256_file(path)
+        source_cache_metadata[source] = cache_metadata
         sampled = natural.sample_unlabeled(
             features,
             args.stage1_samples,
@@ -120,6 +124,12 @@ def run(args: argparse.Namespace) -> None:
     max_shortlist = max(args.shortlist_sizes)
     script_hash = sha256_file(Path(__file__))
     natural_script_hash = sha256_file(Path(natural.__file__))
+    encoder_provenance = source_cache_metadata[all_names[0]]["encoder_provenance"]
+    if any(
+        source_cache_metadata[source]["encoder_provenance"] != encoder_provenance
+        for source in all_names[1:]
+    ):
+        raise ValueError("encoder provenance differs across source caches")
     completed = []
 
     for excluded_source in excluded_sources:
@@ -149,6 +159,7 @@ def run(args: argparse.Namespace) -> None:
             "script_sha256": script_hash,
             "natural_shortlist_script_sha256": natural_script_hash,
             "encoder": args.encoder,
+            "encoder_provenance": encoder_provenance,
             "source_dir": str(args.source_dir),
             "sources": names,
             "source_domains": {
@@ -168,6 +179,14 @@ def run(args: argparse.Namespace) -> None:
             "source_cache_sha256": {
                 source: source_cache_sha256[source] for source in names
             },
+            "source_cache_metadata_sha256": {
+                source: source_cache_metadata[source]["metadata_file_sha256"]
+                for source in names
+            },
+            "source_cache_index_sha256": {
+                source: source_cache_metadata[source]["computed_index_sha256"]
+                for source in names
+            },
             "top_k": args.top_k,
             "shortlist_sizes": args.shortlist_sizes,
             "shared_summary_preprocessing_seconds": preprocessing_seconds,
@@ -177,6 +196,7 @@ def run(args: argparse.Namespace) -> None:
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
         natural.run_summarize(Namespace(
             manifest=manifest_path,
+            adaptation_manifest=args.adaptation_manifest,
             adaptation_csv=[args.adaptation_csv],
             out_dir=fold_dir,
             n_random=args.n_random,
@@ -197,6 +217,8 @@ def run(args: argparse.Namespace) -> None:
         "natural_shortlist_script_sha256": natural_script_hash,
         "adaptation_csv": str(args.adaptation_csv),
         "adaptation_csv_sha256": sha256_file(args.adaptation_csv),
+        "adaptation_manifest": str(args.adaptation_manifest),
+        "adaptation_manifest_sha256": sha256_file(args.adaptation_manifest),
         "encoder": args.encoder,
         "source_count": len(all_names),
         "requested_exclusions": excluded_sources,
@@ -215,6 +237,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-dir", type=Path, required=True)
     parser.add_argument("--adaptation-csv", type=Path, required=True)
+    parser.add_argument("--adaptation-manifest", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--encoder", required=True)
     parser.add_argument("--cache-samples", type=int, default=5000)

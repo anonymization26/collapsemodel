@@ -35,21 +35,82 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def valid_sha256(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value.lower())
+    )
+
+
 def load_feature_set(
     root: Path, encoder: str, dataset: str, sample_tag: str,
 ) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
-    stem = f"{encoder}__{dataset}__n{sample_tag}"
+    stems = (
+        f"{encoder}__{dataset}__train__n{sample_tag}",
+        f"{encoder}__{dataset}__n{sample_tag}",
+    )
+    stem = next((value for value in stems if (root / f"{value}.npz").exists()), None)
+    if stem is None:
+        raise FileNotFoundError(
+            f"no feature archive for {encoder}/{dataset}/n{sample_tag} in {root}"
+        )
     npz_path = root / f"{stem}.npz"
     metadata_path = root / f"{stem}.json"
     metadata = json.loads(metadata_path.read_text())
+    expected_identity = {
+        "variant": encoder,
+        "dataset": dataset,
+        "split": "train",
+    }
+    mismatched_identity = [
+        key for key, expected in expected_identity.items()
+        if metadata.get(key) != expected
+    ]
+    if mismatched_identity:
+        raise ValueError(
+            f"controlled Stage-1 cache identity mismatch in {metadata_path}: "
+            f"{mismatched_identity}"
+        )
+    if metadata.get("sampling") != "unlabeled_random":
+        raise ValueError(
+            f"controlled Stage-1 cache is not label-independent: {metadata_path}"
+        )
+    if metadata.get("stage1_sampling_reads_labels") is not False:
+        raise ValueError(
+            "controlled Stage-1 cache lacks an explicit no-label declaration: "
+            f"{metadata_path}"
+        )
+    for field in ("model_state_sha256", "preprocess_sha256", "encoder_loader_sha256"):
+        if not valid_sha256(metadata.get(field)):
+            raise ValueError(
+                f"controlled Stage-1 cache has invalid encoder provenance "
+                f"{field}: {metadata_path}"
+            )
+    checkpoint_hash = metadata.get("checkpoint_file_sha256")
+    if checkpoint_hash is not None and not valid_sha256(checkpoint_hash):
+        raise ValueError(f"invalid checkpoint hash in {metadata_path}")
     if sha256_file(npz_path) != metadata["feature_file_sha256"]:
         raise ValueError(f"feature checksum mismatch: {npz_path}")
-    with np.load(npz_path) as payload:
+    with np.load(npz_path, allow_pickle=False) as payload:
         features = payload["H"].astype(np.float32)
         indices = payload["indices"].astype(np.int64)
-    if list(features.shape) != metadata["feature_shape"] or len(indices) != len(features):
+    if (
+        list(features.shape) != metadata["feature_shape"]
+        or indices.ndim != 1
+        or len(indices) != len(features)
+        or len(np.unique(indices)) != len(indices)
+    ):
         raise ValueError(f"feature metadata mismatch: {npz_path}")
-    return classic.normalize_rows(features), indices, metadata
+    if not np.isfinite(features).all():
+        raise ValueError(f"feature archive contains non-finite values: {npz_path}")
+    enriched_metadata = {
+        **metadata,
+        "computed_index_sha256": hashlib.sha256(
+            indices.astype("<i8", copy=False).tobytes()
+        ).hexdigest(),
+    }
+    return classic.normalize_rows(features), indices, enriched_metadata
 
 
 def make_collection(
@@ -118,7 +179,9 @@ def make_collection(
         pools[alias] = features[alias_positions]
         pool_indices[alias] = source_indices[dataset][alias_positions]
         dataset_family[alias] = dataset
-        lineage[alias] = parent
+        # At zero overlap the alias is an independent sample pool.  Keep the
+        # designated parent only as a negative-control label, not as ancestry.
+        lineage[alias] = parent if shared_count else alias
         alias_parent[alias] = parent
 
     return pools, pool_indices, dataset_family, lineage, alias_parent
@@ -201,8 +264,15 @@ def average_precision(labels: np.ndarray, scores: np.ndarray) -> float:
         return float("nan")
     order = np.argsort(-scores, kind="stable")
     sorted_labels = labels[order]
-    precision = np.cumsum(sorted_labels) / np.arange(1, len(labels) + 1)
-    return float((precision * sorted_labels).sum() / positives)
+    sorted_scores = scores[order]
+    threshold_ends = np.flatnonzero(np.r_[
+        sorted_scores[1:] != sorted_scores[:-1], True,
+    ])
+    true_positives = np.cumsum(sorted_labels)[threshold_ends]
+    precision = true_positives / (threshold_ends + 1)
+    recall = true_positives / positives
+    recall_gain = np.diff(np.r_[0.0, recall])
+    return float(np.sum(recall_gain * precision))
 
 
 def alignment_detection(

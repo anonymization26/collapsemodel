@@ -1,0 +1,437 @@
+{
+  "started_utc": "2026-09-08T16:21:25.203531+00:00",
+  "finished_utc": "2026-09-08T16:38:12.931349+00:00",
+  "encoder": "vit_b16",
+  "encoder_provenance": {
+    "checkpoint": "torchvision:ViT_B_16_Weights.IMAGENET1K_V1",
+    "checkpoint_file_sha256": null,
+    "model_state_sha256": "4102ec9cdec63e75c4818cd2ac1c49c93935a80a92c347fc62a690213c029756",
+    "preprocess_sha256": "fb211ca08c603baf244ae63bb7dcca35441b73d4773540f373f2fd89abbab331",
+    "encoder_loader_sha256": "db834d7268cf302c458172a0d12f555e7ea42a32d760d6006406b74b9888630f"
+  },
+  "feature_dir": "/data/Paper06/features/two_stage_source_splits_n5000_unlabeled",
+  "sample_tag": "5000",
+  "stage1_cache_policy": "unlabeled_random_only",
+  "datasets": [
+    "cifar10",
+    "cifar100",
+    "dtd",
+    "eurosat",
+    "svhn"
+  ],
+  "feature_index_sha256": {
+    "cifar10": "a12b4234c21be91ca2d9062904ad25ae5c3d8d3fc09821b40988c6d7c170c08a",
+    "cifar100": "a12b4234c21be91ca2d9062904ad25ae5c3d8d3fc09821b40988c6d7c170c08a",
+    "dtd": "c08008b96e438905237e5cd643478222294f5e59e05b17df3c1a68fb44eaf040",
+    "eurosat": "c42ec40cface33fb455a9d833409167a7a3649ea99f4bdb49c8daba8ff559487",
+    "svhn": "4a386b6788b10d64c416b2b3123d7bb5b99120c339f5d8096dc52114381d622a"
+  },
+  "feature_sampling_protocol": {
+    "cifar10": {
+      "dataset": "cifar10",
+      "split": "train",
+      "source_samples": 50000,
+      "requested_samples": 5000,
+      "sample_seed": 20260905,
+      "sampling": "unlabeled_random",
+      "stage1_sampling_reads_labels": false,
+      "source_file_sha256": [
+        "29b574d534d6625c23a36e17d801eca805850044e15f127ab0a4074b78fe0f48"
+      ]
+    },
+    "cifar100": {
+      "dataset": "cifar100",
+      "split": "train",
+      "source_samples": 50000,
+      "requested_samples": 5000,
+      "sample_seed": 20260905,
+      "sampling": "unlabeled_random",
+      "stage1_sampling_reads_labels": false,
+      "source_file_sha256": [
+        "6f166e963ae1d7070a1bbbdd4b159439c7a002f72dd56ac1848443dc76b9bd19"
+      ]
+    },
+    "dtd": {
+      "dataset": "dtd",
+      "split": "train",
+      "source_samples": 3760,
+      "requested_samples": 5000,
+      "sample_seed": 20260905,
+      "sampling": "unlabeled_random",
+      "stage1_sampling_reads_labels": false,
+      "source_file_sha256": [
+        "36b59899df5b27853288812cd866f886a2c3814e096d2bb9b22de351f9144917"
+      ]
+    },
+    "eurosat": {
+      "dataset": "eurosat",
+      "split": "train",
+      "source_samples": 21600,
+      "requested_samples": 5000,
+      "sample_seed": 20260905,
+      "sampling": "unlabeled_random",
+      "stage1_sampling_reads_labels": false,
+      "source_file_sha256": [
+        "577c28d2f4c26d07d28478a94c03225a24a26b25cfcd95bdc041099206fddfed"
+      ]
+    },
+    "svhn": {
+      "dataset": "svhn",
+      "split": "train",
+      "source_samples": 73257,
+      "requested_samples": 5000,
+      "sample_seed": 20260905,
+      "sampling": "unlabeled_random",
+      "stage1_sampling_reads_labels": false,
+      "source_file_sha256": [
+        "29a1862afac21422bbf3b97809b5cd12cb99f4d91d9b685b3832b62237d2af19"
+      ]
+    }
+  },
+  "pool_size": 250,
+  "pools_per_dataset": 4,
+  "construction_seeds": [
+    20260910,
+    20260911,
+    20260912
+  ],
+  "overlaps": [
+    0.0,
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    1.0
+  ],
+  "budgets": [
+    3,
+    5,
+    8,
+    10
+  ],
+  "top_k": 20,
+  "n_random": 100,
+  "include_full_rank": true,
+  "primary_method": "rank_l_gram",
+  "legacy_collapse_method": "collapse_sketch",
+  "marginal_scalar_mode": "exact_source_local",
+  "rank_l_mode": "direct_composable_psd_factor_with_tail_bounds",
+  "collapse_mode": "legacy_summary_only_weighted_topk_sketch",
+  "full_features_used_for_selection": true,
+  "full_features_used_for_evaluation_only": false,
+  "bytes_per_pool": {
+    "rank_only": 8,
+    "rank_l_gram": 122904,
+    "collapse_sketch": 122880,
+    "dpp_subspace": 122888,
+    "facility_subspace": 122880,
+    "agglomerative_subspace": 122880,
+    "lineage_deduplicated_rank": 8,
+    "random": 0,
+    "exact_merged_rank_greedy": 768000
+  },
+  "selected_pool_feedback_bytes": 0,
+  "shard_index": 0,
+  "shard_count": 1,
+  "assigned_collections": [
+    [
+      20260910,
+      0.0
+    ],
+    [
+      20260910,
+      0.1
+    ],
+    [
+      20260910,
+      0.25
+    ],
+    [
+      20260910,
+      0.5
+    ],
+    [
+      20260910,
+      0.75
+    ],
+    [
+      20260910,
+      1.0
+    ],
+    [
+      20260911,
+      0.0
+    ],
+    [
+      20260911,
+      0.1
+    ],
+    [
+      20260911,
+      0.25
+    ],
+    [
+      20260911,
+      0.5
+    ],
+    [
+      20260911,
+      0.75
+    ],
+    [
+      20260911,
+      1.0
+    ],
+    [
+      20260912,
+      0.0
+    ],
+    [
+      20260912,
+      0.1
+    ],
+    [
+      20260912,
+      0.25
+    ],
+    [
+      20260912,
+      0.5
+    ],
+    [
+      20260912,
+      0.75
+    ],
+    [
+      20260912,
+      1.0
+    ]
+  ],
+  "rows": 7776,
+  "result_sha256": "4b5406df67a96288bc2b4fc044f3a792d7b4baeab375e02901d383891ad1cc3d",
+  "script_sha256": "ec9cb9c22f1a2b41c6ed3f5f06dd38d641eb6d23e15219c28f5353efc499dd16",
+  "common_script_sha256": "07e4880e15f511d06463201e6f790e5e31c30077a197876c09d48e33c63cc49b",
+  "classic_script_sha256": "c6302e422732750f5b7664f2ee813af1ac645ab04f0836b46573b82a280ee5f7",
+  "feature_metadata": {
+    "cifar10": {
+      "started_utc": "2026-09-08T14:11:31.053040+00:00",
+      "finished_utc": "2026-09-08T14:13:56.836422+00:00",
+      "variant": "vit_b16",
+      "checkpoint": "torchvision:ViT_B_16_Weights.IMAGENET1K_V1",
+      "checkpoint_file_sha256": null,
+      "model_state_sha256": "4102ec9cdec63e75c4818cd2ac1c49c93935a80a92c347fc62a690213c029756",
+      "preprocess_sha256": "fb211ca08c603baf244ae63bb7dcca35441b73d4773540f373f2fd89abbab331",
+      "dataset": "cifar10",
+      "split": "train",
+      "requested_samples": 5000,
+      "sample_seed": 20260905,
+      "sampling": "unlabeled_random",
+      "source_file_sha256": [
+        "29b574d534d6625c23a36e17d801eca805850044e15f127ab0a4074b78fe0f48"
+      ],
+      "script_sha256": "80f81832c40d4f0f80004049742d294fa994c9058e444e07daa60a65fb99a32f",
+      "encoder_loader_sha256": "db834d7268cf302c458172a0d12f555e7ea42a32d760d6006406b74b9888630f",
+      "preprocess": "ImageClassification(\n    crop_size=[224]\n    resize_size=[256]\n    mean=[0.485, 0.456, 0.406]\n    std=[0.229, 0.224, 0.225]\n    interpolation=InterpolationMode.BILINEAR\n)",
+      "source_files": [
+        "/data/67/paper14/hf_cache/datasets/cifar10/plain_text/0.0.0/0b2714987fa478483af9968de7c934580d0bb9a2/cifar10-train.arrow"
+      ],
+      "source_samples": 50000,
+      "stage1_sampling_reads_labels": false,
+      "saved_labels_for_stage2": true,
+      "feature_shape": [
+        5000,
+        768
+      ],
+      "feature_dtype": "float32",
+      "index_dtype": "int64",
+      "inference_seconds": 144.29889440909028,
+      "images_per_second": 34.65030013206407,
+      "model_load_seconds": 2.6517138089984655,
+      "peak_allocated_mb": 881.74755859375,
+      "peak_reserved_mb": 1192.0,
+      "device": "npu:4",
+      "batch_size": 64,
+      "workers": 4,
+      "torch_version": "2.6.0+cpu",
+      "python_version": "3.10.12",
+      "feature_file_sha256": "f95fa113db33c130408a433b969326e43920a8aaf8c088ee8f2c1813eb1222a4",
+      "computed_index_sha256": "a12b4234c21be91ca2d9062904ad25ae5c3d8d3fc09821b40988c6d7c170c08a"
+    },
+    "cifar100": {
+      "started_utc": "2026-09-08T14:13:57.071358+00:00",
+      "finished_utc": "2026-09-08T14:16:19.750866+00:00",
+      "variant": "vit_b16",
+      "checkpoint": "torchvision:ViT_B_16_Weights.IMAGENET1K_V1",
+      "checkpoint_file_sha256": null,
+      "model_state_sha256": "4102ec9cdec63e75c4818cd2ac1c49c93935a80a92c347fc62a690213c029756",
+      "preprocess_sha256": "fb211ca08c603baf244ae63bb7dcca35441b73d4773540f373f2fd89abbab331",
+      "dataset": "cifar100",
+      "split": "train",
+      "requested_samples": 5000,
+      "sample_seed": 20260905,
+      "sampling": "unlabeled_random",
+      "source_file_sha256": [
+        "6f166e963ae1d7070a1bbbdd4b159439c7a002f72dd56ac1848443dc76b9bd19"
+      ],
+      "script_sha256": "80f81832c40d4f0f80004049742d294fa994c9058e444e07daa60a65fb99a32f",
+      "encoder_loader_sha256": "db834d7268cf302c458172a0d12f555e7ea42a32d760d6006406b74b9888630f",
+      "preprocess": "ImageClassification(\n    crop_size=[224]\n    resize_size=[256]\n    mean=[0.485, 0.456, 0.406]\n    std=[0.229, 0.224, 0.225]\n    interpolation=InterpolationMode.BILINEAR\n)",
+      "source_files": [
+        "/data/67/paper14/hf_cache/datasets/cifar100/cifar100/0.0.0/aadb3af77e9048adbea6b47c21a81e47dd092ae5/cifar100-train.arrow"
+      ],
+      "source_samples": 50000,
+      "stage1_sampling_reads_labels": false,
+      "saved_labels_for_stage2": true,
+      "feature_shape": [
+        5000,
+        768
+      ],
+      "feature_dtype": "float32",
+      "index_dtype": "int64",
+      "inference_seconds": 142.47272470965981,
+      "images_per_second": 35.09443656804715,
+      "model_load_seconds": 2.6517138089984655,
+      "peak_allocated_mb": 881.74755859375,
+      "peak_reserved_mb": 1192.0,
+      "device": "npu:4",
+      "batch_size": 64,
+      "workers": 4,
+      "torch_version": "2.6.0+cpu",
+      "python_version": "3.10.12",
+      "feature_file_sha256": "d0b918b9b30ac92b18a8ce691c4cd15e1881caf366c1a67b1cbe6c9f6b275b1e",
+      "computed_index_sha256": "a12b4234c21be91ca2d9062904ad25ae5c3d8d3fc09821b40988c6d7c170c08a"
+    },
+    "dtd": {
+      "started_utc": "2026-09-08T14:16:20.604812+00:00",
+      "finished_utc": "2026-09-08T14:18:11.497925+00:00",
+      "variant": "vit_b16",
+      "checkpoint": "torchvision:ViT_B_16_Weights.IMAGENET1K_V1",
+      "checkpoint_file_sha256": null,
+      "model_state_sha256": "4102ec9cdec63e75c4818cd2ac1c49c93935a80a92c347fc62a690213c029756",
+      "preprocess_sha256": "fb211ca08c603baf244ae63bb7dcca35441b73d4773540f373f2fd89abbab331",
+      "dataset": "dtd",
+      "split": "train",
+      "requested_samples": 5000,
+      "sample_seed": 20260905,
+      "sampling": "unlabeled_random",
+      "source_file_sha256": [
+        "36b59899df5b27853288812cd866f886a2c3814e096d2bb9b22de351f9144917"
+      ],
+      "script_sha256": "80f81832c40d4f0f80004049742d294fa994c9058e444e07daa60a65fb99a32f",
+      "encoder_loader_sha256": "db834d7268cf302c458172a0d12f555e7ea42a32d760d6006406b74b9888630f",
+      "preprocess": "ImageClassification(\n    crop_size=[224]\n    resize_size=[256]\n    mean=[0.485, 0.456, 0.406]\n    std=[0.229, 0.224, 0.225]\n    interpolation=InterpolationMode.BILINEAR\n)",
+      "source_files": [
+        "/data/67/paper14/hf_cache/datasets/tanganke___dtd/default/0.0.0/d2afa97d9f335b1a6b3b09c637aef667f98f966e/dtd-train.arrow"
+      ],
+      "source_samples": 3760,
+      "stage1_sampling_reads_labels": false,
+      "saved_labels_for_stage2": true,
+      "feature_shape": [
+        3760,
+        768
+      ],
+      "feature_dtype": "float32",
+      "index_dtype": "int64",
+      "inference_seconds": 110.75545389764011,
+      "images_per_second": 33.9486667940974,
+      "model_load_seconds": 2.6517138089984655,
+      "peak_allocated_mb": 881.74755859375,
+      "peak_reserved_mb": 1192.0,
+      "device": "npu:4",
+      "batch_size": 64,
+      "workers": 4,
+      "torch_version": "2.6.0+cpu",
+      "python_version": "3.10.12",
+      "feature_file_sha256": "ea65738cb7cdf29dbd43a9adb79cb11b1b5beb3762f7db42f0115cbca5c5dbe8",
+      "computed_index_sha256": "c08008b96e438905237e5cd643478222294f5e59e05b17df3c1a68fb44eaf040"
+    },
+    "eurosat": {
+      "started_utc": "2026-09-08T14:18:11.647122+00:00",
+      "finished_utc": "2026-09-08T14:20:40.171110+00:00",
+      "variant": "vit_b16",
+      "checkpoint": "torchvision:ViT_B_16_Weights.IMAGENET1K_V1",
+      "checkpoint_file_sha256": null,
+      "model_state_sha256": "4102ec9cdec63e75c4818cd2ac1c49c93935a80a92c347fc62a690213c029756",
+      "preprocess_sha256": "fb211ca08c603baf244ae63bb7dcca35441b73d4773540f373f2fd89abbab331",
+      "dataset": "eurosat",
+      "split": "train",
+      "requested_samples": 5000,
+      "sample_seed": 20260905,
+      "sampling": "unlabeled_random",
+      "source_file_sha256": [
+        "577c28d2f4c26d07d28478a94c03225a24a26b25cfcd95bdc041099206fddfed"
+      ],
+      "script_sha256": "80f81832c40d4f0f80004049742d294fa994c9058e444e07daa60a65fb99a32f",
+      "encoder_loader_sha256": "db834d7268cf302c458172a0d12f555e7ea42a32d760d6006406b74b9888630f",
+      "preprocess": "ImageClassification(\n    crop_size=[224]\n    resize_size=[256]\n    mean=[0.485, 0.456, 0.406]\n    std=[0.229, 0.224, 0.225]\n    interpolation=InterpolationMode.BILINEAR\n)",
+      "source_files": [
+        "/data/67/paper14/hf_cache/datasets/tanganke___eurosat/default/0.0.0/43750fc422c7fbd4289e2df3f7473617a5937acc/eurosat-train.arrow"
+      ],
+      "source_samples": 21600,
+      "stage1_sampling_reads_labels": false,
+      "saved_labels_for_stage2": true,
+      "feature_shape": [
+        5000,
+        768
+      ],
+      "feature_dtype": "float32",
+      "index_dtype": "int64",
+      "inference_seconds": 148.40941021218896,
+      "images_per_second": 33.69058601372534,
+      "model_load_seconds": 2.6517138089984655,
+      "peak_allocated_mb": 881.74755859375,
+      "peak_reserved_mb": 1192.0,
+      "device": "npu:4",
+      "batch_size": 64,
+      "workers": 4,
+      "torch_version": "2.6.0+cpu",
+      "python_version": "3.10.12",
+      "feature_file_sha256": "a951c0f78e0d4230affc2bce003ebdd3b117e5cb9d7ad905056d2c13e059074b",
+      "computed_index_sha256": "c42ec40cface33fb455a9d833409167a7a3649ea99f4bdb49c8daba8ff559487"
+    },
+    "svhn": {
+      "started_utc": "2026-09-08T14:20:40.433959+00:00",
+      "finished_utc": "2026-09-08T14:23:04.344222+00:00",
+      "variant": "vit_b16",
+      "checkpoint": "torchvision:ViT_B_16_Weights.IMAGENET1K_V1",
+      "checkpoint_file_sha256": null,
+      "model_state_sha256": "4102ec9cdec63e75c4818cd2ac1c49c93935a80a92c347fc62a690213c029756",
+      "preprocess_sha256": "fb211ca08c603baf244ae63bb7dcca35441b73d4773540f373f2fd89abbab331",
+      "dataset": "svhn",
+      "split": "train",
+      "requested_samples": 5000,
+      "sample_seed": 20260905,
+      "sampling": "unlabeled_random",
+      "source_file_sha256": [
+        "29a1862afac21422bbf3b97809b5cd12cb99f4d91d9b685b3832b62237d2af19"
+      ],
+      "script_sha256": "80f81832c40d4f0f80004049742d294fa994c9058e444e07daa60a65fb99a32f",
+      "encoder_loader_sha256": "db834d7268cf302c458172a0d12f555e7ea42a32d760d6006406b74b9888630f",
+      "preprocess": "ImageClassification(\n    crop_size=[224]\n    resize_size=[256]\n    mean=[0.485, 0.456, 0.406]\n    std=[0.229, 0.224, 0.225]\n    interpolation=InterpolationMode.BILINEAR\n)",
+      "source_files": [
+        "/data/67/paper14/hf_cache/datasets/svhn/cropped_digits/0.0.0/f9e1717d73324ebbc1ece84267ccd80d0aca0690/svhn-train.arrow"
+      ],
+      "source_samples": 73257,
+      "stage1_sampling_reads_labels": false,
+      "saved_labels_for_stage2": true,
+      "feature_shape": [
+        5000,
+        768
+      ],
+      "feature_dtype": "float32",
+      "index_dtype": "int64",
+      "inference_seconds": 143.70962557569146,
+      "images_per_second": 34.79238067714896,
+      "model_load_seconds": 2.6517138089984655,
+      "peak_allocated_mb": 881.74755859375,
+      "peak_reserved_mb": 1192.0,
+      "device": "npu:4",
+      "batch_size": 64,
+      "workers": 4,
+      "torch_version": "2.6.0+cpu",
+      "python_version": "3.10.12",
+      "feature_file_sha256": "2c0f0e05cff97dedc26f1a92d1ca29616af3eec6d3f7446137d85c6deceffd6d",
+      "computed_index_sha256": "4a386b6788b10d64c416b2b3123d7bb5b99120c339f5d8096dc52114381d622a"
+    }
+  }
+}

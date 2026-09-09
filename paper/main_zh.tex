@@ -62,7 +62,7 @@
 \newtheorem{definition}{定义}
 
 %% ============================================================
-\title{坍缩模型：基于谱几何的无标签数据池压缩}
+\title{坍缩模型：面向可审计数据池筛选的谱几何}
 \author{%
   匿名作者\\
   NeurIPS 2026 匿名提交%
@@ -75,8 +75,7 @@
 
 % ============================================================
 \begin{abstract}
-给定 $M$ 候选数据集，哪个 $k{\ll}M$ 子集在特征合并后最好地保留了表示多样性——无需访问标签或下游任务？
-我们通过推导 \textbf{坍缩模型} 来解决这一无标签的数据池压缩问题，该模型是一个由精确局部谱几何启发的结构化摘要预测器。该模型通过两个与压缩相关的 SVD 通道（能量比 $\gamma$、方向对齐 $\alpha$）从一个 $2{\times}2$ 格拉姆块特征值结构中预测合并的有效秩 ($\reff$)，从而生成基于模型的超加性诊断指标 $\rho_c(\alpha,\gamma)$，该指标驱动仅使用 \emph{每个数据集的摘要统计} 的贪婪压缩算法——适用于隐私受限或流式设置，在这些设置中无法共享特征。在来自 5 种编码器家族和 2 种模态的 427 对真实特征矩阵上，公式达到了皮尔逊 $r{=}0.97$。基于坍缩指导的压缩几乎是最优的（相对于完全搜索的 ${\leq}1\%$ 后悔），在保留方面与最近发表的谱多样性基线 (Vendi-Greedy) 相匹配，同时仅需要摘要统计而不是完整的特征矩阵，并且在下游线性探针准确性上优于设施位置 / $k$-质心（符号检验 $p{<}10^{-3}$，坍缩超过随机的 $95\%$ 置信区间）。比较揭示了两个不同的 LP 相关多样性轴（由坍缩捕获的谱保持率和由最远点遍历捕获的质心覆盖），澄清了何时每种信号占主导地位。该框架扩展到最多 $14{\times}$ 压缩比的 $M{=}43$ 数据池，并通过 CLIP 和 DINO 编码器中揭示出二态主角分布来识别监督 / 自监督谱几何学之间的定量分界线。代码可在 \url{https://anonymous.4open.science/r/collapsemodel-1DB6} 获取。
+给定 $M$ 个冻结表示数据池，哪些候选能在昂贵评估前仅用无标签信息纳入短名单？本文将精确谱结论与经验筛选分开。对于固定、与标签无关的预处理和明确声明的来源权重，合并谱由正半定 Gram 算子之和精确决定。在显式的块兼容奇异方向下，该算子和具有精确的局部 $2{\times}2$ 分解；一个构造性反例则表明，边际谱与主角度——因而也包括早期的四标量摘要——通常不能决定合并有效秩。本文将可组合的 rank-$L$ PSD Gram sketch 作为第一阶段主方法。随摘要传输的尾部统计量给出对数有效秩误差的确定性 Fannes--Audenaert 区间，以及单步 Full-Gram greedy 的充分认证条件。四编码器受控扫描显示，2,880 个选中前缀区间全部覆盖精确分数，但 $L\leq50$ 的 7,200 个 greedy 步骤无一得到认证，且 DPP 至少同样有竞争力。在 28 个 held-out encoder-target 单元中，即使验证 oracle 的来源监督 adapter 也比冻结 identity 低 $0.067$（target-cluster 95\% CI $[-0.098,-0.044]$）；因此，小 shortlist regret 不等于下游收益。本文不主张全局最优、隐私、实际压缩收益或下游收益。代码位于 \url{https://anonymous.4open.science/r/collapsemodel-1DB6}。
 \end{abstract}
 % ============================================================
 \section{引言}
@@ -87,7 +86,7 @@
 我们称之为 \emph{无标签的数据池压缩} 问题：与经典的核心集选择 \citep{mirzasoleiman2020coresets} 和最近的 \emph{样本级} 数据整理方法（DSIR~\citep{xie2023dsir}, DsDm~\citep{engstrom2024dsdm}, D$^2$ 剪枝~\citep{maharana2023d2pruning}) 不同，我们寻求在 \emph{数据集级别} 的压缩（而非样本级别），且不依赖标签或下游任务。评判标准是表示多样性，形式化为合并特征的有效秩 $\reff(H)=\exp(-\sum_i p_i\log p_i)$ \citep{roy2007effective,garrido2023rankme}。此前没有研究描述数据集级别谱和相对子空间几何在特征拼接下如何共同影响有效秩，迫使实践者依赖于穷举搜索或扩展性差的启发式方法。
 
 先前的研究解决了相关但不同的问题。
-\emph{谱多样性度量} 如 RankMe~\citep{garrido2023rankme}, VNE~\citep{kim2023vne}, 和 Vendi 分数~\citep{friedman2023vendi,pasarkar2024cousins} 通过奇异值或相似矩阵谱的熵来量化单个集合的多样性；它们不预测两个集合在拼接下的多样性如何结合。
+\emph{谱多样性度量} 如 RankMe~\citep{garrido2023rankme}、VNE~\citep{kim2023vne}、Vendi 分数~\citep{friedman2023vendi} 及其广义形式~\citep{pasarkar2024cousins}，通过奇异值或相似矩阵谱的熵来量化单个集合的多样性；它们不预测两个集合在拼接下的多样性如何结合。
 \emph{无标签核心集选择} (ELFS~\citep{shen2025elfs}, ZCore~\citep{griffin2024zcore}, DEFT-UCS~\citep{das2024deft}) 通过几何或代理动力学来选择样本子集；它与我们的数据集级别表述互补但不相关。
 \emph{池级整理} (DataComp~\citep{gadre2023datacomp}, DataComp-LM~\citep{li2024dclm}, DsDm~\citep{engstrom2024dsdm}, Quad~\citep{zhang2025quad}) 使用过滤或模型感知启发式方法，但没有闭合形式的多样性准则。
 \emph{表示相似性度量} (SVCCA \citep{raghu2017svcca}, PWCCA \citep{morcos2018pwcca}, CKA \citep{kornblith2019similarity}, PARC \citep{bolya2021parc}) 比较两个表示但不预测合并后的秩。
@@ -96,36 +95,27 @@ Task2Vec \citep{achille2019task2vec} 无需标签但需要探针微调。
 模型合并方法 (任务算术~\citep{ilharco2023task}, TIES-合并~\citep{yadav2023ties}, DARE~\citep{yu2024dare}) 合并参数而非特征。
 固有维数工作 \citep{pope2021intrinsic,ansuini2019intrinsic} 描述单个矩阵但不描述合并后的矩阵。
 据我们所知，没有现有研究结合精确的局部谱分析 $\reff([H_A;H_B])$ 与数据集级别选择的汇总统计预测器。
-我们从精确恒等式 $G_{A\cup B}=G_A+G_B$ 出发推导 \textbf{坍缩模型}。
-在明确的成对方向条件下，引理~\ref{lem:gram} 使用逐模态能量比 $\gamma_i$ 和对齐度 $\alpha_i$ 给出精确的 $2\times2$ 块特征值；在比例谱和均匀对齐条件下，命题~\ref{prop:proportional} 给出精确的双分支熵公式。
-对于一般谱，Eq.~\eqref{eq:pred} 将这种结构压缩为四个摘要——$r_A$、$r_B$、全局能量比 $\gamma$ 和 平均对齐度 $\alpha$，并且被明确地视为经验近似。
-其诊断阈值 $\rho_c(\alpha,\gamma)$ 描述了三种理想化的行为模式：超加性、方向塌陷和能量塌陷。
-我们的 $\SAk$ 使用主角线余弦的均方误差，这比 SVCCA 的无符号余弦或 PWCCA 的能量加权形式更直接地与投影理论相关；
-$U$-channel 使用了 Two-NN 内在维度估计器 \citep{facco2017estimating}。
+我们从精确恒等式 $G_{A\cup B}=G_A+G_B$ 出发，并严格区分两种近似。早期四摘要预测器记为 \textbf{Collapse-4S}：它把成对方向模型压缩为 $(r_A,r_B,\gamma,\alpha)$，可用于机制诊断和经验基线，但命题~\ref{prop:insufficient} 证明这些摘要在一般情况下并不充分。本文的主要计算方法 \textbf{Collapse-Gram-$L$} 为每个来源传输 rank-$L$ PSD 因子及可认证尾部统计量。这些摘要可通过加法组合，在保留子空间中保留谱与方向的配对，并提供确定性误差区间（定理~\ref{thm:rank_l_bound}）。
+
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.88\linewidth]{fig_framework.pdf}
-\caption{无标签数据池压缩流水线。
-\textbf{顶部:} 每个数据集的摘要（$\Sigma{:}\gamma$, $V{:}\alpha$, $U{:}\reff$）将引理~\ref{lem:gram} 的确切模式结构压缩成近似预测器 Eq.~\eqref{eq:pred} 及其诊断阈值 $\rho_c(\alpha,\gamma)$。
-\textbf{中部:} 在 $(\alpha,\gamma)$ 平面中的三种行为模式（定理~\ref{cor:superadd}）：超加性、方向塌陷 ($\alpha{\to}1$)、能量塌陷 ($\gamma{\gg}1$ 或 ${\ll}1$)。
-\textbf{底部:} 贪心循环（算法~\ref{alg:collapse_greedy}）：评估剩余候选者，选择 $\arg\max$，重复 $k$ 次；输出压缩池 $S$。}
+\caption{谱机制与选择抽象。\textbf{上部/中部：}成对方向特例与 Collapse-4S 诊断；这些面板解释局部行为，但不构成一般保证。\textbf{下部：}共同的 greedy 循环。主选择器通过组合 rank-$L$ PSD 因子为该循环评分；Collapse-4S 仅作为消融。}
 \label{fig:framework}
 \end{figure}
-\textbf{为什么基于摘要的压缩？}
-在 $M$ 个候选者中进行穷举搜索需要 $\binom{M}{k}$ 个合并的 SVD，每个为 $O(Nd^2)$，同时访问所有特征矩阵（$M=14, k=5$: $2002$ 个 SVD；$M=100, k=10$: $1.7 \times 10^{13}$）。崩溃模型将此减少为从每个数据集的摘要统计中得出的 $O(kM)$ 秩预测，从而在隐私受限和流式设置中实现压缩。
+
+\textbf{为什么使用摘要筛选？}
+穷举搜索需要 $\binom{M}{k}$ 次合并分解，并同时访问全部样本特征。Collapse-Gram-$L$ 只需 $O(kM)$ 次候选评分，每个来源传输 $O(Ld)$ 个数和三个尾部统计量。协调端无需重建原始样本特征，但这种压缩本身不构成差分隐私保证。
 
 \textbf{贡献。}
-(1)~\emph{问题表述}---\emph{无标签的数据池压缩}（Sec.~\ref{sec:compression}）：一个 $\mathcal{O}(kM)$ 的贪婪算法，基于每个数据集的摘要统计（$\reff,\|\cdot\|_*,V_{\mathrm{top}\text{-}k}$），适用于特征矩阵不能共享的隐私受限和流式设置。
-(2)~\emph{精确局部理论与结构化近似}（Proposition~\ref{prop:gram_general}, Lemma~\ref{lem:gram}, Proposition~\ref{prop:proportional}）：无条件的 Gram 表示、精确的成对方向特征值分解以及比例谱熵公式。对于一般谱，我们推导出一个低维摘要预测器，并通过反例证明其四个输入不足以进行通用精确预测。
-(3)~\emph{LP相关多样性的两信号分解}（Sec.~\ref{sec:compression}）：与现代基线的基准测试表明，下游相关的多样性可以分解为两个正交信号---\emph{谱保持率}（由崩溃模型捕获，$r_A+r_B$，Vendi-Greedy）和 \emph{质心覆盖}（由最远点遍历捕获）。两阶段的 Cen$\to$Col 混合体组合了这两个信号，并在 $k=10$ 时同时在 LP 和保持率上优于纯崩溃模型（Appendix~\ref{app:p2e_hybrid}），将结构化公式定位为可组合的基本构建块而非独立策略。
-\textbf{实证发现。}
-公式在 280 组受控 + 120 组非主角点 + 427 组真实配对样本上进行了验证，这些样本来自 5 种编码器家族和 2 种模态（Pearson $r{=}0.97$, $R^2_{\mathrm{cal}}{=}0.95$）。
-该框架识别出监督/自监督光谱几何学的定量分界：ResNet-50 在 91 组配对样本上实现了 $100\%$ 超加性效应，而 CLIP 和 DINO 只在跨域合并中达到了 $29$--$36\%$ 的水平——这一差距通过模型隔离出的二模态主角点分布机制得到了机械解释。
+(1)~\emph{精确代数与信息极限}：给出无条件 Gram 表示、块兼容条件下的精确分解，以及低维可识别性失败的显式反例（命题~\ref{prop:gram_general}--\ref{prop:insufficient}）。
+(2)~\emph{可认证压缩}：给出可组合 rank-$L$ PSD sketch、依赖尾部的 log-effective-rank 区间，以及与单步 Full-Gram greedy 一致的充分证书（定理~\ref{thm:rank_l_bound}，推论~\ref{cor:rank_l_choice}）。
+(3)~\emph{经审计的两阶段协议}：采用标签盲第一阶段抽样、明确的等来源权重、目标隔离的第二阶段评估、matched overlap 诊断、与来源无关的对照及带 provenance 校验的恢复语义（第~\ref{sec:compression} 节）。
 
-在无标签分析中，只有塌缩模型同时提供了基于摘要的合并秩预测（$R^2_{\mathrm{cal}}{=}0.95$ 在 427 组配对样本上，表~\ref{tab:e1d}），行为模式诊断通过 $\rho_c(\alpha,\gamma)$ 和相同 $O(Nd\min(N,d))$ 成本下的超加性效应诊断；朴素的 $r_A{+}r_B$ 在序数排名上与塌缩模型匹配（$\rho{=}0.963$ vs.\ $0.966$，无显著差异），但缺乏绝对 $R^2$、行为模式诊断和冗余检测。
-
+\textbf{经验范围。}
+现有成对实验评估的是 Collapse-4S，而不是新的 rank-$L$ 保证。它们在已评估样本对上表现出较强排序相关性，但相对 $r_A{+}r_B$ 的 Spearman 增量仅为 $0.003$，且校准依赖编码器。历史数据池实验也表明，不同谱方法在干净池中常选择相似子集。因此本文仅把这些结果作为有边界的证据，不能将旧表视为定理~\ref{thm:rank_l_bound} 的验证。
 % ============================================================
-\section{背景：SVD 三通道分解}
+\section{谱背景}
 \label{sec:background}
 
 对于任何特征矩阵 $H\in\R^{N\times d}$，其薄奇异值分解为 $H=U\Sigma V^\top$（$U\in\R^{N\times r}$, $\Sigma=\mathrm{diag}(\sigma_1\geq\cdots\geq\sigma_r>0)$,
@@ -140,7 +130,6 @@ $V\in\R^{d\times r}$），该分解分离出三种正交的表示方面。
 \end{equation}
 其中 $p_i$ 是奇异值份额（未平方），因此 $r_{\mathrm{eff}}\in[1,r]$。
 核范数 $\|H\|_*=\sum_i\sigma_i$ 捕捉总能量。
-定义在附录~\ref{app:proof_prop1} 中的谱差数量（谱转移缺口）在那里被用作 Gram 块转移界线的一部分。
 \textbf{$V$ 通道 --- 方向结构。}
 右奇异向量 $V$ 编码了哪些方向被激活。
 \begin{definition}[子空间对齐度]
@@ -193,6 +182,12 @@ $\gamma,\alpha,\UID$ 捕捉了不同的属性一致。
   r_{\mathrm{sub}} = \begin{cases}r_B & \gamma\leq1 \\ r_A & \gamma>1\end{cases}.
 \end{equation}
 $\gamma$ 是这两个矩阵的 \textbf{能量比}；$r_{\mathrm{dom}}$ 是高能矩阵的有效秩。
+
+所有来源预处理必须在子集选择前固定。对含 $N_j$ 行的来源 $j$ 声明总来源权重
+$\beta_j>0$，并以 $X_j=\sqrt{\beta_j/N_j}\,H_j$ 参与后续计算。
+当来源大小不同时，本文默认 $\beta_j=1$（每个来源总质量相同）；
+$\beta_j=N_j$ 是另行声明的逐样本等权方案。有效秩虽然对共同缩放不变，
+但对来源间相对权重的改变并不保持不变。
 
 \subsection{主要结果}
 \label{sec:theorem}
@@ -288,45 +283,102 @@ This is an exact decision boundary for the summary model, and for the proportion
 \textbf{物理意义。}
 $\rho_c$ 是摘要模型内部的一个决策阈值。在 $q=1$ 附近，它可以将任意小的正熵增量分类为超加性；因此 $\hat r_{\mathrm{merged}}-r_{\mathrm{dom}}$ 的大小必须与二元诊断一起报告。完全的方向重叠给出 $q=1$ 并无预测增益。证明和模型范围在附录~\ref{app:proof_thm}、\ref{app:pa_scope} 中。
 
-\subsection{四份摘要不足以解决问题}
+\subsection{边际谱与完整主角仍不充分}
 \label{sec:insufficiency}
 
-\begin{proposition}[从四个标量无法唯一确定]
+\begin{proposition}[从边际几何无法唯一确定]
 \label{prop:insufficient}
-元组 $(r_A,r_B,\gamma,\alpha)$ 不能唯一确定 $\reff([H_A;H_B])$。
+即使同时给定两个输入的边际奇异值谱和右奇异子空间之间的完整主角集合，也不能唯一确定 $\reff([H_A;H_B])$。因此，元组 $(r_A,r_B,\gamma,\alpha)$ 更不可能唯一确定它。
 \end{proposition}
 
 \textbf{反例。}
-假设两个输入的奇异值均为 $(1,1)$，因此 $r_A=r_B=2$ 和 $\gamma=1$，并且在 $V_A=(e_1,e_2)$ 中有 $\R^4$。
-对于对 X 取 $V_B=(e_1,e_3)$，给出每模式对齐 $(1,0)$。
-对于对 Y 取
-$V_B=((e_1+e_3)/\sqrt2,(e_2+e_4)/\sqrt2)$，给出对齐
-$(1/2,1/2)$。两对都有相同的平均对齐 $\alpha=1/2$。
-对 X 有合并奇异值 $(\sqrt2,1,1)$ 和有效秩
-$2.958$，而对 Y 有两个副本的
-$\sqrt{1+1/\sqrt2}$ 和 $\sqrt{1-1/\sqrt2}$ 并且有效秩 $3.661$。
-因此相同的单个秩、全局能量比和平均对齐可以导致不同的合并秩。预测器必然丢弃对齐异质性、谱配对和跨方向耦合。
+令 $e_1,e_2,e_3$ 为标准基，并构造逐行归一化矩阵
+\begin{equation}
+ H_A=[e_1,e_1,e_1,e_1,e_2]^\top,\quad
+ H_B^{(1)}=[e_1,e_1,e_1,e_1,e_3]^\top,\quad
+ H_B^{(2)}=[e_1,e_3,e_3,e_3,e_3]^\top.
+\end{equation}
+三者的非零奇异值均为 $(2,1)$，两组右奇异子空间的主角也均为 $\{0,\pi/2\}$；但是，两组合并 Gram 谱分别为 $(8,1,1)$ 与 $(5,4,1)$，相应有效秩为 $2.626012$ 与 $2.849536$。因此，即便完整边际谱和主角也会丢失谱质量与耦合方向的对应关系；四标量摘要丢失的信息只会更多。
 \hfill$\square$
 
-\textbf{校准。}
-在评估的真实数据对中，公式系统地高估了结果；单一的乘法常数 $c$ 恢复了定量准确性，并遵循了编码器家族间的通用回归 $c{=}0.946{-}0.175\log(N/\reff)$（附录~\ref{app:calibration}）。
-由于这是一个在可观测变量 $\log(N/\reff)$ 上的一维线性模型，可靠估计 $c$ 只需每个编码器家族 $5$--$10$ 个带标签的样本对——这与计算冻结编码特征的成本相比是一个可以忽略不计的附加开销。在隐私受限的环境中，即使只有一个参考对的摘要统计信息可用，也可以估计每个编码器的 $c$ 而不会暴露任何原始特征。
-同样的三个通道也界定了线性探针迁移损失（附录~\ref{app:proof_prop1}）：低 $\SAk$ 同时意味着 \emph{高} 合并增益和 \emph{高} 迁移损失。
+\subsection{可组合的 Rank-$L$ Gram Sketch}
+\label{sec:rank_l}
+
+上述反例说明，应直接近似 PSD 算子，而不是继续压缩为平均角度。对每个预加权来源的紧致 SVD，定义
+\begin{equation}
+ B_j=\Sigma_{j,1:L}V_{j,1:L}^{\top},\qquad
+ \widetilde G_j=B_j^\top B_j,\qquad
+ E_j=G_j-\widetilde G_j\succeq0 .
+ \label{eq:rank_l_sketch}
+\end{equation}
+随摘要附加尾部统计量
+$\tau_j=\operatorname{tr}\sqrt{E_j}$、
+$\omega_j=\operatorname{tr}(E_j)$ 和
+$u_j=\operatorname{rank}(E_j)$；也可使用它们的可认证上界。对集合 $S$，将因子纵向堆叠为 $B_S$，于是 $\widetilde G_S=B_S^\top B_S$，其非零谱可由较小核心 $B_SB_S^\top$ 得到，无需重建样本特征。
+
+对 PSD 矩阵 $G$，记
+$\mathcal R(G)=\exp\mathcal H(\sqrt{\lambda(G)}/\operatorname{tr}\sqrt G)$，因此 $\mathcal R(H^\top H)=\reff(H)$。定义
+\begin{equation}
+ T_S=\min\!\left\{\sum_{j\in S}\tau_j,
+ \sqrt{\min(d,\sum_{j\in S}u_j)\sum_{j\in S}\omega_j}\right\},
+ \quad
+ \varepsilon_S=\frac{T_S}{\operatorname{tr}\sqrt{\widetilde G_S}+T_S}.
+ \label{eq:tail_bound}
+\end{equation}
+
+\begin{theorem}[Rank-$L$ 对数有效秩误差界]
+\label{thm:rank_l_bound}
+假设 $\widetilde G_S\neq0$，并令
+$D_S=\min(d,\sum_{j\in S}\operatorname{rank}(G_j))$。当 $D\ge2$ 时定义
+\begin{equation}
+ \Phi_D(\varepsilon)=
+ \begin{cases}
+ h_b(\varepsilon)+\varepsilon\log(D-1),
+ &0\leq\varepsilon\leq1-1/D,\\
+ \log D,&1-1/D<\varepsilon\leq1.
+ \end{cases}
+\end{equation}
+则无需块兼容假设，均有
+\begin{equation}
+ \left|\log\mathcal R(G_S)-\log\mathcal R(\widetilde G_S)\right|
+ \leq \Phi_{D_S}(\varepsilon_S).
+ \label{eq:rank_l_bound}
+\end{equation}
+当 $D_S=1$ 时误差为零。
+\end{theorem}
+
+\begin{corollary}[单步 Full-Gram 选择证书]
+\label{cor:rank_l_choice}
+在某一 greedy 轮次，令
+$\widehat F_j=\log\mathcal R(\widetilde G_{S\cup\{j\}})$ 且
+$e_j=\Phi_{D_{S\cup\{j\}}}(\varepsilon_{S\cup\{j\}})$。若候选 $j^*$ 满足
+\begin{equation}
+ \widehat F_{j^*}-e_{j^*}>
+ \max_{j\neq j^*}(\widehat F_j+e_j),
+ \label{eq:rank_l_certificate}
+\end{equation}
+则 $j^*$ 是该轮精确 Full-Gram 分数的唯一最大者。
+\end{corollary}
+
+区间必须累计当前已选集合与候选的全部尾部；只使用候选自身尾部会产生错误证书。若区间不分离，应增大 $L$ 或回退到 Full-Gram。该证书只针对 greedy 的单个步骤：有效秩目标一般既非单调也非次模，因此不保证最终子集全局最优。
+
+\textbf{旧 Collapse-4S 校准。}
+在已评估真实样本对上，式~\eqref{eq:pred} 存在系统性高估。拟合乘法常数可以降低平均尺度误差；关系 $c{=}0.946{-}0.175\log(N/\reff)$ 只是已评估编码器上的经验拟合，不是普适规律。
 % ============================================================
-\section{摘要预测器的评估}
+\section{旧四摘要预测器的评估}
 \label{sec:experiments}
 
-在将坍缩模型应用于压缩（Sec.~\ref{sec:applications}）之前，我们建立了一个三步评估链：
+本节报告 Collapse-4S 的历史评估。这些实验检验式~\eqref{eq:pred}，并不检验 rank-$L$ 近似或其证书。证据分为三步：
 (i) \textbf{理想化模型一致性}——预测器与其摘要假设下的数据一致 (§\ref{sec:e1a_main}，合成网格);
 (ii) \textbf{真实数据的预测有效性}——公式在5种编码器家族、14个视觉数据集和19个文本语料库中仍然是一个强大的近似（§\ref{sec:e1d}，共427对）;
 (iii) \textbf{行为模式一致性}——经验上的超加性模式与Corollary~\ref{cor:superadd}预测的三种模式一致 (§\ref{sec:e1d}，表~\ref{tab:e1d})。
-这些测试共同验证了近似在何处成功、它如何转移到真实编码器以及其定性的诊断是否可观察。额外的控制（E1a-Ind 120个非主角对，E1b 30个真实对，E1c 57个对，E\_diverse跨架构，E\_downstream $\reff$/LP-准确性）均与同一图景一致，并在附录~\ref{app:exp_extras}中补充说明。
+这些测试用于定位启发式的有效与失效区间。额外控制见附录~\ref{app:exp_extras}。
 特征矩阵进行L2行归一化并子采样到$N_{\mathrm{sub}}$样本；有效秩使用公式~\eqref{eq:reff}；Bootstrap置信区间使用$B=10{,}000$次抽样。
 
 \subsection{步骤 1 --- 理想化模型一致性：合成控制网格 (E1a, 280对)}
 \label{sec:e1a_main}
 
-在验证真实数据之前，我们在比例谱、成对方向模型下生成的280个受控合成对上验证了坍缩模型（$\alpha\in\{0,0.05,\ldots,1.0\}$和$\gamma\in\{0.1,0.33,\ldots,10.0\}$，$d{=}512$，$N{=}1000$，每种设置重复5次）。
+作为模型内 sanity check，我们在比例谱、成对方向模型下生成的 280 个受控合成对上评估 Collapse-4S（$\alpha\in\{0,0.05,\ldots,1.0\}$，$\gamma\in\{0.1,0.33,\ldots,10.0\}$，$d{=}512$，$N{=}1000$，每种设置重复 5 次）。
 
 \begin{table}[t]
 \centering
@@ -337,7 +389,7 @@ $\sqrt{1+1/\sqrt2}$ 和 $\sqrt{1-1/\sqrt2}$ 并且有效秩 $3.661$。
 方法 & $R^2$ & 最大误差 & 超加性 (\%) & $\alpha<1$ 超加性 \\
 \midrule
 朴素 $\sqrt{1+\alpha\gamma^2}$ & 0.30 & 28.73 & --- & --- \\
-\textbf{坍缩模型 (我们的)} & \textbf{0.9999} & \textbf{0.27} & \textbf{87.5\%} & \textbf{100\%} (245/245) \\
+\textbf{Collapse-4S} & \textbf{0.9999} & \textbf{0.27} & \textbf{87.5\%} & \textbf{100\%} (245/245) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -354,7 +406,7 @@ $(\alpha,\gamma)$ 热图和超加性区域的可视化见附录~\ref{app:exp_ext
 
 \begin{table}[h]
 \centering
-\caption{E1d：坍缩模型的大规模验证（427 对，5 个探针）。按编码器家族设置校准常数 $c$ 可恢复定量精度。}
+\caption{E1d：Collapse-4S 历史关联性研究（427 对，5 个探针）。$c$ 按编码器家族分别拟合，因此校准 $R^2$ 只是描述性统计。}
 \label{tab:e1d}
 \small
 \setlength{\tabcolsep}{3.5pt}
@@ -379,7 +431,7 @@ DINO ViT-S/16 (11 datasets)    & 55  & 36.4\%            & 0.913 & 0.584 & 0.554
 \textbf{行为区间一致性（步骤 3）。}
 (i)~\textbf{ResNet-50 在 91 对数据上达到 100\% 超加性}（包括医学数据和 ImageNet），验证了推论~\ref{cor:superadd} 所预测的平衡 $(\gamma,\alpha)$ 区间。
 (ii)~模型的方向重叠区间呈现出\textbf{监督/自监督分界}：CLIP 和 DINO 的超加性比例仅为 29\%--36\%，失败样例\emph{全部}集中在跨域数据对中（手写$\times$ImageNet、自然图像$\times$数字均失败），而域内数据对几乎全部成功。
-其根本原因是双峰主角分布与极端条件数 $\kappa{\in}[10^4,10^6]$ 的共同作用（图~\ref{fig:bimodal_structure}），对应第~\ref{sec:superadd} 节的\emph{方向塌陷}区间。
+双峰主角分布与极端条件数 $\kappa{\in}[10^4,10^6]$ 和这些失败相关（图~\ref{fig:bimodal_structure}）。该模式与第~\ref{sec:superadd} 节的\emph{方向塌陷}诊断一致，但并非因果识别。
 
 \begin{figure}[t]
 \centering
@@ -392,151 +444,62 @@ DINO ViT-S/16 (11 datasets)    & 55  & 36.4\%            & 0.913 & 0.584 & 0.554
 \end{figure}
 \paragraph{量化双模态差距。}
 每个探针校准后的 $R^2$: CLIP $0.84>$ ResNet $0.76>$ DINO $0.55>$ ViT $0.49$;
-排名准确性普遍很高 ($r \geq 0.90$)。
+在四个视觉探针上相关系数均不低于 $0.90$，但这不构成一般准确性保证。
 Figure~\ref{fig:bimodal_structure}(a,c) 显示了 CLIP/DINO 的双聚类 $\cos^2\theta_i$ 分布 ($V_\alpha > 0.07$)，放大了观察到的预测偏差，识别出与全局摘要近似相比的具体偏离而非黑盒失败（完整机制见附录~\ref{app:bimodal})。
 
 (iii) \textbf{能量塌陷} 出现在 ViT 的 17 对非超加性成对方向中，所有这些都在 $\gamma \notin [0.5,2]$ 中，与摘要模型的能量不平衡诊断一致。
-(iv) \textbf{跨模态迁移}: 171 SBERT 文本成对方向 (98.8\% 超加性，排名 $r = 0.793$) 确认了公式的 \emph{序数} 预测是模态无关的。然而，绝对校准需要针对特定模态进行调整：视觉通用回归 ($c = 0.946 - 0.175\log(N/\reff)$, 附录~\ref{app:calibration}) 解释了 $R^2 = 0.96$ 的视觉方差，但仅解释了 $R^2 = 0.08$ 的 SBERT 方差，表明文本编码器具有质上不同的谱偏置。针对文本的校准留待未来工作。
+(iv) \textbf{跨模态检查}: 在 171 个 SBERT 文本样本对上，排序相关降至 $r=0.793$（98.8\% 超加性），因此数据不支持模态无关主张。视觉侧拟合关系只能解释 $R^2=0.08$ 的 SBERT 方差，说明必须单独验证文本编码器。
 
 \textbf{评估总结。}
-步骤 1--3 确立了理想化模型的一致性、真实编码器上的强大经验排名以及可观察到的定性模式。它们并未确立普遍精确性：Proposition~\ref{prop:insufficient} 证明了四个摘要无法在一般情况下确定合并排名。
+步骤 1--3 只建立模型内一致性、当前基准上的关联性与可观察的定性模式。它们既不验证 Collapse-Gram-$L$，也不建立普适精确性：命题~\ref{prop:insufficient} 已证明四摘要通常无法确定合并秩。
 跨数据集校准泛化、跨探针一致性及 $\reff$/LP-准确率对应关系 ($\rho = 0.90$ 在 ViT 家族内) 见附录~\ref{app:exp_extras}。
 
 % ============================================================
-\section{从公式到应用：无标签数据池压缩}
+\section{两阶段数据池压缩}
 \label{sec:applications}
 \label{sec:compression}
 \label{sec:pool_selection}
 
-在评估了预测器（Sec.~\ref{sec:experiments}）之后，我们现在考察其实际用途：
-给定 $M$ 个候选数据集和目标 $D_t$，将池压缩至 $k{\ll}M$ 的规模同时保持合并表示的有效秩 $\reff$。
-穷举搜索 $\binom{M}{k}$ 子集是不可行的；
-崩塌模型允许通过每个数据集的摘要统计信息进行 $O(kM)$ 预测来实现压缩。
-每一轮，\textbf{BFG} 为每个剩余候选者评分，通过将 Eq.~\eqref{eq:pred} 应用于 $(H_{\mathrm{cur}},H_{\mathrm{cand}})$ 并选择预测出的最高 $\reff$（Algorithm~\ref{alg:collapse_greedy}）。
-我们报告了两种证据水平：
-(a) 在 $M{=}43$ 的 \emph{缩放压力测试} 中，该方法在异构规模下仍然有效（Table~\ref{tab:scale}），以及
-(b) 与现代无标签基线的比较（Table~\ref{tab:p1a_modern}）；跨架构跨模态结果在 $M{=}14$ 的视觉池和 $M{=}7$ 的文本池中见 Appendix~\ref{app:compression_m14}。
+第一阶段的目标是生成标签盲短名单，而不是直接作出最终效用决策。Collapse-Gram-$L$ 将第~\ref{sec:rank_l} 节的可组合 sketch 用于算法~\ref{alg:collapse_greedy}。在当前第二阶段审计中，每个候选 adapter 都使用该来源的标签训练；目标 train 内部的 repeated cross-validation 拟合 ridge probe 并选择来源。目标 test 只在选择冻结后打开。这是“来源监督适配 + 目标验证选择”，不是在目标数据上训练 adapter。之所以必须分层，是因为谱多样性本身不能决定任意目标任务的效用。
 
-每一轮，BFG 通过将 Eq.~\eqref{eq:pred} 应用于 $(H_{\mathrm{cur}},H_c)$ 来为每个剩余候选者评分——仅需从每个数据集的 SVD 中计算出 $\SAk$ 和 $\gamma$ ——并选择预测出的最高 $\reff$（附录~\ref{app:algorithm} 中有伪代码）。
-基线：\textbf{Max-$\reff$}（最高的单一 $\reff$，忽略 $\alpha$）；
-\textbf{$\Ddir$-贪婪}（通过 $\Ddir=1-\SAk$ 最大正交性，忽略 $\gamma$）；
-\textbf{随机选择}（10 个均匀子集）。
-在目标条件下的 $M{=}10$ 池中（ResNet-50 特征于 CIFAR-10/100、STL-10、SVHN、MNIST、Fashion-MNIST、BloodMNIST、DermaMNIST、PathMNIST 和 Oxford-Pets），预算 $K{\in}\{1,2,3,5\}$ 下，
-\textbf{BFG 在 $K{\leq}3$ 时实现 $0\%$ 的后悔率，并在 $K{=}5$ 时实现 $1.0\%$ 的后悔率}——与穷举搜索相比，速度提高了三倍。
-Max-$\reff$ 的召回率为 $67\%$；$\Ddir$-贪婪的后悔率为 $13\%$ 到 $20\%$。
-所有策略在下游 LP 准确度上产生相同的结果，%
-\footnote{LP 和 $k$-NN 排名高度相关：在 11 个探针 ${\times}$ 5 个数据集（共 53 对）中，
-Spearman $\rho(\mathrm{LP},\mathrm{kNN\text{-}5}){=}0.980$
-($p{<}10^{-33}$)。
-我们报告了 LP；见附录~\ref{app:e7_knn} 了解 $k$-NN 的详细信息。}
-这证实了最大化 $\reff$ 转化为下游可区分性（Appendix~\ref{app:e5_downstream}）。
-\paragraph{大规模压缩。}
-方向引导压缩在所有测试的设置中均保留了超过 $100\%$ 的完整池多样性——这一普遍现象是因为 $\reff$ 并非随池大小单调变化：添加冗余数据集会将归一化谱推向其模式并 \emph{减少} 熵，因此通过 $\alpha$ 通道去除冗余性会产生比完整池 \emph{更高} 的多样性压缩池。在 $M=14$ 视觉池中，Collapse 超过了 Facility Location ($+7$--$14$\,pp) 和 $k$-Medoids ($+8$--$14$\,pp)；在 $M=7$ 文本池（BERT/RoBERTa/GPT-2）中，它保留了 $103$--$106\%$ 的多样性（完整表格见附录~\ref{app:compression_m14})。在干净的精心整理的池中，当 $\bar\alpha<0.2$ 时，$r_A+r_B$ 和 Max-$\reff$ 算法与 Collapse 在 $M=43$ 时仅相差 $0.7$\,pp（表~\ref{tab:scale}）——这是由推论~\ref{cor:superadd} 预期的结果。在这样的池中，Collapse 模型的作用是提供一个 \emph{先验} 低冗余性诊断 ($\rho_c>4$ 在 $\bar\alpha\leq0.2$) 并在该条件失效时接管（克隆攻击、细粒度子集家族、双模态跨域对）；见附录~\ref{app:rsum_regime}。在 $k=7$ 的 $M=14$ 池中，Collapse Greedy 在几秒内运行，而 $\binom{14}{7}=3432$ 个耗尽合并 SVD 则需要更多时间。
+\paragraph{修正后的协议。}
+第一阶段在不读取标签的情况下抽取来源样本；大小不同的来源使用预先声明的等来源权重 $X_j=H_j/\sqrt{N_j}$（$\beta_j=1$）。对比方法包括 Collapse-Gram-$L$、rank-only、DPP、Facility Location、凝聚式 medoid、leverage-score、随机选择和 Full-Gram greedy；只有组合数不超过预先声明的门限时，才加入合并秩的穷举 oracle。第二阶段为所有候选分配相同的来源监督优化步数和随机种子，并加入 frozen-identity 与未训练 random-adapter 对照。选择前唯一允许的目标信号是目标 train 内部的交叉验证，所有 adapter checkpoint 均保存哈希；选择 manifest 写入并冻结后，独立 held-out 命令才允许打开目标 test 缓存。运行清单用 SHA-256 绑定代码、输入、预处理、权重、采样索引、checkpoint 和超参数；不完整的 source/seed 组不能作为已完成结果恢复。重叠检测使用同数据集 matched negatives，且 $0\%$ 重叠条件不存在真实 parent。为估计所有 shortlist 的穷举 regret，本次审计离线训练了全部候选 adapter，因此其总墙钟并不是已实测的部署节省。
 
-\paragraph{$M=43$ 大规模压缩：压力测试。}
-为了验证压缩优势在精心整理的池之外仍然成立，我们收集了 43 个 ResNet-50 数据集，覆盖 5 个 ImageNet 粗分类域、19 个 ImageNet 细粒度类别、10 个 MedMNIST 临床数据集和 9 个经典基准，并扫掠 $k\in\{3,5,7,10,14,20\}$（压缩比从 $14.3{\times}$ 到 $2.1{\times}$）。表~\ref{tab:scale} 报告了结果。
+\paragraph{经审计的历史 pilot。}
+修正前的 21 来源 pilot 使用按标签分层的来源缓存，在选择冻结前查询目标 test，且没有评估 Collapse-Gram-$L$。其中 DPP 与 rank-only 的 Recall@10 都为 $85.71\%$，并对近似平局高度敏感；本文只将它保留为历史审计基线，以下报告修正版结果。
 
-\begin{table}[h]
+\paragraph{修正版受控证据。}
+中间版本 \texttt{corrected\_v2} 因统计定义不一致和 provenance 不完整而作废。在替代的 \texttt{corrected\_v3} 扫描中，4 个编码器、10 个构造种子、6 个重叠率和 4 个预算在每个 rank 下形成 960 个配置。表~\ref{tab:v3_rank_sweep} 报告编码器宏平均。每个选中前缀区间都包含精确分数，但所有被评估决策的候选区间均重叠：该界有效，却在这些 rank 下没有实际决策力。DPP 在这个受控谱保持任务中更强；这只是记录了实际但不相等的通信成本，不能视作等字节 Pareto 结论。
+
+单独的 $L=20$ 精确参照（4 个编码器、3 个种子、288 个配置、Random-100）中，rank-$L$/DPP/Full-Gram 相对 rank-only 的增益分别为 $3.65/5.37/5.81\%$。其区间覆盖 $288/288$ 个前缀，但仅认证 $0/720$ 步，并与 Full-Gram 有序前缀完全一致 $0/288$ 次；这里的 Full-Gram 只是 greedy 参照，不是全局 oracle。
+
+\begin{table}[t]
 \centering
-\caption{大规模压力测试 ($M=43$ ResNet-50; $M=11$ ViT-B/16)。
-\textbf{Ret.}: $\reff^{\mathrm{sel}}/\reff^{\mathrm{full}}$ (\%)。
-\textbf{LP}: 子空间投影线性探针准确率，5 个目标，10 次随机种子的平均值$\pm$标准差（§\ref{sec:applications})。FacLoc/kMedoids 被省略 ($O(M^2)$ 成本在此规模下)。}
-\label{tab:scale}
+\caption{修正版受控 rank 扫描。增益是相对 rank-only 的最终精确合并有效秩。每行 960 个选中前缀区间全部覆盖精确分数。}
+\label{tab:v3_rank_sweep}
 \small
-\setlength{\tabcolsep}{3.5pt}
-\begin{tabular}{lcrrrcccc}
+\setlength{\tabcolsep}{3.2pt}
+\begin{tabular}{crrrr}
 \toprule
-& & \multicolumn{3}{c}{保留 (\%)} & \multicolumn{4}{c}{公平 LP 准确率} \\
-\cmidrule(lr){3-5}\cmidrule(lr){6-9}
-探针 & $k$ (比) & Collapse & Max-$\reff$ & Random & Collapse & Max-$\reff$ & Random & $\Delta$LP \\
+$L$ & Gram 增益 & DPP 增益 & 平均误差/上界 & 已认证步骤 \\
 \midrule
-\multirow{4}{*}{ResNet-50} & 3 ($14.3{\times}$) & \textbf{112.4} & 112.4 & $71.0_{\pm15.5}$ & \textbf{0.7550} & 0.7550 & $0.7477_{\pm0.0050}$ & \textbf{$+0.0073$} \\
-& 5 ($8.0{\times}$)  & \textbf{117.2} & 117.2 & $78.1_{\pm20.1}$ & \textbf{0.7560} & 0.7558 & $0.7502_{\pm0.0063}$ & \textbf{$+0.0058$} \\
-& 7 ($5.7{\times}$)  & \textbf{117.4} & 117.4 & $80.5_{\pm15.1}$ & \textbf{0.7572} & 0.7572 & $0.7522_{\pm0.0048}$ & \textbf{$+0.0050$} \\
-& 10 ($4.0{\times}$) & \textbf{116.2} & 116.2 & $90.8_{\pm7.5}$  & 0.7564 & 0.7564 & $0.7575_{\pm0.0024}$ & $-0.0011$ \\
-\midrule
-\multirow{3}{*}{ViT-B/16} & 3 ($3.7{\times}$) & \textbf{103.6} & 103.6 & $92.0_{\pm3.1}$ & \textbf{0.7780} & 0.7780 & $0.7749_{\pm0.0018}$ & \textbf{$+0.0031$} \\
-& 5 ($2.2{\times}$) & \textbf{104.9} & 103.7 & $94.1_{\pm3.5}$ & \textbf{0.7775} & 0.7763 & $0.7754_{\pm0.0011}$ & \textbf{$+0.0021$} \\
-& 7 ($1.6{\times}$) & \textbf{104.4} & 104.2 & $98.0_{\pm2.5}$ & \textbf{0.7777} & 0.7755 & $0.7764_{\pm0.0015}$ & \textbf{$+0.0012$} \\
+10 & $+2.09\%$ & $+4.90\%$ & $2.558/5.944$ & $0/2{,}400$ \\
+20 & $+3.81\%$ & $+5.48\%$ & $1.877/5.505$ & $0/2{,}400$ \\
+50 & $+4.94\%$ & $+5.68\%$ & $0.996/4.455$ & $0/2{,}400$ \\
 \bottomrule
 \end{tabular}\normalsize
 \end{table}
-Collapse 保留了每种压缩比下超过 $112\%$ 的全池多样性——将 $M{=}14$ 的发现扩展到一个大三倍且异构的池中。
-公平-LP 列（谱子空间投影，无干扰类别）证实了这种保留转化为下游收益：
-在 $5.7$ 至 $14.3{\times}$ 压缩下，Collapse 比 Random 高出 $+0.0050$--$+0.0073$ LP。
-\textbf{LP 差距统计上稳健}：对于 $k{\in}\{3,5,7\}$，所有 $10/10$ 个随机种子均严格低于 Collapse 的 LP（单边符号检验 $p{=}2^{-10}{\approx}10^{-3}$ 每个 $k$；合并 30 个种子后 $p{<}10^{-9}$）。
-除了符号检验外，Collapse 的 LP 超过了 Random 在均值上的 $95\%$ 置信区间的上限
-($\bar x_{\mathrm{rand}}{\pm}1.96\sigma/\sqrt{10}$)：
-ResNet-50 在 $k{=}3$ 时，Collapse 为 $0.7550$ 而 Random CI 为 $[0.7446,0.7508]$（差距 $+0.0042$）；
-$k{=}5$ 时，$0.7560$ vs.\ $[0.7463,0.7541]$ ($+0.0019$)；
-$k{=}7$ 时，$0.7572$ vs.\ $[0.7492,0.7552]$ ($+0.0020$)。
-ViT-B/16 在所有三个 $k$ 值下表现出相同模式（差距分别为 $+0.0020/{+}0.0014/{+}0.0004$）。
-绝对 LP 单位中的效应大小虽小但方向一致且统计上可分离于种子噪声——这一模式表明存在真正的子空间质量效应而非随机分布的尾部。
-在 $k{=}10$（压缩比为 $4{\times}$）时，效果逆转 ($\Delta{=}{-}0.0011$，处于种子噪声范围内）：随机选择已经实现了 $90.8\%$ 的保留，饱和了 $\reff$ 顶限，使得 $\alpha$-通道控制不再增加价值（推论~\ref{cor:superadd}）；剩余的 LP 信号转向 \emph{质心覆盖}（表~\ref{tab:p1a_modern}）。
-这一符号逆转识别了 Collapse 的操作区间：一个高压缩工具 ($k{\leq}7$, ${\geq}5.7{\times}$) 而非接近全预算的选择器。
-A controlled \emph{clone-attack} stress test (Appendix~\ref{app:rsum_regime}) confirms the failure mode of $r_A{+}r_B$: when the pool contains near-duplicate datasets generated by random rotation ($\SAk{>}0.99$), $r_A{+}r_B$ greedy selects $2/3$ clones at $k{=}3$ while Collapse rejects all $3$ via the $\alpha$ channel, yielding ${+}25.5\%$ merged $\reff$.
 
-\paragraph{Comparison against modern baselines.}
-We benchmark Collapse Greedy against three additional baselines beyond FacLoc / $k$-Medoids / $r_A{+}r_B$ / Max-$\reff$ already in Table~\ref{tab:scale}:
-\textbf{(a)~Vendi-Greedy}~\citep{friedman2023vendi,pasarkar2024cousins}---greedy maximization of the Vendi Score on a linear kernel, the closest published spectral-diversity baseline that shares Collapse Greedy's diversity-maximization objective;
-\textbf{(b)~DomainDiverse-Greedy}---a metadata baseline that picks from the least-represented domain across $8$ semantic categories (handwritten / natural / digit / medical / inet-animal / inet-object / inet-food / inet-scene), tiebreaking on individual $\reff$;
-\textbf{(c)~Centroid-FF (DataComp adapter)}---farthest-first traversal in dataset-centroid space (mean L2-normed feature per dataset), adapting DataComp~\citep{gadre2023datacomp}'s similarity-based filtering from sample-level to dataset-level.
-On the same $M{=}40$ ResNet-50 pool and 5 LP targets used in Table~\ref{tab:scale}, results are summarized in Table~\ref{tab:p1a_modern}.
+\paragraph{修正版 held-out 效用证据。}
+自然池复算包含 21 个来源、7 个目标、4 个编码器和 5 个 adapter seeds。在短名单 $10/21$ 下，rank-$L$、rank-only、DPP 与 Full-Gram greedy 的严格 oracle recall 分别为 $75.00\%$、$85.71\%$、$85.71\%$ 和 $89.29\%$，均未达到预先声明的 $90\%$ 门槛。它们在 adapter 族内部的 held-out regret 很小（$0.00022$--$0.00082$），但该 adapter 族没有通过来源无关对照。frozen identity、未训练 random adapter 和验证 oracle 来源监督 adapter 的平均 held-out 准确率分别为 $0.83654$、$0.77144$ 和 $0.76951$。oracle 减 identity 为 $-0.06703$（target-cluster 95\% CI $[-0.09771,-0.04400]$）；所有确定性方法选出的 adapter 在 28 个 encoder-target 单元中都低于 identity。因此，小 regret 不能解释为效用得到保留或来源数据有益。
 
-\begin{table}[h]
-\centering
-\caption{Modern baseline comparison ($M{=}40$ ResNet-50, $k{\in}\{3,5,7,10\}$, subspace-projection LP, 5 targets).
-\textbf{Bold}: best per column; Random: 10-seed mean$\pm$std.
-\textbf{Requires} (greedy-time access)---\textbf{S}: summary stats only;
-\textbf{F}: full features; \textbf{M}: domain metadata; \textbf{C}: centroids.}
-\label{tab:p1a_modern}
-\small
-\setlength{\tabcolsep}{2pt}
-\begin{tabular}{lccccccccc}
-\toprule
-& \multicolumn{2}{c}{$k{=}3$ ($13.3{\times}$)} & \multicolumn{2}{c}{$k{=}5$ ($8.0{\times}$)} & \multicolumn{2}{c}{$k{=}7$ ($5.7{\times}$)} & \multicolumn{2}{c}{$k{=}10$ ($4.0{\times}$)} & \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}
-Strategy & Ret\% & LP & Ret\% & LP & Ret\% & LP & Ret\% & LP & Requires \\
-\midrule
-\textbf{Collapse}      & \textbf{112.4} & \textbf{0.7572} & \textbf{117.2} & 0.7576 & \textbf{117.4} & 0.7578 & \textbf{116.2} & 0.7576 & \textbf{S} \\
-Vendi-Greedy           & 112.5          & 0.7560          & 117.2          & 0.7572 & 116.9          & 0.7566 & 116.5          & 0.7562 & F \\
-DomainDiverse          & 112.4          & \textbf{0.7572} & 114.7          & \textbf{0.7634} & 111.8          & 0.7596 & 113.8          & 0.7544 & S+M \\
-Centroid-FF            & 74.0           & 0.7564          & 93.4           & 0.7570 & 96.7           & \textbf{0.7624} & 100.5          & \textbf{0.7630} & F (or C) \\
-$r_A{+}r_B$            & 112.4          & \textbf{0.7572} & 117.2          & 0.7574 & 117.4          & 0.7578 & 116.2          & \textbf{0.7578} & \textbf{S} \\
-Max-$\reff$            & 112.4          & \textbf{0.7572} & 117.2          & 0.7574 & 117.4          & 0.7578 & 116.2          & \textbf{0.7578} & \textbf{S} \\
-\midrule
-Random ($\mu{\pm}\sigma$) & $71.0{\pm}15.5$ & $0.7492$ & $78.1{\pm}20.1$ & $0.7513$ & $80.5{\pm}15.1$ & $0.7537$ & $90.8{\pm}7.5$ & $0.7574$ & --- \\
-\bottomrule
-\end{tabular}\normalsize
-\end{table}
-\paragraph{两种信号分解及实用选择指南。}
-表~\ref{tab:p1a_modern} 显示，与 LP 相关的多样性分解为两个 \emph{正交} 轴，每个轴由不同的方法家族捕获：
+\paragraph{解释。}
+理论只控制谱分数的近似误差。修正版扫描确认了区间覆盖，却也表明覆盖本身未必产生可用的决策证书。第二阶段随后在任何实际压缩主张之前否决了当前来源监督 adapter 族。因此，严格候选身份、允许平局的 recall、regret 和来源无关效用对照必须分别报告。
 
-\begin{itemize}[leftmargin=1.2em,itemsep=2pt]
-  \item \textbf{谱保持} (SR): 塌缩、$r_A{+}r_B$、Max-$\reff$ 和 Vendi-Greedy 都收敛到 $116$--$117\%$ 的保持率——最大化合并的奇异值谱的熵。
-    在 \emph{高压缩比} ($k{\leq}7$, 即 ${\geq}5.7{\times}$) 下，谱引导确定哪些 $k$ 个数据集覆盖最多的方向。
-  \item \textbf{质心覆盖} (CC): Centroid-FF 和 DomainDiverse 在 $k{\geq}7$ 时通过在语义空间中分散数据集的 \emph{均值嵌入} 达到更高的 LP，代价为 $17$--$22$\,pp 的保持率。
-    在 \emph{低压缩比} ($k$ 接近 $M$) 下，随机选择已经饱和了谱多样性，分布广度成为瓶颈。
-\end{itemize}
-
-\noindent\textbf{实用指南。}
-\emph{高压缩} ($k{\leq}0.2M$, ${\geq}5{\times}$): 使用塌缩 (当 $\SAk{>}0.5$ 时，优选此方法，拒绝克隆 $+25.5\%$; 附录~\ref{app:rsum_regime}) 或 $r_A{+}r_B$ 在干净的数据池中。
-\emph{低压缩} ($k{>}0.2M$): 使用 Centroid-FF 或 DomainDiverse。
-\emph{未知区间}: 质心 $\to$ 塌缩 的混合方法 (附录~\ref{app:p2e_hybrid}) 在 SR 和 LP 上均占主导地位。
-
-\paragraph{消融实验。}
-在 256 组视觉数据上，完整模型达到 Spearman $\rho{=}0.966$ ($r_A{+}r_B$: $0.963$; $\max(r_A,r_B)$: $0.953$; $1{-}\alpha$: $0.450$)；
-$\Delta\rho{=}0.003$ 的差距反映了低-$\alpha$/中等-$\gamma$ 的退化情况，在干净的数据池中 $\hat{r}_{\mathrm{merged}}\!\approx\!c(r_A{+}r_B)$。
-校准的排名达到 $R^2{=}0.95$ 并标记了 $74\%$ 的非超加性对；克隆确认了 $\alpha$-通道拒绝 ($\reff{=}1251$ vs.\ $997$; 附录~\ref{app:ablation_extra})。
-\enlargethispage{2\baselineskip}
 \section{结论}
 \label{sec:conclusion}
 
-我们引入了塌缩模型——一种精确的局部谱分析和无标签数据池压缩的结构化摘要预测器。
-贪婪压缩在6个探针和2种模态下保留了超过100\%的完整池$\reff$，优于设施位置和$k$-Medoids算法7--14个百分点，并扩展到$M=43$（14.3倍压缩，比随机选择高40个百分点）。
-四元摘要$(r_A,r_B,\gamma,\alpha)$预测器在427个真实成对样本上实现了皮尔逊相关系数$r=0.97$（$R^2_{\mathrm{cal}}=0.95$），并通过超加性阈值诊断和克隆拒绝将其与$r_A+r_B$区分开来。
-基准测试揭示了两个正交的LP多样性信号——谱保持率（塌缩/维迪）和质心覆盖度（质心-FF）——以及CLIP/DINO主角结构，量化了监督学习/半监督学习的谱几何学差异。
-对神经压缩的扩展留待未来工作。
+本文将精确谱结构、有界近似与任务相关证据分开。Gram 可加性和块兼容局部模型是精确结论；反例则排除了从旧摘要作普适预测的可能。rank-$L$ sketch 具有有效的确定性误差区间，但修正版扫描在 $L\leq50$ 时得到零个决策证书，并发现 DPP 至少同样有竞争力。held-out 审计的结论更为明确：即使验证 oracle 的来源监督 adapter 也显著差于 frozen identity。因此，本文当前的贡献是精确局部分析、可审计的近似协议和有记录的负面结果，而不是已经验证的实际压缩器。正面的应用主张至少需要等字节 Pareto 证据，以及一个首先能够超过 identity 的下游 adapter 族。
 代码可在\url{https://anonymous.4open.science/r/collapsemodel-1DB6} 获取。
 
 \bibliographystyle{abbrvnat}
@@ -548,9 +511,7 @@ $\Delta\rho{=}0.003$ 的差距反映了低-$\alpha$/中等-$\gamma$ 的退化情
 \section{局限性}
 \label{app:limitations}
 
-四元摘要$(r_A,r_B,\gamma,\alpha)$一般不足以确定合并的有效秩（命题~\ref{prop:insufficient})。精确的$2\times2$分解需要模态间的配对和解耦；封闭熵表达式还需要比例谱和均匀对齐。我们不声称总结预测器具有普遍的误差界。
-经验校准常数（公式~\ref{eq:universal_c})虽然减少了但并未消除每个编码器的调优需求。
-均匀$\alpha$假设适用于监督编码器和同域自监督成对样本（$r>0.90$），但在跨域CLIP/DINO成对样本（双模态角度，图~\ref{fig:bimodal_structure})）和SBERT文本成对样本中失效（通用$c$解释了$r=0.08$的方差，而视觉数据为$0.96$）；排名在评估的成对样本上仍然很强，但绝对预测存在偏差。自然干净的数据池仅在$r_A+r_B$之上显示出微小的平均收益；对齐通道最明显的好处是在高重叠度下的冗余检测。非均匀$V_\alpha$的分段模型和显式控制跨方向耦合留待未来工作。
+四摘要 $(r_A,r_B,\gamma,\alpha)$ 一般不足以确定合并有效秩（命题~\ref{prop:insufficient}）。精确 $2\times2$ 分解需要逐模态配对与解耦，闭式熵表达还要求比例谱和均匀对齐；Collapse-4S 因而没有普适误差界。经验校准关系只在少量编码器上拟合，并且对 SBERT 转移较差。rank-$L$ 定理要求在固定、与子集无关的预处理下使用精确 PSD 截断或合法尾部上界；依赖所选集合的全局中心化会破坏直接可组合性。当前区间在 $L\leq50$ 时宽到无法认证任何已测选择，增大 $L$ 又会提高通信量；现有基线也没有做到等字节匹配。形成 Gram 矩阵还会平方条件数，所以极端病态输入需要用直接 SVD 交叉检查或加入明确的数值余量。最后，无标签几何无法决定任意标签。修正版自然池仍然领域不均衡，来源监督 bottleneck adapter 也是一个未能超过 frozen identity 的窄代理。因而 LoRA 与多池训练已按预注册停止规则不再执行；只有覆盖更多独立域并先找到有效的 adapter 族，才能主张实际效用。
 \section{精确格拉姆结果的证明}
 \label{app:proof_thm}
 
@@ -597,43 +558,59 @@ $q=c_+/(c_++c_-)$。因此
  &=H_b(q)+\log r_A.
 \end{align}
 通过指数化证明了式~\eqref{eq:proportional_exact}。比例谱具有相同的归一化奇异值分布，因此 $r_A=r_B$。$\square$
+
+\textbf{定理~\ref{thm:rank_l_bound}。}
+记 $E_S=\sum_{j\in S}E_j$。对 PSD 矩阵，
+$\operatorname{tr}\sqrt{A+B}\leq\operatorname{tr}\sqrt A+
+\operatorname{tr}\sqrt B$，该式可由对
+$[A^{1/2},B^{1/2}]$ 使用核范数三角不等式得到。因此
+\begin{equation}
+ \operatorname{tr}\sqrt{E_S}\leq\sum_j\tau_j,
+ \qquad
+ \operatorname{tr}\sqrt{E_S}
+ \leq\sqrt{\operatorname{rank}(E_S)\operatorname{tr}(E_S)}
+ \leq\sqrt{\min(d,\sum_j u_j)\sum_j\omega_j},
+\end{equation}
+从而 $\operatorname{tr}\sqrt{E_S}\leq T_S$。将
+$a_i=\sqrt{\lambda_i(\widetilde G_S)}$ 与
+$b_i=\sqrt{\lambda_i(G_S)}$ 按降序排列。由
+$G_S\succeq\widetilde G_S$ 可知 $b_i\geq a_i$。令
+$\widetilde\nu=\sum_i a_i$、$\delta=\sum_i(b_i-a_i)$，则
+$0\leq\delta\leq T_S$。当 $\delta>0$ 时，真实归一化谱满足
+\begin{equation}
+ p=\frac{\widetilde\nu}{\widetilde\nu+\delta}\widetilde p
+ +\frac{\delta}{\widetilde\nu+\delta}q,
+ \qquad q_i=\frac{b_i-a_i}{\delta}.
+\end{equation}
+因此 $\operatorname{TV}(p,\widetilde p)\leq
+\delta/(\widetilde\nu+\delta)\leq\varepsilon_S$。在至多 $D_S$ 维的支撑上应用 Fannes--Audenaert 熵连续性界，即得式~\eqref{eq:rank_l_bound}。$\delta=0$ 与 $D_S=1$ 的情况直接成立。$\square$
+
+\textbf{推论~\ref{cor:rank_l_choice}。}
+由定理，每个精确候选分数均落在
+$[\widehat F_j-e_j,\widehat F_j+e_j]$ 中。式~\eqref{eq:rank_l_certificate} 使 $j^*$ 的下端点严格高于所有竞争者的上端点，故结论成立。$\square$
+
 \textbf{Status of Eq.~\eqref{eq:pred}.}
 对于非等价或不成比例的谱，两个分支不必继承输入分布，并且 $q$ 可以在模式间变化。因此，方程~\eqref{eq:pred} 定义了一个结构化的近似；并未断言其精确性或通用误差界。
 
-\section{证明命题~\ref{prop:transfer_bound}}
-\label{app:proof_prop1}
+\section{组合优化边界}
+\label{app:optimization_limits}
 
-\textbf{步骤 0（偏差-方差分解）。}
-令 $\hat{W}=(H_s^\top H_s)^+H_s^\top Y_s$ （源域上的最小二乘解）。分解：
+有效秩最大化通常并不单调。令
+$G_A=\operatorname{diag}(1/2,1/2)$、
+$G_B=\operatorname{diag}(1,0)$，则
+$\mathcal R(G_A)=2$，而
+$\mathcal R(G_A+G_B)=1.928623<2$。
+该目标通常也不满足次模性。令
+$G_0=\operatorname{diag}(1/5,4/5)$、
+$G_1=\operatorname{diag}(0,1)$、
+$G_2=\operatorname{diag}(1,0)$。对
+$A=\{0\}\subset B=\{0,1\}$，直接计算
+$F(S)=\log\mathcal R(\sum_{j\in S}G_j)$ 可得
 \begin{equation}
-  \frac{\|H_t\hat{W}-Y_t\|_F^2}{m}
-  = \underbrace{\|H_t\hat{W}-\mathbb{E}[Y_t|H_t]\|_F^2/m}_{\text{偏差}^2}
-  + \underbrace{\|\mathbb{E}[Y_t|H_t]-Y_t\|_F^2/m}_{\sigma_{\mathrm{Bayes}}^2}.
+ F(A\cup\{2\})-F(A)=0.051522
+ <0.125701=F(B\cup\{2\})-F(B),
 \end{equation}
-贝叶斯误差 $\varepsilon_{\mathrm{Bayes}}=\sigma_{\mathrm{Bayes}}^2$ 是不可约的。
-
-\textbf{步骤 1（方向差距）。}
-令 $P_k=V_s^k(V_s^k)^\top$ 将其投影到前 $k$ 个源子空间。分解 $H_t=H_t^{\parallel}+H_t^{\perp}$，其中 $H_t^{\parallel}=H_tP_k$。由于 $\hat{W}\in\mathrm{col}(V_s^k)$，我们有 $H_t^{\perp}\hat{W}=0$ 当且仅当 $\hat{W}=P_k\hat{W}$；残差项 $\|H_t^{\perp}\|_F^2=\|H_t\|_F^2(1-\widehat{\mathrm{SA}}_k)$，对于平衡谱有 $\widehat{\mathrm{SA}}_k\approx\SAk$，给出方向差距 $(\|H_t\|_F^2/m)(1-\SAk)$。
-
-\textbf{步骤 2（谱差距）。}
-我们首先定义 \textbf{谱转移差距}，
-\begin{equation}
-  \mathrm{STG}(H_A,H_B) = W_1(p_A,p_B) = \sum_{i=1}^k |F_A(i)-F_B(i)|,
-  \label{eq:stg}
-\end{equation}
-其中 $F(i)=\sum_{j\leq i}p_j$ 是截断归一化谱的累积分布函数。
-对于平行分量，$H_t^{\parallel}\hat{W}$ 引起相对于理想转移的每个方向缩放 $({\sigma_i^t}/{\sigma_i^s})^2$。STG 项 $W_1(p_s,p_t)$ 上界这些比率的总变异（通过 Kantorovich--Rubinstein 对偶性）：
-$\sum_i|(\sigma_i^t/\sigma_i^s)^2-1|\leq C_1\cdot\mathrm{STG}\cdot\|\hat{W}\|_F^2/(\sigma_k^s)^2$
-其中 $C_1=(\|H_s\|_*+\|H_t\|_*)^2/m$。
-\textbf{Step 3 (几何间隙).}
-$\Delta\mathrm{UID}$ 项源自于当源流形和目标流形具有不同的内在维度时，泛化间隙上的Rademacher复杂性界。遵循 \citet{bartlett2002rademacher} 和 \citet{pope2021intrinsic}：
-\begin{equation}
-  C_2\cdot|\Delta\mathrm{UID}|
-  = \frac{4\|\hat{W}\|_F^2(\|H_s\|_F+\|H_t\|_F)^2}{\min(n,m)}\cdot|\Delta\mathrm{UID}|.
-\end{equation}
-添加这三个间隙完成了证明。$\square$
-
-% ============================================================
+违反边际收益递减。因此，标准单调次模 greedy 保证不适用；穷举搜索只能作为有限小数据池上的参照。
 \section{Bootstrap Confidence Intervals}
 \label{app:bootstrap}
 
@@ -680,22 +657,22 @@ $\bar\alpha_w{=}\sum_i(\sigma_i/\|H\|_*)\cos^2\theta_i$
 将 $k$ 个方向分为高对齐簇（$\cos^2\theta_i{\geq}\tau$）和低对齐簇，分别在每个簇内应用引理~\ref{lem:gram}，并结合结果分支谱。这比单一均值保留了更多的 $\alpha_i$ 分布，但仍需要控制谱配对和跨方向耦合。我们将在未来的工作中扩展此方法及其误差分析。
 
 % ============================================================
-\section{$M{=}14$ 视觉池与 $M{=}7$ 文本池的压缩}
+\section{历史 $M{=}14$ 视觉池与 $M{=}7$ 文本池压缩 Pilot}
 \label{app:compression_m14}
 
-我们将 Collapse Greedy 作为纯压缩工具应用于三种架构（ResNet-50, ViT-B/16, BERT/RoBERTa/GPT-2）和两种模态（视觉，文本），使用 FacLoc / $k$-Medoids 作为经典多样性基线。
+该实验早于标签盲缓存、来源权重和 Collapse-Gram-$L$ 实现；其中的 Collapse 均指 Collapse-4S，以下数字仅作为历史描述。
 
 \begin{table}[h]
 \centering
 \caption{策略、架构和模态下的多样性保留 $\reff^{\mathrm{sel}}/\reff^{\mathrm{full}}$ (\%)。
 FacLoc = 设施位置（$\SAk$ 核上的子模贪婪算法）；
-$k$Medoids = $1{-}\SAk$ 距离的 PAM。Collapse 模型在所有设置中均匹配或超过子模和聚类基线，利用超加性选择比全池更高多样性的子集。随机：10次种子平均值$\pm$标准差。}
+$k$Medoids = $1{-}\SAk$ 距离的 PAM；随机项为10次种子的均值$\pm$标准差。该历史表只比较谱保持率，不构成任务效用保证。}
 \label{tab:compression}
 \small
 \setlength{\tabcolsep}{2.5pt}
 \begin{tabular}{llcrrrrc}
 \toprule
-探测器 & $M$ & $k$ (比例) & Collapse & FacLoc & kMedoids & 随机 & LP$_{\mathrm{col}}$ \\
+探测器 & $M$ & $k$ (比例) & Collapse-4S & FacLoc & kMedoids & 随机 & LP$_{\mathrm{4S}}$ \\
 \midrule
 \multicolumn{8}{l}{\textit{视觉}} \\
 ResNet-50 & 14 & 3 ($4.7{\times}$) & \textbf{101.4} & 87.8 & 87.5 & $84.3_{\pm10.0}$ & 0.754 \\
@@ -712,36 +689,35 @@ GPT-2 L6   & 7 & 5 ($1.4{\times}$) & \textbf{106.0} & ---  & ---   & $96.7_{\pm4
 \bottomrule
 \end{tabular}\normalsize
 \end{table}
-On ResNet-50 ($M{=}14$), Collapse Greedy 显著优于 Facility Location ($+13.6$--$+7.5$\,pp) 和 $k$-Medoids ($+13.9$--$+7.9$\,pp); 这两者都利用了子空间对齐度核函数，但无法建模超加性，在高保持率区间受到限制。
-在 ResNet-50 池的下游 LP 准确度上，Collapse 的 LP 值为 $0.747$--$0.779$ 而随机选择 (Random) 为 $0.737$--$0.772$，将 M=43 的 LP 优势扩展到了较小的池大小。
+在该 ResNet-50 历史池中，Collapse-4S 的谱保持率比 Facility Location 高
+$7.5$--$13.6$ 个百分点，比 $k$-Medoids 高 $7.9$--$13.9$ 个百分点。
+配套 LP 数值来自窄范围 pilot，且未按修正后的两阶段协议产生；它们不能证明谱保持率排序会迁移到新目标。
 
 % ============================================================
 \section{$r_A{+}r_B$ 启发式方法：安全区间和失败模式}
 \label{app:rsum_regime}
 
 \paragraph{何时 $r_A{+}r_B$ 足够，何时会失效？}
-在干净的精心筛选池中，$r_A{+}r_B$ 和 Max-$\reff$ 启发式方法选择与 Collapse Greedy \emph{相同的子集}（在 $M{=}43$ 时相差 $0.7$\,pp，参见表~\ref{tab:scale})。这种一致性与推论定理~\ref{cor:superadd} 中的摘要诊断结果一致：当所有 top-$\reff$ 候选者的相互对齐度较低（$\bar\alpha{<}0.2$，即主秩比 $r_{\mathrm{dom}}/r_{\mathrm{sub}}{<}\rho_c$）时，超加性奖金 $H_b(q)$ 由秩项主导，即 $q\log r_{\mathrm{dom}}{+}(1{-}q)\log r_{\mathrm{sub}}$，使得单个秩近似为充分统计量。因此，Collapse 模型的作用不同于“在所有地方都击败 $r_A{+}r_B$”：
+在干净的历史数据池中，$r_A{+}r_B$、Max-$\reff$ 与 Collapse-4S 经常选择相同子集（在旧 $M{=}43$ 压力测试中相差不超过 $0.7$\,pp）。这只说明旧启发式在该数据区间近似退化为 rank-only，不能将单个秩称为充分统计量。
 \textbf{(i)~先验低冗余度诊断。}
 从每个数据集的摘要计算得到的 $\rho_c(\bar\alpha,\bar\gamma)$ \emph{表明} 在不实际运行竞争策略的情况下，$r_A{+}r_B$ 很可能达成一致。在我们的 ResNet-50 视觉池中，top-$\reff$ 对之间的 $\bar\alpha{<}0.2$ 放置 $r_{\mathrm{dom}}/r_{\mathrm{sub}}$ 在预测的一致区间内（$\rho_c{>}4$ 且 $\bar\alpha{\leq}0.2$，参见推论定理~\ref{cor:superadd})，与在 $M{=}14$ 和 $M{=}43$ 时观察到的启发式等价一致。
 \textbf{(ii)~检测不安全区间。}
-当候选者包含近似重复或强对齐子空间——这些情况可能源于克隆攻击数据污染、增强的数据集变体或细粒度子集家族——$\alpha$ 频道是唯一的区分信号。下面的克隆实验（$r_A{+}r_B$ 保持率下降 $25.5\%$，而 Collapse 持有）在受控的压力测试中证明了这一点；自然二模态 CLIP/DINO 跨域对 (参见第~\ref{sec:e1d} 节，$\alpha\in[0.35,0.41]$ 且 top-5 $\cos^2\theta\geq0.7$) 是实际场景，其中 $\alpha$ 信号不可忽略且仅基于秩的启发式方法可能失效。
+当候选者包含近似重复或强对齐子空间时，$\alpha$ 通道提供了 rank-only 未保留的信息。下面的克隆压力测试中，$r_A{+}r_B$ 的谱保持率下降 $25.5\%$，而 Collapse-4S 在该构造上避免了部分冗余选择。自然二模态 CLIP/DINO 跨域对（第~\ref{sec:e1d} 节，$\alpha\in[0.35,0.41]$ 且 top-5 $\cos^2\theta\geq0.7$）进一步说明对齐不可忽略，但并不直接证明任一选择器在自然池上的优势。
 \textbf{(iii)~无需执行的诊断。}
-与只能通过运行来评估的启发式方法不同，Collapse 模型的区间分类（超加性 / 方向塌陷 / 能量塌陷）仅从 $(\gamma,\alpha,\UID)$ 可计算得出，将其转变为 \emph{先验} 计划工具。
-\emph{结构化的公式不仅用于在简单池中击败启发式方法，还用于诊断对齐度可以忽略不计的情况，并在对齐度重要时接管。}
+Collapse-4S 的区间分类（超加性 / 方向塌陷 / 能量塌陷）可从 $(\gamma,\alpha)$ 计算，但命题~\ref{prop:insufficient} 表明它只能作为先验诊断，不能作为认证决策规则。
 \paragraph{冗余克隆陷阱：$r_A{+}r_B$ 的失败模式}
-为了测试崩溃模型对信息冗余的鲁棒性，我们构造了一个 \emph{克隆攻击} 场景：池中具有最高 $\reff$ 值的数据集（STL-10，$\reff{=}994$）通过随机旋转 $H_{\mathrm{clone}}{=}H_{\mathrm{orig}}Q(\theta)$ 克隆而成 ($\theta\in\{0.01,0.03,0.05,0.07,0.10\}$ 弧度)，生成了 5 个克隆，这些克隆保留了原始的 $\reff$ 值但与原始数据集高度对齐 ($\SAk{>}0.99$)。在包含 5 个真实 ResNet-50 数据集和 5 个克隆的数据集池中，当 $k{=}3$ 时，贪婪算法 $r_A{+}r_B$ 选择了 $\frac{2}{3}$ 的克隆 ($\reff^{\mathrm{merged}}{=}997$)，而崩溃模型通过高 $\alpha$ 检测冗余性，\textbf{未选择任何克隆} ($\reff^{\mathrm{merged}}{=}1251$, $+25.5\%$)。当 $k{=}5$ 时，差距仍然存在：贪婪算法 $r_A{+}r_B$ 选择了 $\frac{4}{5}$ 的克隆 ($\reff{=}998$)，而崩溃模型仅选择了 $\frac{2}{5}$ ($\reff{=}1233$)。这一结果在所有 5 个 $\theta$ 值下保持一致（$\theta{=}0.01$--$0.10$，$\SAk$ 从 $0.9999$ 到 $0.9891$）。克隆实验直接证明了 \emph{对信息冗余的防御不可或缺地依赖于对齐通道 $\alpha$}——贪婪算法 $r_A{+}r_B$ 缺乏这种诊断能力，错误地将高 $\reff$ 值的克隆识别为高价值候选。
+为了测试摘要方法在近重复项下的行为，我们构造了一个 \emph{克隆压力测试}：池中具有最高 $\reff$ 值的数据集（STL-10，$\reff{=}994$）通过随机旋转 $H_{\mathrm{clone}}{=}H_{\mathrm{orig}}Q(\theta)$ 生成 5 个近克隆（$\theta\in\{0.01,0.03,0.05,0.07,0.10\}$，$\SAk{>}0.99$）。在包含 5 个真实 ResNet-50 数据集和 5 个克隆的池中，$k{=}3$ 时 $r_A{+}r_B$ 选择 $2/3$ 个克隆（$\reff^{\mathrm{merged}}{=}997$），Collapse-4S 未选择克隆（$\reff^{\mathrm{merged}}{=}1251$）；$k{=}5$ 时二者分别选择 $4/5$ 和 $2/5$ 个克隆（$\reff{=}998$ 与 $1233$）。该结果在五个 $\theta$ 值下保持一致。它说明对齐信息能区分 rank-only 无法区分的近重复项，但作为人为构造的压力测试，不能证明自然分布上的普适性能。
 
 % ============================================================
 \section{P2-E: 混合双信号策略}
 \label{app:p2e_hybrid}
 
-在第 \ref{sec:compression} 节中识别出的两信号分解（表~\ref{tab:p1a_modern}）提示了一个自然的两阶段混合策略：通过一个信号种子 $\lceil k/2\rceil$ 个数据集，剩余的 $\lfloor k/2\rfloor$ 个通过另一个信号填充。我们在与表~\ref{tab:p1a_modern} 中相同的 $M{=}40$ ResNet-50 数据集池中测试了三种不同的顺序：
+历史 $M{=}40$ pilot 提示了一个双信号混合策略：先用一种信号选择 $\lceil k/2\rceil$ 个数据集，再用另一种信号填充剩余预算。我们在同一个 ResNet-50 数据池中测试三种顺序：
 \textbf{Col$\to$Cen}（先崩溃，残差上使用质心-前馈），\textbf{Cen$\to$Col}（先质心-前馈，残差上使用崩溃），以及 \textbf{Col$\to$Dom}（先崩溃，残差上使用域多样性）。
 \begin{table}[h]
 \centering
 \caption{Two-signal hybrid strategies on $M{=}40$ ResNet-50.
-Pure-strategy reference rows (from Table~\ref{tab:p1a_modern}) shown
-for comparison.
+Pure-strategy reference rows are shown for comparison.
 \textbf{Bold} marks the best LP at each $k$.}
 \label{tab:p2e_hybrid}
 \small
@@ -767,13 +743,13 @@ Col$\to$Dom               & 114.7 & \textbf{0.7634} & 116.0 & 0.7562 & 113.8 & 0
 
 \textbf{Cen$\to$Col 是一致的混合策略胜者。}
 在 $k{\in}\{7,10\}$（操作压缩范围）下，Cen$\to$Col 实现了 LP 为 $0.7610/0.7602$，比纯 Collapse ($0.7578/0.7576$) 高出 ${+}0.0032/{+}0.0026$，同时仅牺牲了 $3.8/1.2$\,pp 的保留率。
-在 $k{=}10$ 特别情况下，Cen$\to$Col 在两个轴上同时优于纯 Collapse（LP ${+}0.0026$，保留率只减少了 $-1.2$\,pp）。
+在 $k{=}10$ 时，Cen$\to$Col 以 $1.2$ 个百分点的谱保持损失换取 $0.0026$ 的 LP 增量；它并未同时支配纯 Collapse 的两个指标。
 与纯 Centroid-FF 相比，在 $k{=}5$ 时 Cen$\to$Col 恢复了 $13.3$\,pp 的保留率，在 $k{=}7$ 时恢复了 $16.9$\,pp，而在 $k{=}10$ 时恢复了 $14.5$\,pp，同时保持 LP 在 $\pm0.0028$ 内。
 相比之下，\textbf{Col$\to$Cen} 却损害了两个指标：一旦 Collapse 选择了高-$\reff$ 数据集，添加“不同原型”的数据集会稀释谱而无法恢复质心覆盖。
 \textbf{Col$\to$Dom} 在此池中简化为 DomainDiverse 因为 DomainDiverse 已经选择了 STL-10 和 fashion\_mnist（各自领域内高-$\reff$ 的数据集），这些数据集也是 Collapse 会选择的。
 \textbf{推论。}
 排序很重要：从质心-FF 开始建立了几何基础，随后 Collapse 通过高-\reff 补充了互补方向。摘要公式在这个混合策略中的作用是 \emph{填充} 剩余预算以选择最大化多样性的选项，这正是它仅使用汇总统计量运行的领域（质心-FF 前缀可以从已共享的质心中预先计算一次，无需交换特征矩阵）。
-这验证了 Collapse Greedy 作为更广泛压缩管道中的 \emph{可组合} 原语的有效性，而不仅仅是一个独立策略。
+这一单池结果只提供设计动机，不能验证可组合混合策略；仍需在修正协议和独立目标上重复。
 
 % ============================================================
 \section{E5 补充材料：每个目标的选择细节}
@@ -788,7 +764,7 @@ Col$\to$Dom               & 114.7 & \textbf{0.7634} & 116.0 & 0.7562 & 113.8 & 0
 \cmidrule(lr){2-5}
 策略 & $K{=}1$ & $K{=}2$ & $K{=}3$ & $K{=}5$ \\
 \midrule
-Collapse Greedy & \textbf{0.0 / 100} & \textbf{0.0 / 100} & \textbf{0.0 / 100} & \textbf{1.0 / 87} \\
+Collapse-4S & \textbf{0.0 / 100} & \textbf{0.0 / 100} & \textbf{0.0 / 100} & \textbf{1.0 / 87} \\
 Max-$\reff$ & 0.0 / 67 & 2.0 / 67 & 0.9 / 89 & 1.0 / 87 \\
 $\Ddir$-贪婪 & 20.3 / 0 & 16.7 / 17 & 17.0 / 33 & 13.3 / 40 \\
 随机选择 & 15.2 / -- & 17.5 / -- & 16.1 / -- & 11.1 / -- \\
@@ -796,22 +772,22 @@ $\Ddir$-贪婪 & 20.3 / 0 & 16.7 / 17 & 17.0 / 33 & 13.3 / 40 \\
 \end{tabular}
 \end{center}
 
-对于 BloodMNIST ($K{=}1$)，Max-$\reff$ 选择了 STL-10（单个 $\reff{=}357$ 最高），而 Collapse Greedy 选择了 CIFAR-100（$\reff{=}356$，略低），因为后者与 BloodMNIST 的对齐度较低 ($\alpha{=}0.18$ vs.\ $0.21$)，导致预测合并秩更高——确认了 $\reff^{\mathrm{merged}}=506.8$ 对比 $506.4$。
+对于 BloodMNIST ($K{=}1$)，Max-$\reff$ 选择了 STL-10（单个 $\reff{=}357$ 最高），而 Collapse-4S 选择了 CIFAR-100（$\reff{=}356$，略低），因为后者与 BloodMNIST 的对齐度较低 ($\alpha{=}0.18$ vs.\ $0.21$)。在这一历史样例中，实际合并秩分别为 $506.8$ 和 $506.4$；差异很小，不能单独建立稳定优势。
 
 \textbf{$r_A{+}r_B$ 贪婪基线。}
 我们评估了一个 $r_A{+}r_B$ 贪婪策略，该策略在每一轮选择具有最高单个 $\reff$ 的候选者。
-在 M=10 池中，此基线在 $K{\leq}3$ 时与 Collapse Greedy 匹配（相同的子集，后悔率为 $0\%$），仅在 $K{=}5$ 处出现分歧，在该处 Collapse Greedy 保持了 $100\%$ 的召回率而 $r_A{+}r_B$ 下降至 $87\%$。
-这与消融发现一致：当候选者的单个秩不同时，$r_A{+}r_B$ 足够使用；但当需要对齐度区分 ($\alpha$) 时则会失效。
+在 M=10 池中，此基线在 $K{\leq}3$ 时与 Collapse-4S 匹配（相同的子集，后悔率为 $0\%$），仅在 $K{=}5$ 处出现分歧，在该处 Collapse-4S 的召回率为 $100\%$，而 $r_A{+}r_B$ 为 $87\%$。
+该单池结果说明两者多数情况下等价，并给出一个可能由对齐度区分的样例；它不足以划定一般失效边界。
 \textbf{下游线性探针验证。}
 我们在每个策略的 $K$-子集合并特征上训练一个线性探针，并在保留的测试数据上进行评估。
 四种策略（穷举法、贪婪塌陷、$r_A+r_B$、最大有效秩）在所有 6 种测试配置中（CIFAR-10 和 STL-10 目标，$K{\in}\{1,2,3\}$）的线性探针准确率完全相同，
-范围从 $0.776$（CIFAR-10，$K{=}3$）到 $0.979$（STL-10，$K{=}1$）。这证实了通过塌缩模型最大化合并的有效秩转化为下游判别能力，而不仅仅是光谱多样性。
+范围从 $0.776$（CIFAR-10，$K{=}3$）到 $0.979$（STL-10，$K{=}1$）。由于所有方法的 LP 完全相同，该实验不能区分选择器，也不能证明最大化有效秩改善下游效用。
 
 % ============================================================
 \section{E7 补充材料：kNN 下游验证}
 \label{app:e7_knn}
 
-主文中使用线性探针（LP）准确率作为下游指标。这里我们验证 $k$-最近邻（kNN）准确率是否讲述相同的故事，从而证明 LP 在整篇论文中是足够的。
+主文中使用线性探针（LP）准确率作为一种下游指标。这里比较 $k$-最近邻（kNN）是否在已评估配置中给出相似排序；这不能证明 LP 对所有下游任务都充分。
 
 \textbf{部分 B：LP--kNN 排名相关性。}
 我们在 5 个单一数据集上计算 LP、kNN-5 和 kNN-20 准确率（CIFAR-10, CIFAR-100, STL-10, SVHN, Fashion-MNIST），共涉及 11 种编码器家族（ResNet-50/101, ViT-B/16, DeiT-B, Swin-Tiny, BEiT-Base, ConvNeXt-Tiny, DenseNet-121, EfficientNet-B4, MaxViT-Tiny, RegNet-Y），共得到 53 个观测值。
@@ -839,10 +815,8 @@ $k$ & 策略 & LP & kNN-5 & kNN-20 \\
 \bottomrule
 \end{tabular}
 \end{center}
-The pattern is consistent: Collapse Greedy 的优势在 kNN 相对于 LP 中被放大。
-在 $k=3$ ($2 \times$ 压缩) 时，kNN-20 的差距是 LP 差距的 $8 \times$。
-这符合预期：kNN 依赖于局部邻域几何结构，当冗余特征主导合并空间时，这种几何结构会更快退化；而 LP 是全局线性分类器，对这类局部失真不太敏感。
-由于 LP 和 kNN 在策略排名上达成一致（$\rho > 0.97$），LP 的准确率是评估压缩策略的足够代理，在正文中。
+在该历史 $M{=}6$ 池中，Collapse-4S 相对随机的差值在 kNN 上大于 LP；例如 $k=3$ 时，kNN-20 差值为 $7.4$ 个百分点，而 LP 为 $0.9$ 个百分点。
+单数据集上的 LP--kNN 相关性较高（$\rho>0.97$），但策略比较只覆盖一个小池且共享数据，因此这里只把 LP 视为一种代理指标，而不是充分代理。
 
 \section{附加说明}
 \label{app:method_comparison}
@@ -878,55 +852,37 @@ The pattern is consistent: Collapse Greedy 的优势在 kNN 相对于 LP 中被�
   c = \exp\!\left(-\frac{1}{n}\sum_{i=1}^n\log\frac{\hat{r}_i}{r_i}\right).
   \label{eq:calibration}
 \end{equation}
-此校准补偿了四全局总结忽略的结构导致的熵高估。从 E1c 中估计 $c{=}0.746$（$n{=}57$），LOO-CV 得到 $R^2{=}0.855$，RMSE${=}87.7$（未校准为 $R^2{=}0.049$，RMSE${=}224$；参见 Sec.~\ref{sec:calibration}）。此常数在每个编码器家族内的数据集上具有通用性：在 30 E1b 配对（$c{=}0.768$）上校准并在保留的 57 E1c 配对上测试得到 $R^2{=}0.859$，RMSE${=}86.3$（表~\ref{tab:calibration}）。然而，$c$ 在不同编码器家族之间变化（ResNet-50 的 $c{=}0.78$ 与 ViT-B/16 的 $c{=}0.65$），反映了每种架构的谱结构相对于成对方向总结模型的系统性差异。我们发现此变化遵循一个普遍回归：
+此校准补偿了四全局摘要忽略结构所造成的平均熵高估。从 E1c 中估计 $c{=}0.746$（$n{=}57$），LOO-CV 得到 $R^2{=}0.855$，RMSE${=}87.7$（未校准为 $R^2{=}0.049$，RMSE${=}224$；参见 Sec.~\ref{sec:calibration}）。在 30 个 E1b 配对上校准并在 57 个 E1c 配对上测试得到 $R^2{=}0.859$，RMSE${=}86.3$（表~\ref{tab:calibration}）。然而，$c$ 随编码器家族变化。对已评估编码器，该变化可拟合为：
 \begin{equation}
   c \;=\; 0.946 - 0.175\,\log(N/\reff),
   \quad R^2{=}0.963,\;\text{LOO 平均误差}{=}0.027,
   \label{eq:universal_c}
 \end{equation}
-表明 $c$ 的变化主要由样本量与有效秩比控制。实践中，此公式可以直接用于估计 $c$ 而无需专用的校准集；为了更高的精度，每个编码器的小校准集（如少于 6 配对；参见表~\ref{tab:perprobe_cal}）可以进一步细化估计。
+该小样本回归只是描述性结果；在新的编码器家族上验证前，不能将其作为普适规律使用。
 \end{remark}
-\subsection{连接到迁移学习}
+\subsection{为什么需要任务感知的第二阶段}
 \label{sec:transfer_connection}
 
-同样的三个通道也界定了迁移损失。
-\begin{proposition}[Gram 块迁移界限，非正式]
-\label{prop:transfer_bound}
-对于源特征 $H_s$ 和目标特征 $H_t$，
-线性探测器的迁移损失满足
-\begin{equation}
-  \frac{\|H_t\hat{W}-Y_t\|_F^2}{m}
-  \;\leq\;
-  \underbrace{\frac{\|H_t\|_F^2}{m}(1-\SAk)}_{\text{方向塌陷差距}}
-  +\; \underbrace{C_1\cdot\mathrm{STG}\cdot\frac{\|\hat{W}\|_F^2}{(\sigma_k^s)^2}}_{\text{谱保持率差距}}
-  +\; \underbrace{C_2\cdot|\Delta\mathrm{UID}|}_{\text{几何差距}}
-  + \varepsilon_{\mathrm{Bayes}},
-  \label{eq:transfer_bound}
-\end{equation}
-其中 $C_1=({\|H_s\|_*+\|H_t\|_*})^2/m$，$C_2=4\|\hat{W}\|_F^2(\|H_s\|_F+\|H_t\|_F)^2/\min(n,m)$。
-\end{proposition}
-（完整证明见附录~\ref{app:proof_prop1}。）
-同样的对偶关系适用：低 $\SAk$ 暗示 \emph{高} 合并收益（塌陷模型）和 \emph{高} 迁移损失（Prop.~\ref{prop:transfer_bound}）——相同主角的相反单调映射。
+无标签 Gram 不包含任意目标标签的信息。两个任务可以具有完全相同的冻结特征，却把标签赋给不同方向，从而交换两个来源子集的效用顺序。因此，任何无标签谱分数都不能普适保证下游效用。第二阶段验证不是定理~\ref{thm:rank_l_bound} 的推论，而是以相同训练计算量测量目标条件效用的独立经验步骤。
 
-\paragraph{方向塌陷贪婪伪代码。}
+\paragraph{可认证第一阶段伪代码。}
 
 \begin{algorithm}[h]
-\caption{指导型贪婪选择}
+\caption{Collapse-Gram-$L$ Greedy 筛选}
 \label{alg:collapse_greedy}
 \begin{algorithmic}[1]
-\Require 目标特征 $H_t\in\R^{N_t\times d}$，候选池 $\mathcal{P}=\{H_1,\ldots,H_M\}$，预算 $K$
-\Ensure 选择子集 $S\subseteq\mathcal{P}$，$|S|=K$
-\State $H_{\mathrm{cur}} \gets H_t$;\quad $S\gets\emptyset$;\quad $C\gets\mathcal{P}$
-\For{$j = 1,\ldots,K$}
-  \State $r_{\mathrm{cur}} \gets \reff(H_{\mathrm{cur}})$;\quad $\nu_{\mathrm{cur}} \gets \nucnorm{H_{\mathrm{cur}}}$
-  \For{每个 $H_c \in C$}
-    \State $\alpha_c \gets \SAk(H_{\mathrm{cur}}, H_c)$;\quad $\gamma_c \gets \nucnorm{H_c}\,/\,\nu_{\mathrm{cur}}$
-    \State $\hat{r}_c \gets \textproc{CollapsePredict}(r_{\mathrm{cur}},\,\reff(H_c),\,\gamma_c,\,\alpha_c)$
+\Require 摘要 $\{(B_j,\tau_j,\omega_j,u_j)\}_{j=1}^M$，预算 $K$
+\Ensure 有序短名单 $S$ 及逐轮认证标记
+\State $S\gets\emptyset$;\quad $C\gets\{1,\ldots,M\}$
+\For{$t = 1,\ldots,K$}
+  \For{每个 $j \in C$}
+    \State 使用式~\eqref{eq:rank_l_sketch}--\eqref{eq:rank_l_bound} 计算 $S\cup\{j\}$ 的 $\widehat F_j$ 与 $e_j$
   \EndFor
-  \State $H^* \gets \arg\max_{H_c\in C}\;\hat{r}_c$;\quad $S \gets S \cup \{H^*\}$;\quad $C\gets C\setminus\{H^*\}$
-  \State $H_{\mathrm{cur}} \gets [H_{\mathrm{cur}};\, H^*]$
+  \State $j^*\gets\arg\max_{j\in C}\widehat F_j$
+  \State $z_t\gets[\widehat F_{j^*}-e_{j^*}>\max_{j\neq j^*}(\widehat F_j+e_j)]$
+  \State $S\gets S\mathbin{\|}j^*$;\quad $C\gets C\setminus\{j^*\}$
 \EndFor
-\State \Return $S$
+\State \Return $(S,z_1,\ldots,z_K)$
 \end{algorithmic}
 \end{algorithm}
 % ============================================================
@@ -1023,7 +979,7 @@ $R^2=-1.09$（总体，E1a-Ind）与皮尔森相关系数 $r=0.9987$（相同数
 
 \textbf{结果。} \textbf{86.7\%} 的配对是超加性的（26/30；95\% 置信区间 [73\%, 97\%]）。预测排名与实际合并排名之间的皮尔森相关系数为 $r=0.948$（95\% 置信区间 [0.906, 0.978]）。按探测器划分：ResNet-50 达到 100\% 超加性（15/15，皮尔森相关系数 $r=0.968$）；ViT-B/16 达到 73.3\%（11/15，皮尔森相关系数 $r=0.945$）。
 
-\textbf{所有 4 个例外都是涉及 CIFAR-100 的 ViT-B/16 配对。} 根本原因是 \emph{能量不平衡}，这与超加性阈值一致（推论~\ref{cor:superadd}）。CIFAR-100 有 100 个类别，并且相应地具有较高的内在复杂度：在 ViT-B/16 下 $r_{\mathrm{eff}}(\text{CIFAR-100}) \approx 526$，远超过合作伙伴数据集如 MNIST（$r_{\mathrm{eff}} \approx 140$）和 SVHN（$\approx 243$）。这导致能量比 $\gamma \in [2.0, 2.5]$，将这些配对置于超加性边界 $\rho_c(\alpha, \gamma)$ 的附近。具体而言，主导成分吸收了次要成分：$q \to 1$，$H_b(q) \to 0$，$\hat{r}_{\mathrm{merged}} \to r_{\mathrm{dom}}$，因此观察到的 $r_{\mathrm{merged}}$ 可能会略低于 $r_{\mathrm{dom}}$，由于谱平均效应。我们通过扫掠 $N_{\mathrm{sub}} \in \{500, 1000, 2000, 4000\}$ 进行验证：在 $N=500$ 时，CIFAR-100 的 $r_{\mathrm{eff}}$ 被压缩到 $\approx343$（与合作伙伴相当），给出 $\gamma \approx 1$ 并实现 100\% 超加性（5/5）；随着 $N$ 增长至 2000+，$r_{\mathrm{eff}}$ 稳定在 526，$\gamma$ 增大，并出现例外情况——这证实能量不平衡是机制。ResNet-50（维度 $d=2048$，CIFAR-100 下的 $r_{\mathrm{eff}} \approx 988$）给出更大的 $\gamma$ 比例，但仍然保持 100\% 超加性（36/36），因为其合作伙伴数据集在 2048 维空间中也有较高的 $r_{\mathrm{eff}}$，使得 $r_{\mathrm{dom}} / r_{\mathrm{sub}}$ 低于 $\rho_c$。
+\textbf{所有 4 个例外都是涉及 CIFAR-100 的 ViT-B/16 配对。} 这些例外与 \emph{能量不平衡}相关，并与超加性阈值的诊断一致（推论~\ref{cor:superadd}）。在 ViT-B/16 下，CIFAR-100 的 $r_{\mathrm{eff}}\approx526$，高于 MNIST（$\approx140$）和 SVHN（$\approx243$），对应 $\gamma\in[2.0,2.5]$。在 $N_{\mathrm{sub}}\in\{500,1000,2000,4000\}$ 的扫掠中，$N=500$ 时 CIFAR-100 的 $r_{\mathrm{eff}}\approx343$、$\gamma\approx1$，5/5 配对均超加；样本数增大后，$r_{\mathrm{eff}}$ 和 $\gamma$ 同时增大，并出现例外。该共同变化与能量不平衡解释一致，但不是因果识别；ResNet-50 上的不同表现也说明编码器谱结构等混杂因素仍然存在。
 \subsection{E1c: 大规模多域验证（57 对）}
 \label{sec:e1c}
 
@@ -1035,7 +991,7 @@ $R^2=-1.09$（总体，E1a-Ind）与皮尔森相关系数 $r=0.9987$（相同数
 
 \begin{table}[h]
 \centering
-\caption{E1c: 大规模坍缩模型验证。
+\caption{E1c: Collapse-4S 的历史多域关联性研究。
 超加性率及 Pearson $r$（预测 vs. 实际合并后的 $r_{\mathrm{eff}}$）。
 Bootstrap 95\% CI ($B=10{,}000$)。该公式在所有探针中都高估了；“偏差”报告观察到的乘性比值。}
 \label{tab:e1c}
@@ -1055,7 +1011,7 @@ SBERT（文本）                  &  6 & \textbf{100\%} [100,100]  & 0.780     
 \end{table}
 
 \textbf{关键发现。}
-(i) \textbf{三种模态的 93\% 超加性}——自然图像、医学扫描和文本，表明坍缩模型的预测具有领域无关性。
+(i) \textbf{三个领域类型合计 93\% 超加性}——自然图像、医学扫描和文本；其中 SBERT 仅有 6 对，因此该结果不能建立领域无关性。
 (ii) \textbf{所有 4 个例外都是涉及 CIFAR-100 的 ViT-B/16 对}，
 归因于能量不平衡（与 E1b 中 Sec.~\ref{sec:e1b} 所述机制相同）：
 CIFAR-100 高固有复杂度 ($r_{\mathrm{eff}} \approx 526$，100 类) 创建 $\gamma \in [2.0, 2.5]$，
@@ -1068,7 +1024,7 @@ CIFAR-100 高固有复杂度 ($r_{\mathrm{eff}} \approx 526$，100 类) 创建 $
 ResNet-50 ($n=2000 \gg r_{\mathrm{eff}} \approx 350$, $1.24\times$)
 $<$ ViT-B/16 ($n=2000 \approx 3r_{\mathrm{eff}} \approx 650$, $1.45\times$)
 $<$ SBERT ($n=1000 \approx r_{\mathrm{eff}} \approx 700$, $1.84\times$)。
-这证实了有限样本上界假设。
+这是少量编码器上的观察趋势，不是有限样本误差定理。
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{fig_calibration.pdf}
@@ -1114,12 +1070,12 @@ DINO ViT-S/16 (11个数据集)    & 55  & 36.4\%            & 0.913 & 0.584 & 0.
 \end{tabular}\normalsize
 \end{table}
 \textbf{关键发现。}
-(i)~\textbf{缩放验证了理论}：在427对的情况下，总体皮尔逊相关系数 $r=0.970$ 超过了57对的结果 ($r=0.928$)，这表明崩溃模型的排名准确性随着规模和多样性而提高。
-(ii)~\textbf{ImageNet 子集的行为符合预测}：所有20个仅包含 ImageNet 的成对组合都是超加性的，且所有30个自然$\times$ImageNet 跨域成对组合也是超加性的——模型正确地预测了语义上不同的 ImageNet 子组贡献正交方向。
-(iii)~\textbf{ResNet-50 在91对中实现了100\%的超加性}（包括14个数据集，涵盖医学和ImageNet），这是在该规模下最强的确认。相比之下，CLIP ViT-B/32 和 DINO ViT-S/16 分别仅实现了31\%和38\%的超加性。
+(i)~在 427 个评估对上，总体皮尔逊相关系数为 $r=0.970$，而 E1c 的 57 对为 $r=0.928$。由于这些配对共享数据集，且较大集合不是独立复现，该增加不能用于验证定理或声称性能随规模提高。
+(ii)~所有 20 个 ImageNet 内部配对和 30 个自然$\times$ImageNet 配对均为超加；这是该批提取特征的经验性质，不能据此断言语义子组必然贡献正交方向。
+(iii)~ResNet-50 在本基准的 91 对上实现 100\% 超加性。相比之下，CLIP ViT-B/32 和 DINO ViT-S/16 分别仅为 31\% 和 38\%。
 分析揭示了一个清晰的趋势：\emph{同域}成对组合（自然$\times$自然，ImageNet$\times$ImageNet）接近完美地实现了超加性（CLIP: ImageNet-only 上为90\%，natural-only 上为100\%；DINO: 两个数据集均为100\%），而 \emph{跨域}成对组合（手写$\times$ImageNet，自然$\times$数字）几乎无一例外地失败。这表明自监督编码器学习了特定领域的谱结构，并且在全局摘要中丢弃了异质的对齐和谱耦合——这对崩溃模型的应用具有重要的边界条件。
-(iv)~\textbf{跨模态泛化}：扩展到171个 SBERT 文本成对组合（98.8\%超加性，$r=0.793$）表明公式预测的超加性在不同模态间转移。较低的皮尔逊相关系数反映了文本嵌入的窄 $\reff$ 范围（IQR: $285$--$298$），这压缩了排名分辨率，而不是表示模型失败。
-(v)~\textbf{校准常数随编码器家族变化} ($c \in [0.57, 0.78]$)，但单一全局值 $c=0.712$ 在所有158个视觉成对组合中实现了 $R^2=0.898$，确认了偏差结构的一致性。
+(iv)~在 171 个 SBERT 文本配对上，超加性率为 98.8\%，但相关性下降到 $r=0.793$。窄 $\reff$ 范围（IQR: $285$--$298$）可能是原因之一；该结果不能建立跨模态泛化。
+(v)~校准常数随编码器家族变化（$c\in[0.57,0.78]$）。单一全局值 $c=0.712$ 在同一批 158 个视觉配对上得到 $R^2=0.898$，只是对该基准平均偏差的描述，仍需编码器外验证。
 \textbf{理解非超加性配对。}
 ViT-B/16 只实现了 69\% 的超加性（38/55），低于 ResNet-50 的 100\% (91/91)。
 分析 ViT 的 17 个失败案例揭示了一个清晰的模式：
@@ -1136,11 +1092,10 @@ ViT-B/16 只实现了 69\% 的超加性（38/55），低于 ResNet-50 的 100\% 
 自然$\times$手写 (100\% 失败)。
 同域配对（仅自然，仅 ImageNet）仍接近完美。
 
-\textbf{根本原因：双模态主角。}
+\textbf{与失败相关的双模态主角结构。}
 在相同数据集配对下比较不同编码器的结果表明，
-失败并非由能量不平衡 ($\gamma$) 引起，
-而是由于均匀-$\alpha$ 假设的结构性违反。
-三种机制相互作用：
+编码器间比较显示，仅用能量不平衡 ($\gamma$) 不能解释全部失败；
+均匀-$\alpha$ 假设的结构性违反与误差相关。以下三项是机制假设，而非独立的因果识别：
 
 \emph{(a) 系统性更高的对齐度。}
 在同一配对（例如，CIFAR-10$\times$ImageNet-animal）下，
@@ -1165,9 +1120,9 @@ $\kappa{=}15{,}000$--$1{,}200{,}000$ 对比 ResNet-50 的 $\kappa{=}70$--$400$�
 因此合并几乎没有多样性增益 ($\Delta r_{\mathrm{eff}}{=}31$
 与 ResNet-50 在同一对上的 $\Delta r_{\mathrm{eff}}{=}282$ 相比)。
 
-此分析确定了一个精确的 \emph{适用边界}：
-当主角分布近似均匀时（监督编码器，同域配对），塌陷模型可靠；
-但当主角分布二模态时（自监督编码器在跨域配对上），模型失效。
+这些结果给出一个经验性的 \emph{失效诊断}：
+在本基准上，较均匀的主角分布通常对应较小误差，二模态结构通常对应较大误差；
+命题~\ref{prop:insufficient} 排除了把这一关联提升为普适边界。
 一个自然的修复方法——用能量加权对齐
 $\bar\alpha_w=\sum_i({\sigma_i}/{\|H\|_*})\cos^2\theta_i$
 替换均匀平均 $\bar\alpha=\SAk$——会
@@ -1180,7 +1135,7 @@ MAE${=}206$，而 $\bar\alpha_w$ 产生 $r{=}0.935$，MAE${=}218$（更差）；
 DINO 显示类似模式（$r$ 从 $0.912$ 下降到 $0.904$，
 MAE 增加 $4\%$）；
 ResNet-50 和 ViT-B/16 也未见改进。
-根本原因在于简单的能量加权过度强调
+一种可能解释是简单的能量加权过度强调
 第一个奇异方向的冗余性
 ($\cos^2\theta_1{\approx}0.87$ 对于该方向)，
 而错误地抑制了中间方向对合并的估计贡献。
@@ -1190,16 +1145,16 @@ ResNet-50 和 ViT-B/16 也未见改进。
 \label{sec:calibration}
 
 崩塌模型在评估的真实数据对上系统性地高估了结果（Remark~\ref{rem:calibration}）。
-由于对数空间的高估大约在整个探针和领域中是恒定的（$\mathrm{mean}{=}0.293$，$\mathrm{std}{=}0.164$），一个单一的乘法常数 $c$（Eq.~\ref{eq:calibration}）足以将排名工具转换为定量预测器。
+在已评估探针和领域中，对数空间高估近似稳定（$\mathrm{mean}{=}0.293$，$\mathrm{std}{=}0.164$），因此我们检验一个乘法常数 $c$（Eq.~\ref{eq:calibration}）能否改善同分布校准；这不保证编码器外的定量预测。
 
-\textbf{跨数据集泛化。}
-为了验证 $c$ 不是特定于数据集，
+\textbf{跨数据集划分。}
+为了检查 $c$ 对已评估数据集划分的敏感性，
 我们进行留一校准：在一个实验中估计 $c$，并在另一个实验中测试（Table~\ref{tab:calibration}）。
 
 \begin{table}[h]
 \centering
 \caption{跨数据集校准。
-$c$ 在校准集中估计，并在测试集中应用（无需重新拟合）。所有设置均显著优于未校准的基线 ($R^2{<}0.44$)。}
+$c$ 在校准集中估计，并在测试集中应用（无需重新拟合）。表中比较同一实验集合内的划分，不能替代编码器外验证。}
 \label{tab:calibration}
 \small
 \setlength{\tabcolsep}{4pt}
@@ -1223,7 +1178,7 @@ E1b (30 对) & E\_diverse (30 对) & 0.768 & 30 & 0.894 & 83.7 \\
 校准常数在编码器家族之间系统性地变化，反映了谱结构的不同：
 \begin{table}[h]
 \centering
-\caption{Per-probe 校准在 427 对数据集 (E1d) 上的结果。每个探针独立校准。$c$ 的变化与编码器的有效谱平坦度单调相关。}
+\caption{427 对数据（E1d）上的逐探针校准。每个探针独立拟合；$c$ 的变化只描述这些编码器上的观测关系。}
 \label{tab:perprobe_cal}
 \small
 \setlength{\tabcolsep}{4pt}
@@ -1241,18 +1196,18 @@ Vision (global)  & 256 & 0.965 & \emph{per-probe} & 0.942 &  65\% \\
 \end{tabular}\normalsize
 \end{table}
 
-相对样本大小而言，具有更高有效秩的编码器需要更强的校正（$c$ 越远离1），这与有限样本上界机制一致：ResNet-50 特征（$d=2048$，$\reff{\approx}350$）在谱上比 ViT 特征（$d=768$，$\reff{\approx}400$）稀疏，因此两成分谱混合近似引起的误差较小。一个全局 $c=0.712$ 跨所有视觉探针提供 $R^2=0.898$，确认单个常数提供了一个强大的基线；每个探针的校准是一个改进而非必要。
+相对样本大小而言，具有更高有效秩的编码器需要更强的校正（$c$ 越远离1）；这与有限样本解释一致，但编码器架构与谱形状同时变化，不能作因果归因。一个全局 $c=0.712$ 在同一批视觉探针上得到 $R^2=0.898$；在使用共享常数前仍需编码器外验证。
 
 图~\ref{fig:e1c} 显示了校准前后的 E1c 散点图。
 
-\subsection{E\_diverse: 不同架构探针独立性}
+\subsection{E\_diverse: 不同架构探针一致性}
 \label{sec:ediverse}
 
 \textbf{设计。} 为了测试崩溃模型预测的鲁棒性是否对编码器的选择敏感，我们使用 ResNet-50 和 ViT-B/16 分别作为独立探针评估相同的 6 组数据集对（来自 E1b），总共得到 12 种配置。
 
 \textbf{结果。} ResNet-50: $R^2=0.557$，Pearson $r=0.9987$，100\% 超加性。
 ViT-B/16: $R^2=-16.1$（系统性高估），Pearson $r=0.9825$，83.3\% 超加性。
-跨架构 Pearson $r \geq 0.982$ 确认即使绝对值不同，方向排名也是探针独立的。
+这 6 对上的跨架构 Pearson $r\geq0.982$ 表明方向排序相似，但样本量不足以建立探针独立性。
 ViT-B/16 的 Pearson vs.\ $R^2$ 差距显示了编码器依赖的比例尺度偏差，尽管排序稳定。
 \subsection{E4: 跨探针一致性}
 \label{sec:e4}
@@ -1261,7 +1216,7 @@ ViT-B/16 的 Pearson vs.\ $R^2$ 差距显示了编码器依赖的比例尺度偏
 我们使用 ResNet-50 和 ViT-B/16 独立地在 4 个常见数据集 $\{$CIFAR-10, MNIST, STL-10, SVHN$\}$ 上计算 $6\times6$ 的成对 $\SAk$ 对齐矩阵 $M$。每个矩阵的 6 个上三角元素通过皮尔逊相关系数 $r$ 进行比较。
 
 \textbf{结果。}
-跨探针皮尔逊相关系数 $r=0.891$ ($n=6$, $p=0.017$)。两个探针在所有 6 对中都一致地同意领域距离的方向。CIFAR-10/STL-10 在两者中都很接近；CIFAR-10/MNIST 在两者中都相距甚远。这证实了 $\SAk$ 距离矩阵反映了内在的数据集间几何结构，而不是编码器的伪影。
+跨探针皮尔逊相关系数 $r=0.891$ ($n=6$, $p=0.017$)。两个探针在所有 6 对中给出相同的领域距离方向：CIFAR-10/STL-10 在两者中都较近，CIFAR-10/MNIST 在两者中都较远。这一小样本一致性无法区分数据集几何与两个编码器共有的偏差，因此这里只将其作为一致性检查。
 
 \subsection{E\_downstream: 有效秩作为下游质量代理}
 \label{sec:edownstream}
@@ -1292,12 +1247,12 @@ Fashion-MNIST & 10 & +0.03 & 5 & +0.60 & 5 & $-$0.10 \\
 \end{center}
 “全部探针”列在自然图像上的 $\rho\approx+0.59$ 受到\emph{特征维度混杂}：CNN（$d{=}2048$）的 $\reff$ 系统性高于 ViT（$d{=}768$），从而夸大了表面相关性。
 控制维度后，结论更加清晰：\textbf{在 ViT 家族内部}（$d{=}768$，5 个探针），$\reff$ 对自然图像的 LP 准确率具有很强的预测性（CIFAR-10、CIFAR-100 和 STL-10 上均为 $\rho{=}0.90$）；而\textbf{在 CNN 家族内部}（$d{\geq}1024$，5 个探针），相关性较弱（$\rho{=}0.20$--$0.30$）。
-这表明，$\reff$ 主要在紧凑特征空间（$d{<}1024$）的架构中捕获有用的判别信息，此时谱多样性与表示质量联系更紧密。
+这提示在已评估的紧凑特征空间中谱多样性与 LP 准确率可能相关；但家族、维度和训练方法彼此混杂，不能归因于 $d{<}1024$。
 
 \textbf{对坍缩模型的含义。}
 $\reff$ 应被理解为\emph{表示多样性}的度量，即数据激活的独立方向数量，而不是下游准确率的直接代理。
-坍缩模型预测合并何时会\emph{增加多样性}，这是提升下游性能的必要条件，但并非充分条件。
-在同一架构家族内部，多样性与准确率正相关（ViT 的 $\rho{=}0.90$），因此可以在同一编码器提取的候选数据集中使用基于 $\reff$ 的选择。
+Collapse-4S 估计合并后的谱多样性，但增加多样性既未被证明是提升任意下游任务的必要条件，也不是充分条件。
+在一个 ViT 子组中，多样性与准确率正相关（$\rho{=}0.90$）；该关联可用于提出候选筛选假设，实际选择仍需第二阶段验证。
 跨架构家族或跨不同难度的数据集时，还需要额外的任务相关指标。
 
 

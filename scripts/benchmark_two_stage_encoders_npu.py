@@ -33,6 +33,35 @@ class OpenClipImageEncoder(nn.Module):
         return self.model.encode_image(images, normalize=False)
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def model_state_sha256(model: nn.Module) -> str:
+    """Fingerprint the final loaded model state, independent of checkpoint labels."""
+
+    digest = hashlib.sha256()
+    for name, tensor in sorted(model.state_dict().items()):
+        value = tensor.detach().cpu().contiguous()
+        digest.update(name.encode())
+        digest.update(b"\0")
+        digest.update(str(value.dtype).encode())
+        digest.update(b"\0")
+        digest.update(str(tuple(value.shape)).encode())
+        digest.update(b"\0")
+        digest.update(value.reshape(-1).view(torch.uint8).numpy().tobytes())
+    return digest.hexdigest()
+
+
+def checkpoint_file_sha256(checkpoint: str) -> str | None:
+    path = Path(checkpoint)
+    return sha256_file(path) if path.is_file() else None
+
+
 def load_clip() -> tuple[nn.Module, object, str]:
     import open_clip
 
@@ -127,6 +156,8 @@ def main() -> None:
     torch.npu.set_device(device)
     load_started = time.perf_counter()
     model, preprocess, checkpoint = load_encoder(args.variant)
+    model_state_hash = model_state_sha256(model)
+    checkpoint_file_hash = checkpoint_file_sha256(checkpoint)
     model.eval().to(device)
     model_load_seconds = time.perf_counter() - load_started
 
@@ -181,6 +212,8 @@ def main() -> None:
         "finished_utc": datetime.now(timezone.utc).isoformat(),
         "variant": args.variant,
         "checkpoint": checkpoint,
+        "checkpoint_file_sha256": checkpoint_file_hash,
+        "model_state_sha256": model_state_hash,
         "device": str(device),
         "dataset": "CIFAR10:train",
         "samples": count,

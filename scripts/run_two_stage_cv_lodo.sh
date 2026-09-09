@@ -9,8 +9,9 @@ fi
 ENCODER="$1"
 PROJECT_ROOT="${PROJECT_ROOT:-/home/67/collapsemodel-two-stage}"
 SOURCE_DIR="${SOURCE_DIR:-/data/Paper06/features/two_stage_source_splits_n5000_unlabeled}"
-MERGED_ROOT="${MERGED_ROOT:-/data/Paper06/results/two_stage_cv_utility_corrected_v2/merged}"
-RESULT_ROOT="${RESULT_ROOT:-/data/Paper06/results/two_stage_cv_lodo_corrected_v2}"
+BASE_RESULTS="${BASE_RESULTS:-/data/Paper06/results/two_stage_natural_shortlist_corrected_v3}"
+ADAPTATION_ROOT="${ADAPTATION_ROOT:-/data/Paper06/results/two_stage_repeated_cv_utility_corrected_v3/folds_5_seeds_20260905_20260906_20260907}"
+RESULT_ROOT="${RESULT_ROOT:-/data/Paper06/results/two_stage_cv_lodo_corrected_v3}"
 
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
 set -u
@@ -43,7 +44,8 @@ for domain in medical digits_characters general_vision rendered_text; do
     > "$out_dir/screen.log" 2>&1
   python3 scripts/two_stage_natural_shortlist.py summarize \
     --manifest "$out_dir/${ENCODER}_screening_manifest.json" \
-    --adaptation-csv "$MERGED_ROOT/$ENCODER/adaptation_results.csv" \
+    --adaptation-manifest "$BASE_RESULTS/$ENCODER/${ENCODER}_screening_manifest.json" \
+    --adaptation-csv "$ADAPTATION_ROOT/$ENCODER/adaptation_results.csv" \
     --out-dir "$out_dir" \
     --n-random 100 \
     --random-seed 20260905 \

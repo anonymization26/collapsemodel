@@ -16,13 +16,18 @@ import torch
 import torch_npu  # noqa: F401 - registers the NPU backend
 from torch.utils.data import Dataset
 
-from benchmark_two_stage_encoders_npu import load_encoder
+from benchmark_two_stage_encoders_npu import (
+    checkpoint_file_sha256,
+    load_encoder,
+    model_state_sha256,
+)
 from extract_two_stage_features_npu import (
     cached_result_is_valid,
     deduplicate_files_by_content,
     extract_one,
     sha256_file,
     stratified_indices,
+    unlabeled_indices,
 )
 
 
@@ -115,6 +120,10 @@ def main() -> None:
     parser.add_argument("--npu", type=int, required=True)
     parser.add_argument("--samples", type=int, default=5_000)
     parser.add_argument("--sample-seed", type=int, default=20260905)
+    parser.add_argument(
+        "--sampling", choices=["unlabeled_random", "stratified"],
+        default="unlabeled_random",
+    )
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--force", action="store_true")
@@ -127,6 +136,8 @@ def main() -> None:
     torch.npu.set_device(device)
     load_started = time.perf_counter()
     model, preprocess, checkpoint = load_encoder(args.variant)
+    model_state_hash = model_state_sha256(model)
+    checkpoint_file_hash = checkpoint_file_sha256(checkpoint)
     model.eval().to(device)
     model_load_seconds = time.perf_counter() - load_started
     script_sha256 = sha256_file(script_path)
@@ -148,12 +159,15 @@ def main() -> None:
             expected_metadata = {
                 "variant": args.variant,
                 "checkpoint": checkpoint,
+                "checkpoint_file_sha256": checkpoint_file_hash,
+                "model_state_sha256": model_state_hash,
                 "preprocess_sha256": preprocess_sha256,
                 "dataset": dataset_name,
                 "split": requested_split,
                 "source_split": source_split,
                 "requested_samples": args.samples,
                 "sample_seed": args.sample_seed,
+                "sampling": args.sampling,
                 "script_sha256": script_sha256,
                 "encoder_loader_sha256": encoder_loader_sha256,
                 "source_file_sha256": source_hashes,
@@ -166,7 +180,10 @@ def main() -> None:
 
             started_utc = datetime.now(timezone.utc).isoformat()
             dataset = ArrowShardDataset(source_paths, preprocess)
-            indices = stratified_indices(dataset.labels, args.samples, args.sample_seed)
+            if args.sampling == "unlabeled_random":
+                indices = unlabeled_indices(len(dataset), args.samples, args.sample_seed)
+            else:
+                indices = stratified_indices(dataset.labels, args.samples, args.sample_seed)
             features, labels, elapsed, peak_allocated, peak_reserved = extract_one(
                 model,
                 device,
@@ -188,7 +205,8 @@ def main() -> None:
                 "preprocess": repr(preprocess),
                 "source_files": [str(path) for path in source_paths],
                 "source_samples": len(dataset),
-                "sampling": "deterministic_proportional_stratified",
+                "sampling": args.sampling,
+                "stage2_sampling_reads_labels": args.sampling == "stratified",
                 "saved_labels_for_stage2": True,
                 "feature_shape": list(features.shape),
                 "feature_dtype": str(features.dtype),

@@ -9,7 +9,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import merge_two_stage_cv_repeats as merge  # noqa: E402
 
 
-def row(seed, validation, test=0.8):
+def row(seed, validation, state_hash="a" * 64):
     return {
         "encoder": "encoder",
         "source": "source",
@@ -20,8 +20,12 @@ def row(seed, validation, test=0.8):
         "validation_accuracy": str(validation),
         "validation_accuracy_std": "0.1",
         "validation_fold_accuracies": f"{validation - 0.1}|{validation + 0.1}",
+        "validation_partition_accuracies": str(validation),
+        "validation_accuracy_std_across_partitions": "0.0",
+        "validation_examples": "10",
+        "unique_validation_examples": "10",
         "target_validation_protocol": "stratified_2_fold",
-        "test_accuracy": str(test),
+        "adapter_state_sha256": state_hash,
         "training_seconds": "1.0",
         "evaluation_seconds": "2.0",
     }
@@ -39,9 +43,9 @@ class MergeCvRepeatsTests(unittest.TestCase):
             "repeated_stratified_2_fold",
         )
 
-    def test_merge_rejects_test_metric_changes(self):
+    def test_merge_rejects_adapter_state_changes(self):
         with self.assertRaises(ValueError):
-            merge.merge_rows([row(1, 0.7, 0.8), row(2, 0.9, 0.7)])
+            merge.merge_rows([row(1, 0.7), row(2, 0.9, "b" * 64)])
 
     def test_merge_rejects_duplicate_partition(self):
         with self.assertRaises(ValueError):

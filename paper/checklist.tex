@@ -5,7 +5,7 @@
 \item {\bf Claims}
     \item[] Question: Do the main claims made in the abstract and introduction accurately reflect the paper's contributions and scope?
     \item[] Answer: \answerYes{}
-    \item[] Justification: The abstract and introduction (Section~\ref{sec:intro}) distinguish four contributions---the exact Gram representation and paired-direction decomposition (Proposition~\ref{prop:gram_general}, Lemma~\ref{lem:gram}), the structured summary predictor and its diagnostic threshold (Eq.~\ref{eq:pred}, Corollary~\ref{cor:superadd}), Collapse-guided greedy compression (Section~\ref{sec:compression}), and cross-modal validation on 427 pairs. Proposition~\ref{prop:insufficient} proves that the four summaries are not sufficient for universal exact prediction. The assumptions, empirical scope, calibration dependence, and failure modes are stated explicitly in Appendix~\ref{app:limitations}.
+    \item[] Justification: The abstract and introduction (Section~\ref{sec:intro}) separate exact Gram algebra and non-identifiability, a rank-$L$ PSD sketch with deterministic error intervals, and an audited two-stage protocol. The abstract reports 100\% selected-prefix interval coverage but zero certified decisions at $L\leq50$, a competitive DPP baseline, and the source-supervised adapter's significant loss to frozen identity. It explicitly disclaims global optimality, privacy, practical compression, and downstream benefit.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the abstract and introduction do not include the claims made in the paper.
@@ -17,7 +17,7 @@
 \item {\bf Limitations}
     \item[] Question: Does the paper discuss the limitations of the work performed by the authors?
     \item[] Answer: \answerYes{}
-    \item[] Justification: Appendix~\ref{app:limitations} discusses the uniform-$\alpha$ assumption, its failure on cross-domain CLIP/DINO pairs (bimodal principal-angle distribution, Fig.~\ref{fig:bimodal_structure}), and the degraded absolute-prediction accuracy on SBERT text pairs ($r{=}0.08$ of explained variance vs.\ $0.96$ for vision). Ranking correctness is preserved in both failure modes. The need for a piecewise model for non-uniform $V_\alpha$ is identified as future work.
+    \item[] Justification: Appendix~\ref{app:limitations} states that marginal spectra and principal angles are insufficient in general, Collapse-4S has no universal guarantee, and the rank-$L$ interval certifies none of the tested choices. It also discloses unequal communication budgets, numerical conditioning, encoder-dependent calibration, weak cross-modal transfer, limited domain balance, failure of the source-supervised adapter against identity, and the absence of global-optimality, privacy, fairness, or downstream-utility guarantees.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper has no limitation while the answer \answerNo{} means that the paper has limitations, but those are not discussed in the paper.
@@ -33,7 +33,7 @@
 \item {\bf Theory assumptions and proofs}
     \item[] Question: For each theoretical result, does the paper provide the full set of assumptions and a complete (and correct) proof?
     \item[] Answer: \answerYes{}
-    \item[] Justification: Proposition~\ref{prop:gram_general}, Lemma~\ref{lem:gram}, and Proposition~\ref{prop:proportional} state their assumptions explicitly in Section~\ref{sec:theorem}. The exact results require, respectively, no additional assumptions, paired and decoupled directions, and proportional spectra with uniform alignment. Equation~\ref{eq:pred} is identified as an approximation for general spectra, and Proposition~\ref{prop:insufficient} gives a counterexample to universal identification from four scalars. Full proofs are provided in Appendix~\ref{app:proof_thm}; all results are numbered and cross-referenced.
+    \item[] Justification: Proposition~\ref{prop:gram_general}, Lemma~\ref{lem:gram}, and Proposition~\ref{prop:proportional} distinguish the unconditional Gram identity from the block-compatible and proportional-spectrum special cases. Proposition~\ref{prop:insufficient} gives an explicit counterexample to identification even from complete marginal spectra and principal angles. Theorem~\ref{thm:rank_l_bound} and Corollary~\ref{cor:rank_l_choice} state the rank-$L$ tail assumptions, deterministic error interval, and sufficient one-step certificate. Equation~\ref{eq:pred} is labelled an empirical approximation. Proofs and optimization limits are provided in Appendices~\ref{app:proof_thm} and~\ref{app:optimization_limits}.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include theoretical results.
@@ -47,7 +47,7 @@
     \item {\bf Experimental result reproducibility}
     \item[] Question: Does the paper fully disclose all the information needed to reproduce the main experimental results of the paper to the extent that it affects the main claims and/or conclusions of the paper (regardless of whether the code and data are provided or not)?
     \item[] Answer: \answerYes{}
-    \item[] Justification: Algorithm~\ref{alg:collapse_greedy} (Appendix~\ref{app:algorithm}) provides full pseudocode for the Collapse-guided greedy compression procedure. Appendix~\ref{app:exp_extras} lists all hyperparameters ($N{=}1{,}000$, bootstrap $B{=}10{,}000$, calibration constants). Section~\ref{sec:experiments} specifies all 5 encoder families, 14 vision datasets, and 19 SBERT text corpora, with dataset sizes and evaluation protocols. All datasets are publicly available.
+    \item[] Justification: Algorithm~\ref{alg:collapse_greedy} gives the common greedy loop, while Section~\ref{sec:compression} specifies the corrected Stage-1 and Stage-2 information boundaries, equal-source weighting, baselines, controls, split discipline, and reported metrics. Appendix~\ref{app:exp_extras} documents the historical 427-pair study and its hyperparameters. The released corrected scripts record feature, index, model-state, preprocessing, code, and configuration hashes and reject incomplete or provenance-inconsistent result shards.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include experiments.
@@ -67,7 +67,7 @@
 \item {\bf Open access to data and code}
     \item[] Question: Does the paper provide open access to the data and code, with sufficient instructions to faithfully reproduce the main experimental results, as described in supplemental material?
     \item[] Answer: \answerYes{}
-    \item[] Justification: Code is provided as an anonymous public repository at \url{https://anonymous.4open.science/r/collapsemodel-1DB6} (also included as supplementary material). All main experiments can be reproduced via \texttt{python run\_all.py} using \texttt{configs/repro\_config.yaml}; per-experiment outputs regenerate every reported number. All 14 vision datasets are publicly available via torchvision or HuggingFace Datasets; all 19 SBERT text corpora are publicly available via HuggingFace Datasets. Pre-trained encoder weights (ResNet-50, ViT-B/16, CLIP ViT-B/32, DINO ViT-S/16, SBERT) are publicly released by their original authors.
+    \item[] Justification: Code and instructions are provided at the anonymous repository \url{https://anonymous.4open.science/r/collapsemodel-1DB6}. The historical experiments use \texttt{cd code \&\& python run\_all.py} with \texttt{code/configs/repro\_config.yaml}. The root and corrected-result READMEs list the feature-extraction, controlled rank-sweep, screening, source-supervised validation, held-out, and aggregation commands. Raw benchmarks and pretrained weights are obtained from their original public distributions and are not redistributed.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that paper does not include experiments requiring code.
@@ -84,7 +84,7 @@
 \item {\bf Experimental setting/details}
     \item[] Question: Does the paper specify all the training and test details (e.g., data splits, hyperparameters, how they were chosen, type of optimizer) necessary to understand the results?
     \item[] Answer: \answerYes{}
-    \item[] Justification: Section~\ref{sec:experiments} specifies all 5 encoder families, sample sizes ($N{=}1{,}000$), and evaluation protocols (Pearson $r$, Spearman $\rho$, $R^2$, sign test). Appendix~\ref{app:exp_extras} provides the complete hyperparameter table, including bootstrap resamples ($B{=}10{,}000$), calibration constants, and the greedy compression budget $k$. Per-probe calibration methodology is described in Appendix~\ref{app:calibration}.
+    \item[] Justification: Section~\ref{sec:experiments} and Appendix~\ref{app:exp_extras} specify the historical study. Section~\ref{sec:compression} separately specifies label-blind source sampling, source-supervised adapter training, target-train-only cross-validation, frozen held-out evaluation, seeds, weighting, shortlist budgets, baselines, and identity/random-adapter controls. It also states that every adapter was trained offline to estimate exhaustive regret, so no realized deployment saving is claimed. Exact settings are stored in each run manifest.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include experiments.
@@ -95,7 +95,7 @@
 \item {\bf Experiment statistical significance}
     \item[] Question: Does the paper report error bars suitably and correctly defined or other appropriate information about the statistical significance of the experiments?
     \item[] Answer: \answerYes{}
-    \item[] Justification: Bootstrap confidence intervals ($B{=}10{,}000$) are reported for all key correlation statistics (Appendix~\ref{app:bootstrap}, Table~\ref{tab:bootstrap_ci}). Fisher $z$-tests are used for pairwise comparison of $\rho$ values. Sign tests (with $p$-values) are reported for LP accuracy comparisons. The $\Delta\rho{=}0.003$ gap between the Collapse Model and $r_A{+}r_B$ is verified as non-significant ($p{=}0.20$).
+    \item[] Justification: Bootstrap confidence intervals ($B{=}10{,}000$) are reported for the historical correlation statistics, including the non-significant $\Delta\rho{=}0.003$ gap over $r_A{+}r_B$. The corrected Stage-2 control uses target-cluster bootstrap; oracle minus frozen identity is $-0.0670$ with 95\% CI $[-0.0977,-0.0440]$. The rank-$L$ coverage statement is a deterministic check over all evaluated prefixes, and no inferential superiority claim is made from the controlled gain table.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include experiments.
@@ -112,7 +112,7 @@
 \item {\bf Experiments compute resources}
     \item[] Question: For each experiment, does the paper provide sufficient information on the computer resources (type of compute workers, memory, time of execution) needed to reproduce the experiments?
     \item[] Answer: \answerYes{}
-    \item[] Justification: The reproduction config (\texttt{configs/repro\_config.yaml}, included in supplementary material) lists expected wall-clock runtimes for each experiment (2--90 min), GPU requirements (CLIP/DINO feature extraction requires GPU), and worker counts. The full pipeline requires one GPU-equipped machine; CPU-only machines can reproduce all experiments except E1d. Total estimated wall-clock time is under 8 hours on a single GPU node.
+    \item[] Justification: The historical reproduction config (\texttt{code/configs/repro\_config.yaml}) reports per-experiment estimates and an approximately eight-hour single-CUDA-node total. The corrected two-stage README and manifests separately record CPU selection time, Ascend 910B4 feature/adaptation requirements, device assignment, run counts, and observed wall-clock time. These estimates are hardware-specific; ViT-B/16 feature extraction on the reported Ascend system includes CPU fallback and is labelled as mixed CPU/NPU wall time.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include experiments.
@@ -124,7 +124,7 @@
 \item {\bf Code of ethics}
     \item[] Question: Does the research conducted in the paper conform, in every respect, with the NeurIPS Code of Ethics \url{https://neurips.cc/public/EthicsGuidelines}?
     \item[] Answer: \answerYes{}
-    \item[] Justification: The research presents a mathematical framework and diagnostic tool for label-free data-pool compression. It uses only publicly available datasets and pre-trained models released by their original authors, involves no human subjects, and does not raise dual-use concerns.
+    \item[] Justification: The research analyzes frozen representations and evaluates dataset-pool screening on existing benchmarks and pretrained encoders. It involves no newly recruited human subjects and releases no generated content or new personal-data corpus. Potential selection bias, privacy overstatement, and inappropriate use of a spectral proxy as a utility decision are disclosed as limitations.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the authors have not reviewed the NeurIPS Code of Ethics.
@@ -136,7 +136,7 @@
 \item {\bf Broader impacts}
     \item[] Question: Does the paper discuss both potential positive societal impacts and negative societal impacts of the work performed?
     \item[] Answer: \answerYes{}
-    \item[] Justification: Section~\ref{sec:conclusion} notes that the framework scales to privacy-constrained and streaming settings (per-dataset summary statistics only, no feature sharing). The Collapse Model can be applied to fairness-aware data curation (identifying redundant vs.\ complementary pools), which we identify as a natural extension. The spectral-compression criterion is neutral with respect to data content and does not itself introduce or amplify biases.
+    \item[] Justification: The method can reduce communication by transmitting sketches instead of sample rows, but this is not a differential-privacy guarantee and sketches may still leak information. Spectral diversity may improve pool coverage, yet it can also preserve, hide, or amplify biases in the encoder and candidate datasets and may underselect small groups. We therefore require task-aware validation and do not claim that the criterion is content-neutral or fairness-preserving.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that there is no societal impact of the work performed.
@@ -150,7 +150,7 @@
 \item {\bf Safeguards}
     \item[] Question: Does the paper describe safeguards that have been put in place for responsible release of data or models that have a high risk for misuse (e.g., pre-trained language models, image generators, or scraped datasets)?
     \item[] Answer: \answerNA{}
-    \item[] Justification: The paper releases a lightweight diagnostic tool (spectral metrics computed on frozen features) that does not generate content, train models, or release new datasets. The tool poses no risk for misuse.
+    \item[] Justification: No high-risk generative model, scraped corpus, or pretrained checkpoint is released. The code computes spectral summaries and trains only small evaluation adapters on user-supplied features. Ordinary access control and dataset/model terms remain the user's responsibility; the paper does not claim that the summaries are privacy-preserving.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper poses no such risks.
@@ -162,7 +162,7 @@
 \item {\bf Licenses for existing assets}
     \item[] Question: Are the creators or original owners of assets (e.g., code, data, models), used in the paper, properly credited and are the license and terms of use explicitly mentioned and properly respected?
     \item[] Answer: \answerYes{}
-    \item[] Justification: All 14 vision datasets are cited with their original publications (CIFAR-10/100, STL-10, SVHN, MNIST, Fashion-MNIST, Oxford-IIIT Pets, Stanford Cars, Food-101, EuroSAT, RESISC-45, DTD, Camelyon17, DomainNet, CelebA); all 19 SBERT text corpora are cited with their original sources via HuggingFace Datasets. All 5 pre-trained encoder families (ResNet-50, ViT-B/16, CLIP ViT-B/32, DINO ViT-S/16, SBERT) are cited with their original papers. All assets are publicly available research benchmarks released under permissive research licenses.
+    \item[] Justification: The paper cites the original publications and distributions for the benchmark datasets and pretrained encoder families used in each experiment. The repository does not redistribute those assets; reproduction requires users to obtain them from the original providers and comply with the provider-specific licenses and terms. We do not make the unsupported claim that every benchmark has the same or a uniformly permissive license.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not use existing assets.
@@ -177,8 +177,8 @@
 
 \item {\bf New assets}
     \item[] Question: Are new assets introduced in the paper well documented and is the documentation provided alongside the assets?
-    \item[] Answer: \answerNA{}
-    \item[] Justification: The paper does not introduce new datasets or pre-trained models. The contribution is a theoretical framework (Collapse Model) and reproducibility code; the accompanying code is provided as supplementary material for reproducibility, not as a standalone asset release.
+    \item[] Answer: \answerYes{}
+    \item[] Justification: The paper introduces no new dataset or pretrained model. The new reproducibility code is documented in the repository README, command-level reproduction guide, experiment plan, audit log, and machine-readable manifests; its scope and current empirical limitations are stated explicitly.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not release new assets.
@@ -214,7 +214,7 @@
     \item[] Question: Does the paper describe the usage of LLMs if it is an important, original, or non-standard component of the core methods in this research? Note that if the LLM is used only for writing, editing, or formatting purposes and does \emph{not} impact the core methodology, scientific rigor, or originality of the research, declaration is not required.
     %this research?
     \item[] Answer: \answerNA{}
-    \item[] Justification: The core methodology (spectral decomposition of frozen-encoder feature matrices and a structured summary predictor) does not use large language models as a component. LLMs are not part of the proposed framework or any experimental pipeline.
+    \item[] Justification: The core methodology (PSD Gram sketches, spectral decomposition, and fixed-compute adapter evaluation) does not use a large language model. LLMs are not part of the proposed method or experimental pipeline.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the core method development in this research does not involve LLMs as any important, original, or non-standard components.

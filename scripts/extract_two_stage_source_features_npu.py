@@ -16,7 +16,11 @@ import torch
 import torch_npu  # noqa: F401 - registers the NPU backend
 from torch.utils.data import Dataset
 
-from benchmark_two_stage_encoders_npu import load_encoder
+from benchmark_two_stage_encoders_npu import (
+    checkpoint_file_sha256,
+    load_encoder,
+    model_state_sha256,
+)
 from extract_two_stage_features_npu import (
     cached_result_is_valid,
     deduplicate_files_by_content,
@@ -45,6 +49,10 @@ SOURCE_ARROWS: dict[str, tuple[str, str, str]] = {
     "dermamnist": (
         "albertvillanova___medmnist-v2/dermamnist/**/medmnist-v2-train.arrow",
         "image", "label",
+    ),
+    "dtd": ("tanganke___dtd/**/dtd-train.arrow", "image", "label"),
+    "eurosat": (
+        "tanganke___eurosat/**/eurosat-train.arrow", "image", "label",
     ),
     "fashion_mnist": (
         "fashion_mnist/**/fashion_mnist-train.arrow", "image", "label",
@@ -174,6 +182,8 @@ def main() -> None:
     torch.npu.set_device(device)
     load_started = time.perf_counter()
     model, preprocess, checkpoint = load_encoder(args.variant)
+    model_state_hash = model_state_sha256(model)
+    checkpoint_file_hash = checkpoint_file_sha256(checkpoint)
     model.eval().to(device)
     model_load_seconds = time.perf_counter() - load_started
     script_sha256 = sha256_file(script_path)
@@ -194,6 +204,8 @@ def main() -> None:
         expected_metadata = {
             "variant": args.variant,
             "checkpoint": checkpoint,
+            "checkpoint_file_sha256": checkpoint_file_hash,
+            "model_state_sha256": model_state_hash,
             "preprocess_sha256": preprocess_sha256,
             "dataset": dataset_name,
             "split": "train",

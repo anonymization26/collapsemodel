@@ -1,4 +1,8 @@
+import csv
+import hashlib
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -32,6 +36,315 @@ def row(encoder, target, method, recall, regret, shortlist):
 
 
 class CrossEncoderSummaryTests(unittest.TestCase):
+    def test_detail_reader_requires_complete_provenance(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "e1"
+            root.mkdir()
+            path = root / "e1_shortlist_results.csv"
+            rows = [row("e1", "t1", "rank_only", 1, 0, "a|b|c")]
+            with path.open("w", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
+                writer.writeheader()
+                writer.writerows(rows)
+            manifest_path = root / "e1_shortlist_manifest.json"
+            manifest_path.write_text(json.dumps({
+                "encoder": "e1",
+                "targets": ["t1"],
+                "shortlist_sizes": [3],
+                "methods": ["rank_only"],
+                "n_random": 0,
+                "target_test_used_for_selection": False,
+                "detail_rows": 1,
+                "detail_sha256": summary.sha256_file(path),
+            }))
+            read_rows, inputs = summary.read_detail_rows(
+                Path(temporary), expected_encoders=["e1"],
+            )
+            self.assertEqual(read_rows, rows)
+            self.assertIn(manifest_path, inputs)
+            manifest = json.loads(manifest_path.read_text())
+            manifest["detail_rows"] = 2
+            manifest_path.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ValueError, "row count"):
+                summary.read_detail_rows(Path(temporary), expected_encoders=["e1"])
+
+    def test_heldout_reader_binds_immutable_selection(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "e1"
+            root.mkdir()
+            selection_path = root / "e1_shortlist_results.csv"
+            selection_row = row("e1", "t1", "rank_only", 1, 0, "a|b|c")
+            selection_row.pop("test_regret_vs_exhaustive_validation_selection")
+            selection_row.update({
+                "selected_source": "a",
+                "oracle_source": "a",
+            })
+            with selection_path.open("w", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=list(selection_row))
+                writer.writeheader()
+                writer.writerow(selection_row)
+            selection_manifest_path = root / "e1_shortlist_manifest.json"
+            adapter_state = {
+                "path": "adapter_states/a.pt",
+                "file_sha256": "a" * 64,
+                "state_sha256": "b" * 64,
+            }
+            protocol = {
+                "seed_start": 0,
+                "n_seeds": 1,
+                "width": 4,
+                "ridge": 0.01,
+                "deterministic_algorithms": True,
+                "target_cache_sha256": {"t1:train": "c" * 64},
+                "target_cache_metadata_sha256": {"t1:train": "d" * 64},
+                "target_cache_index_sha256": {"t1:train": "e" * 64},
+            }
+            script_sha256 = "f" * 64
+            selection_manifest_path.write_text(json.dumps({
+                "schema_version": 2,
+                "script_sha256": script_sha256,
+                "encoder": "e1",
+                "targets": ["t1"],
+                "sources": ["a", "b", "c", "d"],
+                "shortlist_sizes": [3],
+                "methods": ["rank_only"],
+                "n_random": 0,
+                "target_test_used_for_selection": False,
+                "target_test_read_during_adaptation_or_selection": False,
+                "selection_frozen_before_target_test": True,
+                "selection_detail": selection_path.name,
+                "detail_rows": 1,
+                "detail_sha256": summary.sha256_file(selection_path),
+                "adaptation_protocol": protocol,
+                "adapter_states": {"a:0": adapter_state},
+            }))
+            heldout_path = root / "e1_heldout_results.csv"
+            heldout_row = {
+                **selection_row,
+                "oracle_selected_test_accuracy": "0.8",
+                "selected_test_accuracy": "0.8",
+                "test_regret_vs_exhaustive_validation_selection": "0.0",
+                "heldout_adapter_seeds": "1",
+            }
+            with heldout_path.open("w", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=list(heldout_row))
+                writer.writeheader()
+                writer.writerow(heldout_row)
+            baseline_path = root / "e1_heldout_stage2_baselines.csv"
+            configuration = {
+                "script_sha256": script_sha256,
+                "selection_manifest_sha256": summary.sha256_file(selection_manifest_path),
+                "selection_detail_sha256": summary.sha256_file(selection_path),
+                "encoder": "e1",
+                "targets": ["t1"],
+                "evaluation_pairs": [["a", "t1"]],
+                "adapter_states": {"a:0": adapter_state},
+                "seed_start": 0,
+                "n_seeds": 1,
+                "width": 4,
+                "ridge": 0.01,
+                "deterministic_algorithms": True,
+                "target_train_cache_sha256": {"t1:train": "c" * 64},
+                "target_train_metadata_sha256": {"t1:train": "d" * 64},
+                "target_train_index_sha256": {"t1:train": "e" * 64},
+                "target_test_cache_sha256": {"t1:test": "1" * 64},
+                "target_test_access": "after_selection_manifest_was_frozen",
+            }
+            canonical = json.dumps(configuration, sort_keys=True, separators=(",", ":"))
+            fingerprint = hashlib.sha256(canonical.encode()).hexdigest()
+            baseline_path.write_text(
+                "run_fingerprint,encoder,baseline,adapter_seed,target,test_accuracy,"
+                "evaluation_seconds,device\n"
+                f"{fingerprint},e1,frozen_identity,-1,t1,0.7,0.1,npu:4\n"
+                f"{fingerprint},e1,random_adapter,0,t1,0.6,0.1,npu:4\n"
+            )
+            raw_path = root / "e1_heldout_results_evaluations.csv"
+            raw_path.write_text(
+                "run_fingerprint,encoder,source,adapter_seed,target,test_accuracy,"
+                "adapter_state_path,adapter_state_file_sha256,adapter_state_sha256,"
+                "evaluation_seconds,device\n"
+                f"{fingerprint},e1,a,0,t1,0.8,{adapter_state['path']},"
+                f"{adapter_state['file_sha256']},{adapter_state['state_sha256']},"
+                "0.1,npu:4\n"
+            )
+            sidecar_path = root / "e1_heldout_results.csv.run.json"
+            sidecar_path.write_text(json.dumps({
+                "run_fingerprint": fingerprint,
+                "configuration": configuration,
+            }))
+            heldout_manifest_path = root / "e1_heldout_results_manifest.json"
+            heldout_manifest_path.write_text(json.dumps({
+                "encoder": "e1",
+                "script_sha256": script_sha256,
+                "heldout_results_sha256": summary.sha256_file(heldout_path),
+                "heldout_result_rows": 1,
+                "target_test_access": "after_selection_manifest_was_frozen",
+                "target_test_used_for_selection": False,
+                "heldout_stage2_baselines": baseline_path.name,
+                "heldout_stage2_baselines_sha256": summary.sha256_file(baseline_path),
+                "selection_manifest": selection_manifest_path.name,
+                "selection_manifest_sha256": summary.sha256_file(selection_manifest_path),
+                "selection_detail_sha256": summary.sha256_file(selection_path),
+                "raw_evaluations": raw_path.name,
+                "raw_evaluation_rows": 1,
+                "raw_evaluations_sha256": summary.sha256_file(raw_path),
+                "heldout_run_sidecar": sidecar_path.name,
+                "heldout_run_sidecar_sha256": summary.sha256_file(sidecar_path),
+                "test_evaluation_keys": 1,
+            }))
+            rows, inputs = summary.read_detail_rows(
+                Path(temporary), expected_encoders=["e1"],
+            )
+            self.assertEqual(rows, [heldout_row])
+            self.assertIn(heldout_manifest_path, inputs)
+            controls, control_paths = summary.stage2_control_pairs(
+                Path(temporary), rows,
+            )
+            self.assertIn(baseline_path, control_paths)
+            self.assertAlmostEqual(controls[0]["oracle_minus_frozen_identity"], 0.1)
+            self.assertAlmostEqual(controls[0]["oracle_minus_random_adapter"], 0.2)
+            control_summary, bootstrap = summary.summarize_stage2_controls(
+                controls, replicates=100, seed=7,
+            )
+            self.assertAlmostEqual(
+                control_summary[0]["validation_oracle_source_adapter_test_accuracy_mean"],
+                0.8,
+            )
+            self.assertEqual(len(bootstrap), 4)
+            selected = summary.selected_vs_frozen_identity(rows, controls)
+            self.assertAlmostEqual(selected[0]["selected_minus_frozen_identity_mean"], 0.1)
+            selection_row["selected_source"] = "b"
+            with selection_path.open("w", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=list(selection_row))
+                writer.writeheader()
+                writer.writerow(selection_row)
+            with self.assertRaisesRegex(ValueError, "selection freeze checksum"):
+                summary.read_detail_rows(Path(temporary), expected_encoders=["e1"])
+
+    def test_heldout_reader_rejects_a_substituted_raw_evaluation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "e1"
+            root.mkdir()
+            selection_path = root / "e1_shortlist_results.csv"
+            selection_row = row("e1", "t1", "rank_only", 1, 0, "a|b|c")
+            selection_row.pop("test_regret_vs_exhaustive_validation_selection")
+            selection_row.update({"selected_source": "a", "oracle_source": "a"})
+            with selection_path.open("w", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=list(selection_row))
+                writer.writeheader()
+                writer.writerow(selection_row)
+            adapter_state = {
+                "path": "adapter_states/a.pt",
+                "file_sha256": "a" * 64,
+                "state_sha256": "b" * 64,
+            }
+            protocol = {
+                "seed_start": 0,
+                "n_seeds": 1,
+                "width": 4,
+                "ridge": 0.01,
+                "deterministic_algorithms": True,
+                "target_cache_sha256": {"t1:train": "c" * 64},
+                "target_cache_metadata_sha256": {"t1:train": "d" * 64},
+                "target_cache_index_sha256": {"t1:train": "e" * 64},
+            }
+            script_sha256 = "f" * 64
+            selection_manifest_path = root / "e1_shortlist_manifest.json"
+            selection_manifest_path.write_text(json.dumps({
+                "schema_version": 2,
+                "script_sha256": script_sha256,
+                "encoder": "e1",
+                "targets": ["t1"],
+                "sources": ["a", "b", "c", "d"],
+                "shortlist_sizes": [3],
+                "methods": ["rank_only"],
+                "n_random": 0,
+                "target_test_used_for_selection": False,
+                "target_test_read_during_adaptation_or_selection": False,
+                "selection_frozen_before_target_test": True,
+                "selection_detail": selection_path.name,
+                "detail_rows": 1,
+                "detail_sha256": summary.sha256_file(selection_path),
+                "adaptation_protocol": protocol,
+                "adapter_states": {"a:0": adapter_state},
+            }))
+            heldout_path = root / "e1_heldout_results.csv"
+            heldout_row = {
+                **selection_row,
+                "oracle_selected_test_accuracy": "0.8",
+                "selected_test_accuracy": "0.8",
+                "test_regret_vs_exhaustive_validation_selection": "0.0",
+                "heldout_adapter_seeds": "1",
+            }
+            with heldout_path.open("w", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=list(heldout_row))
+                writer.writeheader()
+                writer.writerow(heldout_row)
+            configuration = {
+                "script_sha256": script_sha256,
+                "selection_manifest_sha256": summary.sha256_file(selection_manifest_path),
+                "selection_detail_sha256": summary.sha256_file(selection_path),
+                "encoder": "e1",
+                "targets": ["t1"],
+                "evaluation_pairs": [["a", "t1"]],
+                "adapter_states": {"a:0": adapter_state},
+                "seed_start": 0,
+                "n_seeds": 1,
+                "width": 4,
+                "ridge": 0.01,
+                "deterministic_algorithms": True,
+                "target_train_cache_sha256": {"t1:train": "c" * 64},
+                "target_train_metadata_sha256": {"t1:train": "d" * 64},
+                "target_train_index_sha256": {"t1:train": "e" * 64},
+                "target_test_cache_sha256": {"t1:test": "1" * 64},
+                "target_test_access": "after_selection_manifest_was_frozen",
+            }
+            canonical = json.dumps(configuration, sort_keys=True, separators=(",", ":"))
+            fingerprint = hashlib.sha256(canonical.encode()).hexdigest()
+            baseline_path = root / "e1_heldout_stage2_baselines.csv"
+            baseline_path.write_text(
+                "run_fingerprint,encoder,baseline,adapter_seed,target,test_accuracy,"
+                "evaluation_seconds,device\n"
+                f"{fingerprint},e1,frozen_identity,-1,t1,0.7,0.1,npu:4\n"
+                f"{fingerprint},e1,random_adapter,0,t1,0.6,0.1,npu:4\n"
+            )
+            raw_path = root / "e1_heldout_results_evaluations.csv"
+            raw_path.write_text(
+                "run_fingerprint,encoder,source,adapter_seed,target,test_accuracy,"
+                "adapter_state_path,adapter_state_file_sha256,adapter_state_sha256,"
+                "evaluation_seconds,device\n"
+                f"{fingerprint},e1,a,0,t2,0.8,{adapter_state['path']},"
+                f"{adapter_state['file_sha256']},{adapter_state['state_sha256']},"
+                "0.1,npu:4\n"
+            )
+            sidecar_path = root / "e1_heldout_results.csv.run.json"
+            sidecar_path.write_text(json.dumps({
+                "run_fingerprint": fingerprint,
+                "configuration": configuration,
+            }))
+            heldout_manifest_path = root / "e1_heldout_results_manifest.json"
+            heldout_manifest_path.write_text(json.dumps({
+                "encoder": "e1",
+                "script_sha256": script_sha256,
+                "heldout_results_sha256": summary.sha256_file(heldout_path),
+                "heldout_result_rows": 1,
+                "target_test_access": "after_selection_manifest_was_frozen",
+                "target_test_used_for_selection": False,
+                "heldout_stage2_baselines": baseline_path.name,
+                "heldout_stage2_baselines_sha256": summary.sha256_file(baseline_path),
+                "selection_manifest": selection_manifest_path.name,
+                "selection_manifest_sha256": summary.sha256_file(selection_manifest_path),
+                "selection_detail_sha256": summary.sha256_file(selection_path),
+                "raw_evaluations": raw_path.name,
+                "raw_evaluation_rows": 1,
+                "raw_evaluations_sha256": summary.sha256_file(raw_path),
+                "heldout_run_sidecar": sidecar_path.name,
+                "heldout_run_sidecar_sha256": summary.sha256_file(sidecar_path),
+                "test_evaluation_keys": 1,
+            }))
+            with self.assertRaisesRegex(ValueError, "raw evaluations are incomplete"):
+                summary.read_detail_rows(Path(temporary), expected_encoders=["e1"])
+
     def test_aggregate_counts_encoder_level_passes(self):
         rows = [
             row("e1", "t1", "rank_only", 1, 0, "a|b|c"),
@@ -89,6 +402,30 @@ class CrossEncoderSummaryTests(unittest.TestCase):
         by_encoder = {value["excluded_encoder"]: value for value in output}
         self.assertAlmostEqual(by_encoder["e1"]["best_candidate_recall_mean"], 0.0)
         self.assertAlmostEqual(by_encoder["e2"]["best_candidate_recall_mean"], 1.0)
+
+    def test_selected_identity_outcomes_are_mutually_exclusive_at_tolerance(self):
+        rows = [
+            {
+                **row("e1", "t1", "rank_only", 1, 0, "a|b|c"),
+                "selected_test_accuracy": "0.7000000000005",
+            },
+            {
+                **row("e1", "t2", "rank_only", 1, 0, "a|b|c"),
+                "selected_test_accuracy": "0.8",
+            },
+            {
+                **row("e1", "t3", "rank_only", 1, 0, "a|b|c"),
+                "selected_test_accuracy": "0.6",
+            },
+        ]
+        controls = [
+            {"encoder": "e1", "target": target, "frozen_identity_test_accuracy": 0.7}
+            for target in ("t1", "t2", "t3")
+        ]
+        result = summary.selected_vs_frozen_identity(rows, controls)[0]
+        self.assertEqual(result["selected_beats_frozen_identity_count"], 1)
+        self.assertEqual(result["selected_ties_frozen_identity_count"], 1)
+        self.assertEqual(result["selected_loses_to_frozen_identity_count"], 1)
 
 
 if __name__ == "__main__":

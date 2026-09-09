@@ -73,6 +73,22 @@ def effective_rank_from_singular_values(singular: np.ndarray) -> float:
     return float(np.exp(-np.sum(probabilities * np.log(probabilities))))
 
 
+def split_numerical_singular_values(
+    singular: np.ndarray, matrix_shape: tuple[int, int],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Split numerical signal from roundoff-scale singular values."""
+
+    values = np.maximum(np.asarray(singular, dtype=np.float64), 0.0)
+    if values.size == 0:
+        return values, values
+    tolerance = max(
+        float(values.max()) * np.finfo(np.float64).eps * max(matrix_shape) * 8.0,
+        np.finfo(np.float64).tiny,
+    )
+    positive = values > tolerance
+    return values[positive], values[~positive]
+
+
 def effective_rank_from_scatter(scatter: np.ndarray) -> float:
     """Compute effective rank of a PSD scatter matrix without counting roundoff modes."""
 
@@ -94,6 +110,44 @@ def effective_rank(h: np.ndarray) -> float:
     return effective_rank_from_scatter(gram)
 
 
+def stable_singular_values_and_vh(matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Compute a thin SVD, with a deterministic symmetric-eigen fallback."""
+
+    values = np.asarray(matrix, dtype=np.float64)
+    if values.ndim != 2:
+        raise ValueError(f"expected a matrix, got shape {values.shape}")
+    if not np.isfinite(values).all():
+        raise ValueError("SVD input contains non-finite values")
+    try:
+        _, singular, vh = np.linalg.svd(values, full_matrices=False)
+        return singular, vh
+    except np.linalg.LinAlgError:
+        rows, columns = values.shape
+        size = min(rows, columns)
+        if rows <= columns:
+            gram = values @ values.T
+            eigenvalues, left = np.linalg.eigh((gram + gram.T) / 2.0)
+            order = np.argsort(eigenvalues)[::-1]
+            singular = np.sqrt(np.maximum(eigenvalues[order], 0.0))
+            left = left[:, order]
+            vh = np.zeros((size, columns), dtype=np.float64)
+            tolerance = (
+                singular[0] * np.finfo(np.float64).eps * max(values.shape) * 8.0
+                if singular.size else 0.0
+            )
+            positive = singular > tolerance
+            vh[positive] = (
+                left[:, positive].T @ values
+            ) / singular[positive, None]
+            return singular, vh
+
+        gram = values.T @ values
+        eigenvalues, right = np.linalg.eigh((gram + gram.T) / 2.0)
+        order = np.argsort(eigenvalues)[::-1]
+        singular = np.sqrt(np.maximum(eigenvalues[order], 0.0))
+        return singular, right[:, order].T
+
+
 def feature_vendi_score(h: np.ndarray) -> float:
     """Vendi Score of samples under the linear kernel (squared singular values)."""
     matrix = np.asarray(h, dtype=np.float64)
@@ -113,13 +167,15 @@ def feature_vendi_score(h: np.ndarray) -> float:
 
 @dataclass(frozen=True)
 class GramSketch:
-    """Rank-L PSD factor plus certified upper bounds for the omitted spectrum."""
+    """Rank-L PSD factor, tail bounds, and locally computed scalar summaries."""
 
     factor: np.ndarray
     tail_nuclear_bound: float
     tail_squared_bound: float
     tail_rank_bound: int
     full_rank_bound: int
+    marginal_effective_rank: float
+    marginal_nuclear_mass: float
 
 
 def make_gram_sketch(features: np.ndarray, rank: int) -> GramSketch:
@@ -128,16 +184,19 @@ def make_gram_sketch(features: np.ndarray, rank: int) -> GramSketch:
     if rank < 1:
         raise ValueError("Gram sketch rank must be positive")
     matrix = np.asarray(features, dtype=np.float64)
-    _, singular, vh = np.linalg.svd(matrix, full_matrices=False)
+    singular, vh = stable_singular_values_and_vh(matrix)
     count = min(rank, singular.size)
     factor = singular[:count, None] * vh[:count]
     tail = singular[count:]
+    marginal, _ = split_numerical_singular_values(singular, matrix.shape)
     return GramSketch(
         factor=factor,
         tail_nuclear_bound=float(tail.sum()),
         tail_squared_bound=float(tail @ tail),
         tail_rank_bound=int(tail.size),
         full_rank_bound=min(matrix.shape),
+        marginal_effective_rank=effective_rank_from_singular_values(marginal),
+        marginal_nuclear_mass=float(marginal.sum()),
     )
 
 
@@ -154,12 +213,26 @@ def gram_sketch_statistics(sketches: Iterable[GramSketch]) -> dict[str, float | 
     if not parts:
         raise ValueError("at least one Gram sketch is required")
     factor = np.concatenate([part.factor for part in parts], axis=0)
-    singular = np.linalg.svd(factor, compute_uv=False)
+    raw_singular, _ = stable_singular_values_and_vh(factor)
+    singular, numerical_tail = split_numerical_singular_values(
+        raw_singular, factor.shape,
+    )
+    if singular.size == 0:
+        raise ValueError("aggregate Gram sketch is numerically zero")
     approximate_rank = effective_rank_from_singular_values(singular)
     approximate_nuclear = float(singular.sum())
-    tail_nuclear = float(sum(part.tail_nuclear_bound for part in parts))
-    tail_squared = float(sum(part.tail_squared_bound for part in parts))
-    tail_rank = min(factor.shape[1], sum(part.tail_rank_bound for part in parts))
+    numerical_tail_nuclear = float(numerical_tail.sum())
+    numerical_tail_squared = float(numerical_tail @ numerical_tail)
+    tail_nuclear = float(
+        sum(part.tail_nuclear_bound for part in parts) + numerical_tail_nuclear
+    )
+    tail_squared = float(
+        sum(part.tail_squared_bound for part in parts) + numerical_tail_squared
+    )
+    tail_rank = min(
+        factor.shape[1],
+        sum(part.tail_rank_bound for part in parts) + numerical_tail.size,
+    )
     rank_bound = min(factor.shape[1], sum(part.full_rank_bound for part in parts))
     frobenius_tail_bound = math.sqrt(max(tail_rank * tail_squared, 0.0))
     tail_bound = min(tail_nuclear, frobenius_tail_bound)
@@ -184,6 +257,9 @@ def gram_sketch_statistics(sketches: Iterable[GramSketch]) -> dict[str, float | 
         "tail_nuclear_bound": tail_nuclear,
         "tail_squared_bound": tail_squared,
         "tail_rank_bound": tail_rank,
+        "numerical_tail_nuclear_bound": numerical_tail_nuclear,
+        "numerical_tail_squared_bound": numerical_tail_squared,
+        "numerical_tail_rank_bound": int(numerical_tail.size),
         "tail_mass_bound": tail_bound,
         "epsilon": epsilon,
         "dimension_bound": dimension_bound,
@@ -213,7 +289,7 @@ def rank_l_gram_greedy(
         }
         choice = max(
             remaining,
-            key=lambda name: (float(candidate_stats[name]["log_effective_rank"]), name),
+            key=lambda name: float(candidate_stats[name]["log_effective_rank"]),
         )
         competing_upper = max(
             (
@@ -228,6 +304,9 @@ def rank_l_gram_greedy(
             "choice": choice,
             "approximate_effective_rank": float(chosen["effective_rank"]),
             "log_error_bound": float(chosen["log_error_bound"]),
+            "numerical_tail_nuclear_bound": float(
+                chosen["numerical_tail_nuclear_bound"]
+            ),
             "certified_exact_greedy_choice": (
                 float(chosen["log_rank_lower"]) > competing_upper
             ),
@@ -288,13 +367,13 @@ def pool_statistics(
     centroids: dict[str, np.ndarray] = {}
     subspaces: dict[str, np.ndarray] = {}
     for name, h in features.items():
-        _, singular, vh = np.linalg.svd(h, full_matrices=False)
-        probabilities = singular / max(float(singular.sum()), 1e-12)
-        ranks[name] = float(np.exp(-np.sum(probabilities * np.log(np.maximum(probabilities, 1e-12)))))
-        nuclear[name] = float(singular.sum())
+        singular, vh = stable_singular_values_and_vh(h)
+        positive, _ = split_numerical_singular_values(singular, h.shape)
+        ranks[name] = effective_rank_from_singular_values(positive)
+        nuclear[name] = float(positive.sum())
         centroid = h.mean(axis=0)
         centroids[name] = centroid / max(float(np.linalg.norm(centroid)), 1e-8)
-        subspaces[name] = vh[: min(top_k, len(vh))].astype(np.float32)
+        subspaces[name] = vh[: min(top_k, len(positive))].astype(np.float32)
     return ranks, nuclear, centroids, subspaces
 
 
