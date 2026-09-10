@@ -119,8 +119,15 @@ def make_synthetic_problem(
         raise ValueError("target_rank must be in [1, dimension // 2]")
     if min(candidate_count, source_samples, target_samples) <= 0:
         raise ValueError("candidate and sample counts must be positive")
-    rng = np.random.default_rng(seed)
-    basis, _ = np.linalg.qr(rng.normal(size=(dimension, dimension)))
+    seed_sequence = np.random.SeedSequence(seed)
+    geometry_seed, target_seed, source_seed, direction_seed = seed_sequence.spawn(4)
+    geometry_rng = np.random.default_rng(geometry_seed)
+    target_rng = np.random.default_rng(target_seed)
+    source_rng = np.random.default_rng(source_seed)
+    direction_rng = np.random.default_rng(direction_seed)
+    basis, _ = np.linalg.qr(
+        geometry_rng.normal(size=(dimension, dimension))
+    )
     target_basis = basis[:, :target_rank]
     orthogonal_basis = basis[:, target_rank:2 * target_rank]
     target_eigenvalues = np.geomspace(2.0, 0.5, target_rank)
@@ -129,7 +136,9 @@ def make_synthetic_problem(
         target_basis @ np.diag(target_eigenvalues) @ target_basis.T
         + background * np.eye(dimension)
     )
-    target_features = sample_covariance(rng, target_moment, target_samples)
+    target_features = sample_covariance(
+        target_rng, target_moment, target_samples
+    )
     estimated_target_moment = second_moment(target_features)
 
     angles = np.linspace(0.0, math.pi / 2.0, candidate_count)
@@ -158,10 +167,10 @@ def make_synthetic_problem(
             + background * np.eye(dimension)
         )
         name = f"pool_{index:02d}"
-        source = sample_covariance(rng, covariance, source_samples)
+        source = sample_covariance(source_rng, covariance, source_samples)
         features[name] = source
         blocks[name] = gram_from_features(source)
-        direction = rng.normal(size=dimension)
+        direction = direction_rng.normal(size=dimension)
         direction /= max(float(np.linalg.norm(direction)), np.finfo(float).tiny)
         source_directions[name] = direction
     return SyntheticProblem(
@@ -179,17 +188,13 @@ def synthetic_problem_seed(
     seed: int,
     dimension: int,
     candidate_count: int,
-    target_samples: int,
-    target_rank: int,
 ) -> int:
-    """Return a stable seed for one budget-independent synthetic problem."""
+    """Return a stable seed shared across controlled target-factor sweeps."""
 
     return (
         seed
         + 1009 * dimension
         + 9176 * candidate_count
-        + 37 * target_samples
-        + 65537 * target_rank
     )
 
 
@@ -594,7 +599,7 @@ def conditional_shift_records(
     target_test_samples: int,
     classic_context: ClassicBaselineContext | None = None,
 ) -> list[dict[str, object]]:
-    rng = np.random.default_rng(seed + 1_900_003 + budget)
+    rng = np.random.default_rng(seed + 1_900_003)
     true_weights = rng.normal(size=dimension) / np.sqrt(dimension)
     target_x = sample_covariance(rng, problem.target_moment, target_test_samples)
     target_y = target_x @ true_weights
@@ -1111,8 +1116,6 @@ def main() -> int:
             seed,
             dimension,
             candidate_count,
-            target_samples,
-            target_rank,
         )
         problem = make_synthetic_problem(
             seed=problem_seed,

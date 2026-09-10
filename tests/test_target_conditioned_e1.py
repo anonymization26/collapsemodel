@@ -32,16 +32,37 @@ class TargetConditionedE1Tests(unittest.TestCase):
             self.assertEqual(self.problem.features[name].shape, (20, 12))
             self.assertGreaterEqual(float(np.linalg.eigvalsh(gram)[0]), -1e-10)
 
-    def test_problem_seed_changes_with_target_rank(self):
-        common = (17, 32, 8, 64)
+    def test_problem_seed_is_shared_across_controlled_target_factors(self):
+        common = (17, 32, 8)
         self.assertEqual(
-            experiment.synthetic_problem_seed(*common, 4),
-            experiment.synthetic_problem_seed(*common, 4),
+            experiment.synthetic_problem_seed(*common),
+            experiment.synthetic_problem_seed(*common),
         )
         self.assertNotEqual(
-            experiment.synthetic_problem_seed(*common, 4),
-            experiment.synthetic_problem_seed(*common, 8),
+            experiment.synthetic_problem_seed(*common),
+            experiment.synthetic_problem_seed(18, 32, 8),
         )
+
+    def test_target_sample_sweep_keeps_source_candidates_fixed(self):
+        common = {
+            "seed": experiment.synthetic_problem_seed(17, 12, 6),
+            "dimension": 12,
+            "candidate_count": 6,
+            "source_samples": 20,
+            "target_rank": 3,
+        }
+        small = experiment.make_synthetic_problem(target_samples=16, **common)
+        large = experiment.make_synthetic_problem(target_samples=64, **common)
+        np.testing.assert_allclose(small.target_moment, large.target_moment)
+        self.assertFalse(np.allclose(
+            small.estimated_target_moment,
+            large.estimated_target_moment,
+        ))
+        for name in small.features:
+            np.testing.assert_allclose(small.features[name], large.features[name])
+            np.testing.assert_allclose(
+                small.source_directions[name], large.source_directions[name]
+            )
 
     def test_enumerated_oracle_is_sorted_and_exact(self):
         ordered = experiment.enumerate_combination_risks(

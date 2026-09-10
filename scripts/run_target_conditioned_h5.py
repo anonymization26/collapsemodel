@@ -443,8 +443,6 @@ def main() -> int:
                                 seed,
                                 dimension,
                                 candidate_count,
-                                target_samples,
-                                target_rank,
                             ),
                             dimension=dimension,
                             candidate_count=candidate_count,
