@@ -606,6 +606,31 @@ def exhaustive_target_a(
 
 
 @dataclass(frozen=True)
+class PSDEigendecomposition:
+    eigenvalues: np.ndarray
+    eigenvectors: np.ndarray
+
+    @property
+    def dimension(self) -> int:
+        return int(self.eigenvalues.size)
+
+
+def _decompose_psd_validated(matrix: np.ndarray) -> PSDEigendecomposition:
+    eigenvalues, eigenvectors = np.linalg.eigh(matrix)
+    order = np.argsort(eigenvalues)[::-1]
+    return PSDEigendecomposition(
+        eigenvalues=np.maximum(eigenvalues[order], 0.0),
+        eigenvectors=eigenvectors[:, order],
+    )
+
+
+def decompose_psd(gram: np.ndarray) -> PSDEigendecomposition:
+    """Compute and retain one ordered eigendecomposition of a PSD matrix."""
+
+    return _decompose_psd_validated(_psd_matrix(gram, "gram"))
+
+
+@dataclass(frozen=True)
 class PSDLowRankSketch:
     """Truncated PSD factor and certified residual bounds."""
 
@@ -628,17 +653,17 @@ class PSDLowRankSketch:
         return int(self.factor.nbytes + 3 * np.dtype(np.float64).itemsize)
 
 
-def make_psd_sketch(gram: np.ndarray, rank: int) -> PSDLowRankSketch:
-    """Build an exact-eigendecomposition rank-``rank`` PSD sketch."""
+def sketch_from_decomposition(
+    decomposition: PSDEigendecomposition,
+    rank: int,
+) -> PSDLowRankSketch:
+    """Construct one truncation from a reusable ordered PSD decomposition."""
 
-    matrix = _psd_matrix(gram, "gram")
-    dimension = matrix.shape[0]
+    dimension = decomposition.dimension
     if not isinstance(rank, int) or rank < 0 or rank > dimension:
         raise ValueError(f"rank must be in [0, {dimension}]")
-    eigenvalues, eigenvectors = np.linalg.eigh(matrix)
-    order = np.argsort(eigenvalues)[::-1]
-    eigenvalues = np.maximum(eigenvalues[order], 0.0)
-    eigenvectors = eigenvectors[:, order]
+    eigenvalues = decomposition.eigenvalues
+    eigenvectors = decomposition.eigenvectors
     retained = eigenvalues[:rank]
     factor = np.sqrt(retained)[:, None] * eigenvectors[:, :rank].T
     tail = eigenvalues[rank:]
@@ -649,6 +674,12 @@ def make_psd_sketch(gram: np.ndarray, rank: int) -> PSDLowRankSketch:
         tail_trace=float(tail.sum()),
         full_trace=float(eigenvalues.sum()),
     )
+
+
+def make_psd_sketch(gram: np.ndarray, rank: int) -> PSDLowRankSketch:
+    """Build an exact-eigendecomposition rank-``rank`` PSD sketch."""
+
+    return sketch_from_decomposition(decompose_psd(gram), rank)
 
 
 def make_feature_sketch(
@@ -820,6 +851,7 @@ def adaptive_sketch_target_a(
     rank_schedule: Sequence[int],
     noise_variance: float = 1.0,
     fallback_to_full: bool = True,
+    decompositions: Optional[Mapping[str, PSDEigendecomposition]] = None,
 ) -> AdaptiveSketchResult:
     """Greedily select blocks with certified, adaptively refined PSD sketches.
 
@@ -849,13 +881,40 @@ def adaptive_sketch_target_a(
         schedule.append(prior.shape[0])
 
     rank_positions = {name: 0 for name in names}
+    if decompositions is None:
+        prepared_decompositions = {
+            name: _decompose_psd_validated(prepared[name]) for name in names
+        }
+    else:
+        missing = sorted(set(names) - set(decompositions))
+        extra = sorted(set(decompositions) - set(names))
+        if missing or extra:
+            raise ValueError(
+                "decomposition keys differ from blocks; "
+                f"missing={missing}, extra={extra}"
+            )
+        prepared_decompositions = {}
+        for name in names:
+            decomposition = decompositions[name]
+            if not isinstance(decomposition, PSDEigendecomposition):
+                raise TypeError(
+                    f"decomposition for {name!r} must come from decompose_psd"
+                )
+            if decomposition.dimension != prior.shape[0]:
+                raise ValueError(
+                    f"decomposition for {name!r} has dimension "
+                    f"{decomposition.dimension}, expected {prior.shape[0]}"
+                )
+            prepared_decompositions[name] = decomposition
     sketch_cache: dict[tuple[str, int], PSDLowRankSketch] = {}
 
     def sketch_for(name: str) -> PSDLowRankSketch:
         rank = schedule[rank_positions[name]]
         key = (name, rank)
         if key not in sketch_cache:
-            sketch_cache[key] = make_psd_sketch(prepared[name], rank)
+            sketch_cache[key] = sketch_from_decomposition(
+                prepared_decompositions[name], rank
+            )
         return sketch_cache[key]
 
     selected: list[str] = []

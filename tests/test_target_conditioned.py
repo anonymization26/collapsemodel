@@ -17,6 +17,7 @@ from metrics.target_conditioned import (  # noqa: E402
     certified_minimum,
     combine_ridge_statistics,
     continuous_target_a,
+    decompose_psd,
     d_opt_information_gain,
     exhaustive_target_a,
     gram_from_features,
@@ -29,6 +30,7 @@ from metrics.target_conditioned import (  # noqa: E402
     ridge_statistics,
     sample_marginal_gain,
     second_moment,
+    sketch_from_decomposition,
     sketch_target_a_interval,
     target_a_objective,
     target_a_risk,
@@ -214,6 +216,17 @@ class TargetConditionedTests(unittest.TestCase):
         self.assertLessEqual(interval.lower, exact + 1e-11)
         self.assertGreaterEqual(interval.upper, exact - 1e-11)
 
+    def test_reusable_decomposition_matches_direct_sketch(self):
+        features = self.rng.normal(size=(9, self.dimension))
+        gram = gram_from_features(features)
+        direct = make_psd_sketch(gram, rank=3)
+        reused = sketch_from_decomposition(decompose_psd(gram), rank=3)
+        np.testing.assert_allclose(reused.approximation, direct.approximation)
+        self.assertAlmostEqual(
+            reused.tail_operator_bound, direct.tail_operator_bound, places=12
+        )
+        self.assertAlmostEqual(reused.tail_trace, direct.tail_trace, places=12)
+
     def test_full_rank_feature_sketch_is_exact_and_can_certify(self):
         features = self.rng.normal(size=(9, self.dimension))
         sketch = make_feature_sketch(features, rank=self.dimension)
@@ -249,11 +262,24 @@ class TargetConditionedTests(unittest.TestCase):
             k=2,
             rank_schedule=[1, 2],
             fallback_to_full=True,
+            decompositions={
+                name: decompose_psd(gram) for name, gram in blocks.items()
+            },
         )
         self.assertEqual(actual.selected, expected.selected)
         self.assertAlmostEqual(actual.objective, expected.objective, places=12)
         self.assertTrue(all(step.certified for step in actual.steps))
         self.assertGreater(actual.full_gram_bytes, 0)
+
+        with self.assertRaisesRegex(ValueError, "decomposition keys"):
+            adaptive_sketch_target_a(
+                blocks,
+                target,
+                prior,
+                k=1,
+                rank_schedule=[1],
+                decompositions={"aligned": decompose_psd(blocks["aligned"])},
+            )
 
     def test_ridge_statistics_match_direct_squared_loss(self):
         train_x = self.rng.normal(size=(20, self.dimension))

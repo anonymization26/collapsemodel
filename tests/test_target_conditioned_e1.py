@@ -32,6 +32,17 @@ class TargetConditionedE1Tests(unittest.TestCase):
             self.assertEqual(self.problem.features[name].shape, (20, 12))
             self.assertGreaterEqual(float(np.linalg.eigvalsh(gram)[0]), -1e-10)
 
+    def test_problem_seed_changes_with_target_rank(self):
+        common = (17, 32, 8, 64)
+        self.assertEqual(
+            experiment.synthetic_problem_seed(*common, 4),
+            experiment.synthetic_problem_seed(*common, 4),
+        )
+        self.assertNotEqual(
+            experiment.synthetic_problem_seed(*common, 4),
+            experiment.synthetic_problem_seed(*common, 8),
+        )
+
     def test_enumerated_oracle_is_sorted_and_exact(self):
         ordered = experiment.enumerate_combination_risks(
             self.problem, k=2, max_combinations=100
@@ -56,6 +67,7 @@ class TargetConditionedE1Tests(unittest.TestCase):
             candidate_count=6,
             budget=2,
             target_samples=30,
+            target_rank=3,
             sketch_ranks=[2, 3],
             random_repeats=4,
             max_combinations=100,
@@ -69,6 +81,15 @@ class TargetConditionedE1Tests(unittest.TestCase):
         summary = experiment.summarize(rows, [])
         self.assertEqual(summary["shared_model"]["random"]["n"], 4)
 
+        csv_like_rows = []
+        for row in rows:
+            csv_row = dict(row)
+            csv_row.setdefault("certificate_rate", "")
+            csv_row.setdefault("byte_ratio", "")
+            csv_like_rows.append(csv_row)
+        csv_summary = experiment.summarize(csv_like_rows, [])
+        self.assertEqual(csv_summary["shared_model"]["random"]["n"], 4)
+
     def test_conditional_shift_preserves_selection_but_changes_utility(self):
         rows = experiment.conditional_shift_records(
             problem=self.problem,
@@ -77,6 +98,7 @@ class TargetConditionedE1Tests(unittest.TestCase):
             candidate_count=6,
             budget=2,
             target_samples=30,
+            target_rank=3,
             shift_levels=[0.0, 1.0],
             target_test_samples=80,
         )

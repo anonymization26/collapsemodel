@@ -14,6 +14,7 @@ import hashlib
 import itertools
 import json
 import math
+import os
 import platform
 import subprocess
 import sys
@@ -31,17 +32,21 @@ sys.path.insert(0, str(ROOT / "code"))
 
 from metrics.collapse_core import effective_rank_from_scatter  # noqa: E402
 from metrics.target_conditioned import (  # noqa: E402
+    PSDEigendecomposition,
+    RidgeStatistics,
     adaptive_sketch_target_a,
     aggregate_gram,
     candidate_sketch_intervals,
     certified_minimum,
+    decompose_psd,
     gram_from_features,
     greedy_d_optimal,
     greedy_target_a,
-    make_psd_sketch,
+    combine_ridge_statistics,
     ridge_squared_risk,
     ridge_statistics,
     second_moment,
+    sketch_from_decomposition,
     target_a_objective,
 )
 
@@ -58,6 +63,9 @@ class SyntheticProblem:
 
 
 def git_revision() -> str:
+    injected = os.environ.get("COLLAPSEMODEL_GIT_REVISION")
+    if injected:
+        return injected
     try:
         return subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
@@ -157,6 +165,24 @@ def make_synthetic_problem(
     )
 
 
+def synthetic_problem_seed(
+    seed: int,
+    dimension: int,
+    candidate_count: int,
+    target_samples: int,
+    target_rank: int,
+) -> int:
+    """Return a stable seed for one budget-independent synthetic problem."""
+
+    return (
+        seed
+        + 1009 * dimension
+        + 9176 * candidate_count
+        + 37 * target_samples
+        + 65537 * target_rank
+    )
+
+
 def deterministic_score_greedy(
     blocks: Mapping[str, np.ndarray],
     k: int,
@@ -200,13 +226,24 @@ def sketch_a_greedy(
     problem: SyntheticProblem,
     k: int,
     rank: int,
+    decompositions: Mapping[str, PSDEigendecomposition] | None = None,
 ) -> tuple[tuple[str, ...], dict[str, float]]:
+    if decompositions is None:
+        decompositions = {
+            name: decompose_psd(gram) for name, gram in problem.blocks.items()
+        }
     sketches = {
-        name: make_psd_sketch(gram, min(rank, gram.shape[0]))
-        for name, gram in problem.blocks.items()
+        name: sketch_from_decomposition(
+            decompositions[name], min(rank, problem.blocks[name].shape[0])
+        )
+        for name in problem.blocks
     }
     selected = []
     certified_steps = 0
+    certified_comparisons = 0
+    total_comparisons = 0
+    covered_intervals = 0
+    total_intervals = 0
     widths = []
     for _ in range(k):
         candidates = [name for name in sorted(sketches) if name not in selected]
@@ -221,6 +258,26 @@ def sketch_a_greedy(
         choice = min(candidates, key=lambda name: (intervals[name].upper, name))
         certificate = certified_minimum(intervals)
         certified_steps += int(certificate == choice)
+        certified_comparisons += sum(
+            intervals[choice].upper < intervals[name].lower
+            for name in candidates
+            if name != choice
+        )
+        total_comparisons += max(len(candidates) - 1, 0)
+        prefix_gram = aggregate_gram(problem.blocks, selected)
+        for name in candidates:
+            exact = target_a_objective(
+                problem.estimated_target_moment,
+                problem.prior_precision,
+                prefix_gram + problem.blocks[name],
+                problem.noise_variance,
+            )
+            interval = intervals[name]
+            tolerance = 1e-10 * max(abs(exact), 1.0)
+            covered_intervals += int(
+                interval.lower - tolerance <= exact <= interval.upper + tolerance
+            )
+            total_intervals += 1
         widths.append(intervals[choice].width)
         selected.append(choice)
     full_bytes = len(problem.blocks) * problem.prior_precision.shape[0] ** 2 * 8
@@ -228,6 +285,16 @@ def sketch_a_greedy(
     return tuple(selected), {
         "certified_steps": certified_steps,
         "certificate_rate": certified_steps / k,
+        "certified_comparisons": certified_comparisons,
+        "total_comparisons": total_comparisons,
+        "pair_certificate_rate": (
+            certified_comparisons / total_comparisons
+            if total_comparisons
+            else 1.0
+        ),
+        "covered_intervals": covered_intervals,
+        "total_intervals": total_intervals,
+        "interval_coverage_rate": covered_intervals / total_intervals,
         "mean_selected_interval_width": float(np.mean(widths)),
         "sketch_bytes": sketch_bytes,
         "full_gram_bytes": full_bytes,
@@ -300,9 +367,11 @@ def shared_model_records(
     candidate_count: int,
     budget: int,
     target_samples: int,
+    target_rank: int,
     sketch_ranks: list[int],
     random_repeats: int,
     max_combinations: int,
+    decompositions: Mapping[str, PSDEigendecomposition] | None = None,
 ) -> list[dict[str, object]]:
     config = {
         "seed": seed,
@@ -310,6 +379,7 @@ def shared_model_records(
         "candidate_count": candidate_count,
         "budget": budget,
         "target_samples": target_samples,
+        "target_rank": target_rank,
     }
     ordered_oracle = enumerate_combination_risks(
         problem, budget, max_combinations
@@ -350,8 +420,14 @@ def shared_model_records(
         ("trace", trace_greedy(problem.blocks, budget), None),
         ("oracle_exhaustive", ordered_oracle[0][0], None),
     ]
+    if decompositions is None:
+        decompositions = {
+            name: decompose_psd(gram) for name, gram in problem.blocks.items()
+        }
     for rank in sorted(set(sketch_ranks)):
-        selected, diagnostics = sketch_a_greedy(problem, budget, rank)
+        selected, diagnostics = sketch_a_greedy(
+            problem, budget, rank, decompositions=decompositions
+        )
         methods.append((f"target_a_sketch_l{rank}", selected, diagnostics))
     adaptive = adaptive_sketch_target_a(
         problem.blocks,
@@ -361,6 +437,7 @@ def shared_model_records(
         rank_schedule=sketch_ranks,
         noise_variance=problem.noise_variance,
         fallback_to_full=True,
+        decompositions=decompositions,
     )
     methods.append((
         "target_a_sketch_adaptive",
@@ -399,6 +476,7 @@ def conditional_shift_records(
     candidate_count: int,
     budget: int,
     target_samples: int,
+    target_rank: int,
     shift_levels: list[float],
     target_test_samples: int,
 ) -> list[dict[str, object]]:
@@ -433,16 +511,22 @@ def conditional_shift_records(
     records = []
     names = sorted(problem.features)
     for shift in shift_levels:
+        source_statistics = {}
+        for name in names:
+            shifted_weights = true_weights + shift * problem.source_directions[name]
+            gram = problem.blocks[name]
+            source_statistics[name] = RidgeStatistics(
+                gram=gram,
+                cross=gram @ shifted_weights[:, None],
+                response_norm=float(shifted_weights @ gram @ shifted_weights),
+                n_samples=problem.features[name].shape[0],
+            )
         combination_risks = []
         for selected in itertools.combinations(names, budget):
-            train_x = np.concatenate([problem.features[name] for name in selected])
-            train_y = np.concatenate([
-                problem.features[name]
-                @ (true_weights + shift * problem.source_directions[name])
-                for name in selected
-            ])
             risk = ridge_squared_risk(
-                ridge_statistics(train_x, train_y),
+                combine_ridge_statistics(
+                    source_statistics[name] for name in selected
+                ),
                 target_statistics,
                 regularization=problem.noise_variance,
             )
@@ -457,14 +541,10 @@ def conditional_shift_records(
         selections_with_oracle["conditional_oracle"] = combination_risks[0][0]
         for method, selected in selections_with_oracle.items():
             chosen = tuple(sorted(selected))
-            train_x = np.concatenate([problem.features[name] for name in chosen])
-            train_y = np.concatenate([
-                problem.features[name]
-                @ (true_weights + shift * problem.source_directions[name])
-                for name in chosen
-            ])
             risk = ridge_squared_risk(
-                ridge_statistics(train_x, train_y),
+                combine_ridge_statistics(
+                    source_statistics[name] for name in chosen
+                ),
                 target_statistics,
                 regularization=problem.noise_variance,
             )
@@ -474,6 +554,7 @@ def conditional_shift_records(
                 "candidate_count": candidate_count,
                 "budget": budget,
                 "target_samples": target_samples,
+                "target_rank": target_rank,
                 "shift": shift,
                 "method": method,
                 "selected": "|".join(chosen),
@@ -512,6 +593,7 @@ CONFIGURATION_FIELDS = (
     "candidate_count",
     "budget",
     "target_samples",
+    "target_rank",
 )
 
 
@@ -639,7 +721,11 @@ def summarize(
                 float(row["combination_rank"]) for row in rows
             ),
         }
-        certificate_rows = [row for row in rows if "certificate_rate" in row]
+        certificate_rows = [
+            row
+            for row in rows
+            if row.get("certificate_rate") not in (None, "")
+        ]
         if certificate_rows:
             shared_summary[method]["mean_certificate_rate"] = mean(
                 float(row["certificate_rate"]) for row in certificate_rows
@@ -692,6 +778,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--candidate-counts", type=int, nargs="+", default=[8, 12])
     parser.add_argument("--budgets", type=int, nargs="+", default=[1, 3])
     parser.add_argument("--target-samples", type=int, nargs="+", default=[32, 128])
+    parser.add_argument(
+        "--target-rank-fractions", type=float, nargs="+", default=[0.25]
+    )
     parser.add_argument("--source-samples", type=int, default=64)
     parser.add_argument("--target-test-samples", type=int, default=512)
     parser.add_argument("--sketch-ranks", type=int, nargs="+", default=[2, 4, 8])
@@ -715,13 +804,32 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("grid arguments must be nonempty")
     if any(value <= 0 for values in integer_lists[1:] for value in values):
         raise ValueError("dimensions, counts, budgets, samples, and ranks must be positive")
+    if any(dimension < 4 for dimension in args.dimensions):
+        raise ValueError("dimensions must be at least 4")
+    if max(args.sketch_ranks) > min(args.dimensions):
+        raise ValueError("E1 sketch ranks cannot exceed the smallest dimension")
     if min(args.source_samples, args.target_test_samples, args.random_repeats) <= 0:
         raise ValueError("sample and repeat counts must be positive")
     if any(shift < 0.0 for shift in args.shift_levels):
         raise ValueError("shift levels must be nonnegative")
+    if any(
+        not math.isfinite(fraction) or fraction <= 0.0 or fraction > 0.5
+        for fraction in args.target_rank_fractions
+    ):
+        raise ValueError("target rank fractions must lie in (0, 0.5]")
     for count in args.candidate_counts:
         if any(budget > count for budget in args.budgets):
             raise ValueError("selection budget cannot exceed candidate count")
+    for dimension in args.dimensions:
+        target_ranks = [
+            max(1, min(int(round(dimension * fraction)), dimension // 2))
+            for fraction in args.target_rank_fractions
+        ]
+        if len(set(target_ranks)) != len(target_ranks):
+            raise ValueError(
+                "target rank fractions collapse to duplicate ranks at "
+                f"dimension {dimension}: {target_ranks}"
+            )
 
 
 def main() -> int:
@@ -732,6 +840,7 @@ def main() -> int:
         args.candidate_counts = [min(args.candidate_counts)]
         args.budgets = [min(3, min(args.candidate_counts))]
         args.target_samples = [min(args.target_samples)]
+        args.target_rank_fractions = [0.25]
         args.sketch_ranks = sorted(set([2, min(4, min(args.dimensions))]))
         args.shift_levels = sorted(set([0.0, max(args.shift_levels)]))
         args.random_repeats = min(args.random_repeats, 5)
@@ -747,21 +856,31 @@ def main() -> int:
         * len(args.candidate_counts)
         * len(args.budgets)
         * len(args.target_samples)
+        * len(args.target_rank_fractions)
     )
     completed = 0
-    for seed, dimension, candidate_count, budget, target_samples in itertools.product(
+    for (
+        seed,
+        dimension,
+        candidate_count,
+        target_samples,
+        target_rank_fraction,
+    ) in itertools.product(
         args.seeds,
         args.dimensions,
         args.candidate_counts,
-        args.budgets,
         args.target_samples,
+        args.target_rank_fractions,
     ):
-        target_rank = max(1, min(dimension // 4, dimension // 2))
-        problem_seed = (
-            seed
-            + 1009 * dimension
-            + 9176 * candidate_count
-            + 37 * target_samples
+        target_rank = max(
+            1, min(int(round(dimension * target_rank_fraction)), dimension // 2)
+        )
+        problem_seed = synthetic_problem_seed(
+            seed,
+            dimension,
+            candidate_count,
+            target_samples,
+            target_rank,
         )
         problem = make_synthetic_problem(
             seed=problem_seed,
@@ -771,33 +890,41 @@ def main() -> int:
             target_samples=target_samples,
             target_rank=target_rank,
         )
-        shared_rows.extend(shared_model_records(
-            problem=problem,
-            seed=seed,
-            dimension=dimension,
-            candidate_count=candidate_count,
-            budget=budget,
-            target_samples=target_samples,
-            sketch_ranks=args.sketch_ranks,
-            random_repeats=args.random_repeats,
-            max_combinations=args.max_combinations,
-        ))
-        shift_rows.extend(conditional_shift_records(
-            problem=problem,
-            seed=seed,
-            dimension=dimension,
-            candidate_count=candidate_count,
-            budget=budget,
-            target_samples=target_samples,
-            shift_levels=args.shift_levels,
-            target_test_samples=args.target_test_samples,
-        ))
-        completed += 1
-        print(
-            f"[{completed}/{total_configurations}] seed={seed} d={dimension} "
-            f"M={candidate_count} K={budget} nT={target_samples}",
-            flush=True,
-        )
+        decompositions = {
+            name: decompose_psd(gram) for name, gram in problem.blocks.items()
+        }
+        for budget in args.budgets:
+            shared_rows.extend(shared_model_records(
+                problem=problem,
+                seed=seed,
+                dimension=dimension,
+                candidate_count=candidate_count,
+                budget=budget,
+                target_samples=target_samples,
+                target_rank=target_rank,
+                sketch_ranks=args.sketch_ranks,
+                random_repeats=args.random_repeats,
+                max_combinations=args.max_combinations,
+                decompositions=decompositions,
+            ))
+            shift_rows.extend(conditional_shift_records(
+                problem=problem,
+                seed=seed,
+                dimension=dimension,
+                candidate_count=candidate_count,
+                budget=budget,
+                target_samples=target_samples,
+                target_rank=target_rank,
+                shift_levels=args.shift_levels,
+                target_test_samples=args.target_test_samples,
+            ))
+            completed += 1
+            print(
+                f"[{completed}/{total_configurations}] seed={seed} d={dimension} "
+                f"M={candidate_count} K={budget} nT={target_samples} "
+                f"rT={target_rank}",
+                flush=True,
+            )
 
     write_csv(args.out_dir / "shared_model_results.csv", shared_rows)
     write_csv(args.out_dir / "conditional_shift_results.csv", shift_rows)
@@ -814,6 +941,7 @@ def main() -> int:
             "candidate_counts": args.candidate_counts,
             "budgets": args.budgets,
             "target_samples": args.target_samples,
+            "target_rank_fractions": args.target_rank_fractions,
             "source_samples": args.source_samples,
             "target_test_samples": args.target_test_samples,
             "sketch_ranks": args.sketch_ranks,
