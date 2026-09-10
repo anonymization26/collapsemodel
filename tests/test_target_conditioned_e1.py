@@ -59,6 +59,32 @@ class TargetConditionedE1Tests(unittest.TestCase):
         )
         self.assertAlmostEqual(objective, direct, places=12)
 
+    def test_classic_baselines_return_valid_unique_selections(self):
+        context = experiment.build_classic_baseline_context(
+            self.problem, subspace_rank=4
+        )
+        selections = experiment.classic_baseline_selections(
+            self.problem, context, k=2
+        )
+        self.assertEqual(set(selections), {
+            "collapse_4s",
+            "spectrum_rank_l",
+            "facility_subspace",
+            "kcenter_subspace",
+            "dpp_subspace",
+        })
+        for selected in selections.values():
+            self.assertEqual(len(selected), 2)
+            self.assertEqual(len(set(selected)), 2)
+            self.assertTrue(set(selected).issubset(self.problem.blocks))
+
+        for selected in [
+            experiment.target_energy_greedy(self.problem, 2),
+            experiment.second_moment_mmd_greedy(self.problem, 2),
+        ]:
+            self.assertEqual(len(selected), 2)
+            self.assertEqual(len(set(selected)), 2)
+
     def test_shared_records_group_random_repetitions(self):
         rows = experiment.shared_model_records(
             problem=self.problem,
@@ -89,6 +115,7 @@ class TargetConditionedE1Tests(unittest.TestCase):
             csv_like_rows.append(csv_row)
         csv_summary = experiment.summarize(csv_like_rows, [])
         self.assertEqual(csv_summary["shared_model"]["random"]["n"], 4)
+        self.assertIn("h2_same_information", csv_summary["gates"])
 
     def test_conditional_shift_preserves_selection_but_changes_utility(self):
         rows = experiment.conditional_shift_records(

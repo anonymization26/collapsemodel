@@ -19,6 +19,7 @@ import platform
 import subprocess
 import sys
 import time
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,6 +50,7 @@ from metrics.target_conditioned import (  # noqa: E402
     sketch_from_decomposition,
     target_a_objective,
 )
+import two_stage_classic_baselines as classic  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,14 @@ class SyntheticProblem:
     estimated_target_moment: np.ndarray
     prior_precision: np.ndarray
     noise_variance: float
+
+
+@dataclass(frozen=True)
+class ClassicBaselineContext:
+    ranks: dict[str, float]
+    subspace_similarity: np.ndarray
+    gram_sketches: dict[str, classic.GramSketch]
+    subspace_rank: int
 
 
 def git_revision() -> str:
@@ -222,6 +232,95 @@ def trace_greedy(
     return deterministic_score_greedy(blocks, k, np.trace)
 
 
+def target_energy_greedy(
+    problem: SyntheticProblem,
+    k: int,
+) -> tuple[str, ...]:
+    """Maximize unsaturated target-weighted source energy."""
+
+    return deterministic_score_greedy(
+        problem.blocks,
+        k,
+        lambda gram: np.trace(problem.estimated_target_moment @ gram),
+    )
+
+
+def second_moment_mmd_greedy(
+    problem: SyntheticProblem,
+    k: int,
+) -> tuple[str, ...]:
+    """Minimize MMD in the quadratic-kernel feature space ``vec(xx.T)``."""
+
+    selected: list[str] = []
+    current_gram = np.zeros_like(problem.prior_precision)
+    current_samples = 0
+    for _ in range(k):
+        candidates = [
+            name for name in sorted(problem.blocks) if name not in selected
+        ]
+
+        def distance(name: str) -> float:
+            sample_count = current_samples + problem.features[name].shape[0]
+            source_moment = (current_gram + problem.blocks[name]) / sample_count
+            difference = source_moment - problem.estimated_target_moment
+            return float(np.linalg.norm(difference, ord="fro") ** 2)
+
+        choice = min(candidates, key=lambda name: (distance(name), name))
+        selected.append(choice)
+        current_gram += problem.blocks[choice]
+        current_samples += problem.features[choice].shape[0]
+    return tuple(selected)
+
+
+def build_classic_baseline_context(
+    problem: SyntheticProblem,
+    subspace_rank: int,
+) -> ClassicBaselineContext:
+    rank = min(subspace_rank, problem.prior_precision.shape[0])
+    ranks, _, centroids, subspaces = classic.pool_statistics(
+        problem.features, top_k=rank
+    )
+    names = sorted(problem.features)
+    similarity = classic.similarity_matrix(
+        problem.features,
+        names,
+        "subspace",
+        centroids,
+        subspaces,
+    )
+    return ClassicBaselineContext(
+        ranks=ranks,
+        subspace_similarity=similarity,
+        gram_sketches=classic.pool_gram_sketches(problem.features, rank=rank),
+        subspace_rank=rank,
+    )
+
+
+def classic_baseline_selections(
+    problem: SyntheticProblem,
+    context: ClassicBaselineContext,
+    k: int,
+) -> dict[str, tuple[str, ...]]:
+    names = sorted(problem.features)
+    return {
+        "collapse_4s": tuple(classic.collapse_greedy(
+            problem.features, k, top_k=context.subspace_rank
+        )),
+        "spectrum_rank_l": tuple(classic.rank_l_gram_greedy(
+            context.gram_sketches, k
+        )),
+        "facility_subspace": tuple(classic.facility_location(
+            context.subspace_similarity, names, k
+        )),
+        "kcenter_subspace": tuple(classic.k_center(
+            context.subspace_similarity, names, context.ranks, k
+        )),
+        "dpp_subspace": tuple(classic.dpp_greedy(
+            context.subspace_similarity, names, context.ranks, k
+        )),
+    }
+
+
 def sketch_a_greedy(
     problem: SyntheticProblem,
     k: int,
@@ -372,6 +471,7 @@ def shared_model_records(
     random_repeats: int,
     max_combinations: int,
     decompositions: Mapping[str, PSDEigendecomposition] | None = None,
+    classic_context: ClassicBaselineContext | None = None,
 ) -> list[dict[str, object]]:
     config = {
         "seed": seed,
@@ -411,15 +511,28 @@ def shared_model_records(
         budget,
         problem.noise_variance,
     )
+    if classic_context is None:
+        classic_context = build_classic_baseline_context(
+            problem, subspace_rank=min(8, dimension)
+        )
+    classic_selections = classic_baseline_selections(
+        problem, classic_context, budget
+    )
     methods: list[tuple[str, Iterable[str], Mapping[str, float] | None]] = [
         ("target_a_estimated", target_result.selected, None),
         ("target_a_true_ct_diagnostic", exact_target_result.selected, None),
+        ("target_energy", target_energy_greedy(problem, budget), None),
+        ("second_moment_mmd", second_moment_mmd_greedy(problem, budget), None),
         ("isotropic_a", isotropic_result.selected, None),
         ("bayesian_d", d_opt_result.selected, None),
         ("effective_rank", effective_rank_greedy(problem.blocks, budget), None),
         ("trace", trace_greedy(problem.blocks, budget), None),
         ("oracle_exhaustive", ordered_oracle[0][0], None),
     ]
+    methods.extend(
+        (method, selected, None)
+        for method, selected in classic_selections.items()
+    )
     if decompositions is None:
         decompositions = {
             name: decompose_psd(gram) for name, gram in problem.blocks.items()
@@ -479,12 +592,17 @@ def conditional_shift_records(
     target_rank: int,
     shift_levels: list[float],
     target_test_samples: int,
+    classic_context: ClassicBaselineContext | None = None,
 ) -> list[dict[str, object]]:
     rng = np.random.default_rng(seed + 1_900_003 + budget)
     true_weights = rng.normal(size=dimension) / np.sqrt(dimension)
     target_x = sample_covariance(rng, problem.target_moment, target_test_samples)
     target_y = target_x @ true_weights
     target_statistics = ridge_statistics(target_x, target_y)
+    if classic_context is None:
+        classic_context = build_classic_baseline_context(
+            problem, subspace_rank=min(8, dimension)
+        )
     selections = {
         "target_a_estimated": greedy_target_a(
             problem.blocks,
@@ -507,7 +625,12 @@ def conditional_shift_records(
             problem.noise_variance,
         ).selected,
         "effective_rank": effective_rank_greedy(problem.blocks, budget),
+        "target_energy": target_energy_greedy(problem, budget),
+        "second_moment_mmd": second_moment_mmd_greedy(problem, budget),
     }
+    selections.update(classic_baseline_selections(
+        problem, classic_context, budget
+    ))
     records = []
     names = sorted(problem.features)
     for shift in shift_levels:
@@ -596,9 +719,51 @@ CONFIGURATION_FIELDS = (
     "target_rank",
 )
 
+DESIGN_FIELDS = CONFIGURATION_FIELDS[1:]
+
+TARGET_BLIND_BASELINES = (
+    "isotropic_a",
+    "bayesian_d",
+    "effective_rank",
+    "trace",
+    "collapse_4s",
+    "spectrum_rank_l",
+    "facility_subspace",
+    "kcenter_subspace",
+    "dpp_subspace",
+)
+
+TARGET_AWARE_BASELINES = (
+    "target_energy",
+    "second_moment_mmd",
+)
+
 
 def configuration_key(row: Mapping[str, object]) -> tuple[object, ...]:
     return tuple(row[field] for field in CONFIGURATION_FIELDS)
+
+
+def design_key(row: Mapping[str, object]) -> tuple[object, ...]:
+    return tuple(row[field] for field in DESIGN_FIELDS)
+
+
+def paired_design_differences(
+    target_rows: Mapping[tuple[object, ...], Mapping[str, object]],
+    baseline_rows: Mapping[tuple[object, ...], Mapping[str, object]],
+) -> tuple[np.ndarray, list[int]]:
+    grouped: dict[tuple[object, ...], list[float]] = defaultdict(list)
+    for key, target_row in target_rows.items():
+        baseline_row = baseline_rows[key]
+        baseline_risk = float(baseline_row["target_risk"])
+        grouped[design_key(target_row)].append(
+            (float(target_row["target_risk"]) - baseline_risk)
+            / max(abs(baseline_risk), 1e-15)
+        )
+    ordered = sorted(grouped)
+    return (
+        np.asarray([mean(grouped[key]) for key in ordered]),
+        [len(grouped[key]) for key in ordered],
+    )
 
 
 def h2_pilot_gate(shared_rows: list[dict[str, object]]) -> dict[str, object]:
@@ -609,7 +774,7 @@ def h2_pilot_gate(shared_rows: list[dict[str, object]]) -> dict[str, object]:
         for row in shared_rows
         if row["method"] == "target_a_estimated"
     }
-    baseline_methods = ("isotropic_a", "bayesian_d", "effective_rank", "trace")
+    baseline_methods = TARGET_BLIND_BASELINES
     baseline_scores = {}
     baseline_maps = {}
     for method in baseline_methods:
@@ -625,14 +790,9 @@ def h2_pilot_gate(shared_rows: list[dict[str, object]]) -> dict[str, object]:
             float(row["normalized_regret"]) for row in rows.values()
         )
     strongest = min(baseline_methods, key=lambda name: (baseline_scores[name], name))
-    differences = np.array([
-        (
-            float(target_rows[key]["target_risk"])
-            - float(baseline_maps[strongest][key]["target_risk"])
-        )
-        / max(abs(float(baseline_maps[strongest][key]["target_risk"])), 1e-15)
-        for key in sorted(target_rows)
-    ])
+    differences, seeds_per_design = paired_design_differences(
+        target_rows, baseline_maps[strongest]
+    )
     rng = np.random.default_rng(20260910)
     bootstrap_means = np.mean(
         rng.choice(differences, size=(10_000, len(differences)), replace=True),
@@ -650,7 +810,72 @@ def h2_pilot_gate(shared_rows: list[dict[str, object]]) -> dict[str, object]:
         "status": "passed" if all(checks.values()) else "failed",
         "strongest_target_blind_baseline": strongest,
         "baseline_mean_normalized_regret": baseline_scores,
-        "n_configurations": len(differences),
+        "n_design_configurations": len(differences),
+        "n_seeded_runs": len(target_rows),
+        "seeds_per_design_min": min(seeds_per_design),
+        "seeds_per_design_max": max(seeds_per_design),
+        "mean_relative_risk_difference": mean_difference,
+        "mean_relative_improvement": -mean_difference,
+        "paired_bootstrap_95_ci": [float(lower), float(upper)],
+        "noninferior_fraction_at_0_5_percent_tolerance": noninferior_fraction,
+        "checks": checks,
+    }
+
+
+def h2_same_information_gate(
+    shared_rows: list[dict[str, object]],
+) -> dict[str, object]:
+    """Compare A-opt with simpler methods that see the same target moment."""
+
+    target_rows = {
+        configuration_key(row): row
+        for row in shared_rows
+        if row["method"] == "target_a_estimated"
+    }
+    baseline_scores = {}
+    baseline_maps = {}
+    for method in TARGET_AWARE_BASELINES:
+        rows = {
+            configuration_key(row): row
+            for row in shared_rows
+            if row["method"] == method
+        }
+        if set(rows) != set(target_rows):
+            raise ValueError(
+                f"same-information baseline {method} has incomplete configurations"
+            )
+        baseline_maps[method] = rows
+        baseline_scores[method] = mean(
+            float(row["normalized_regret"]) for row in rows.values()
+        )
+    strongest = min(
+        TARGET_AWARE_BASELINES,
+        key=lambda name: (baseline_scores[name], name),
+    )
+    differences, seeds_per_design = paired_design_differences(
+        target_rows, baseline_maps[strongest]
+    )
+    rng = np.random.default_rng(20260911)
+    bootstrap_means = np.mean(
+        rng.choice(differences, size=(10_000, len(differences)), replace=True),
+        axis=1,
+    )
+    lower, upper = np.quantile(bootstrap_means, [0.025, 0.975])
+    mean_difference = float(np.mean(differences))
+    noninferior_fraction = float(np.mean(differences <= 0.005))
+    checks = {
+        "mean_improvement_above_2_percent": mean_difference < -0.02,
+        "paired_bootstrap_upper_below_zero": float(upper) < 0.0,
+        "noninferior_on_at_least_70_percent": noninferior_fraction >= 0.70,
+    }
+    return {
+        "status": "passed" if all(checks.values()) else "failed",
+        "strongest_same_information_baseline": strongest,
+        "baseline_mean_normalized_regret": baseline_scores,
+        "n_design_configurations": len(differences),
+        "n_seeded_runs": len(target_rows),
+        "seeds_per_design_min": min(seeds_per_design),
+        "seeds_per_design_max": max(seeds_per_design),
         "mean_relative_risk_difference": mean_difference,
         "mean_relative_improvement": -mean_difference,
         "paired_bootstrap_95_ci": [float(lower), float(upper)],
@@ -761,6 +986,7 @@ def summarize(
         "conditional_shift": shift_summary,
         "gates": {
             "h2_pilot": h2_pilot_gate(shared_rows),
+            "h2_same_information": h2_same_information_gate(shared_rows),
             "h5_pilot": h5_pilot_gate(shared_rows),
         },
     }
@@ -784,6 +1010,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source-samples", type=int, default=64)
     parser.add_argument("--target-test-samples", type=int, default=512)
     parser.add_argument("--sketch-ranks", type=int, nargs="+", default=[2, 4, 8])
+    parser.add_argument("--baseline-subspace-rank", type=int, default=8)
     parser.add_argument("--shift-levels", type=float, nargs="+", default=[0.0, 0.5, 1.0])
     parser.add_argument("--random-repeats", type=int, default=20)
     parser.add_argument("--max-combinations", type=int, default=100_000)
@@ -808,7 +1035,12 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("dimensions must be at least 4")
     if max(args.sketch_ranks) > min(args.dimensions):
         raise ValueError("E1 sketch ranks cannot exceed the smallest dimension")
-    if min(args.source_samples, args.target_test_samples, args.random_repeats) <= 0:
+    if min(
+        args.source_samples,
+        args.target_test_samples,
+        args.random_repeats,
+        args.baseline_subspace_rank,
+    ) <= 0:
         raise ValueError("sample and repeat counts must be positive")
     if any(shift < 0.0 for shift in args.shift_levels):
         raise ValueError("shift levels must be nonnegative")
@@ -893,6 +1125,9 @@ def main() -> int:
         decompositions = {
             name: decompose_psd(gram) for name, gram in problem.blocks.items()
         }
+        classic_context = build_classic_baseline_context(
+            problem, args.baseline_subspace_rank
+        )
         for budget in args.budgets:
             shared_rows.extend(shared_model_records(
                 problem=problem,
@@ -906,6 +1141,7 @@ def main() -> int:
                 random_repeats=args.random_repeats,
                 max_combinations=args.max_combinations,
                 decompositions=decompositions,
+                classic_context=classic_context,
             ))
             shift_rows.extend(conditional_shift_records(
                 problem=problem,
@@ -917,6 +1153,7 @@ def main() -> int:
                 target_rank=target_rank,
                 shift_levels=args.shift_levels,
                 target_test_samples=args.target_test_samples,
+                classic_context=classic_context,
             ))
             completed += 1
             print(
@@ -945,6 +1182,7 @@ def main() -> int:
             "source_samples": args.source_samples,
             "target_test_samples": args.target_test_samples,
             "sketch_ranks": args.sketch_ranks,
+            "baseline_subspace_rank": args.baseline_subspace_rank,
             "shift_levels": args.shift_levels,
             "random_repeats": args.random_repeats,
             "max_combinations": args.max_combinations,
@@ -999,6 +1237,8 @@ Status: completed experimental run; results are synthetic evidence only.
 - Conditional-shift rows: {len(shift_rows)}
 - Elapsed seconds: {elapsed:.3f}
 - Git revision: `{report['provenance']['git_revision']}`
+- H2 target-blind gate: {summary['gates']['h2_pilot']['status']}
+- H2b same-information gate: {summary['gates']['h2_same_information']['status']}
 
 `shared_model_results.csv` evaluates the theorem-aligned Bayes target risk.
 `conditional_shift_results.csv` violates the shared conditional model and is a

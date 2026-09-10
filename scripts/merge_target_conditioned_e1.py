@@ -168,6 +168,7 @@ def main() -> int:
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
     )
     h2 = summary["gates"]["h2_pilot"]
+    h2b = summary["gates"]["h2_same_information"]
     h5 = summary["gates"]["h5_pilot"]
     readme = f"""# E1 Target-Conditioned Synthetic Selection
 
@@ -178,6 +179,7 @@ Status: completed merge of {len(shard_dirs)} independently generated seed shards
 - Shared-model rows: {len(shared_rows)}
 - Conditional-shift rows: {len(shift_rows)}
 - H2 synthetic gate: {h2['status']}
+- H2b same-information gate: {h2b['status']}
 - Legacy dense-byte H5 pilot gate: {h5['status']}
 
 The merge rejects overlapping seeds, mismatched configurations, duplicate raw

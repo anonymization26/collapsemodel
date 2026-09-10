@@ -77,11 +77,16 @@ def plot_h2_heatmap(
     shared_rows: list[dict[str, str]],
     summary_report: dict[str, object],
     output: Path,
+    gate_name: str = "h2_pilot",
 ) -> None:
     experiment_summary = summary_report["summary"]
-    baseline = experiment_summary["gates"]["h2_pilot"][
+    gate = experiment_summary["gates"][gate_name]
+    baseline_field = (
         "strongest_target_blind_baseline"
-    ]
+        if gate_name == "h2_pilot"
+        else "strongest_same_information_baseline"
+    )
+    baseline = gate[baseline_field]
     target = {
         config_key(row): row
         for row in shared_rows
@@ -173,6 +178,8 @@ def plot_conditional_shift(
 ) -> None:
     selected_methods = {
         "target_a_estimated",
+        "target_energy",
+        "second_moment_mmd",
         "effective_rank",
         "isotropic_a",
         "bayesian_d",
@@ -312,8 +319,17 @@ def main() -> int:
         summary = read_json(summary_path)
         figure_specs = [
             (
-                "e1_h2_improvement_heatmap.png",
+                "e1_h2_target_blind_improvement_heatmap.png",
                 lambda path: plot_h2_heatmap(shared_rows, summary, path),
+            ),
+            (
+                "e1_h2_same_information_improvement_heatmap.png",
+                lambda path: plot_h2_heatmap(
+                    shared_rows,
+                    summary,
+                    path,
+                    gate_name="h2_same_information",
+                ),
             ),
             (
                 "e1_target_estimation_regret.png",
