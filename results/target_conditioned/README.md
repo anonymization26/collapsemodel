@@ -49,8 +49,9 @@
 ### 旧扩展结果处置
 
 `expanded_v2_fair` 的目标样本量变化同时改变了源候选池，存在随机流混杂，只能视为探索性运行，
-不进入版本库或论文确认性统计。服务器仍保留其原始归档。E2 尚未启动，因为服务器上没有
-Office-Home、PACS、DomainNet 或 Camelyon17 的可核验数据 manifest 与冻结特征缓存。
+不进入版本库或论文确认性统计。服务器仍保留其原始归档。E2 数据协议与抽取代码已经实现，
+但方法实验尚未启动，因为服务器上还没有通过新协议验收的 Office-Home、PACS、DomainNet
+或 Camelyon17 manifest 与冻结特征缓存。
 
 ## pilot_v1
 
