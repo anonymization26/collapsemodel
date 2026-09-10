@@ -78,7 +78,7 @@ def run_one(name: str, exp: dict, env: dict, dry_run: bool, log_dir: Path) -> di
         return {"name": name, "status": "missing_script",
                 "error": f"{script} not found"}
 
-    cmd = [sys.executable, "-u", str(script)]
+    cmd = [sys.executable, "-u", str(script), *map(str, exp.get("args", []))]
     pretty_cmd = " ".join(shlex.quote(c) for c in cmd)
 
     print(f"\n{'═' * 76}")

@@ -2,9 +2,17 @@
 Experiment 1: Extend CLIP/DINO to all 14 vision datasets.
 Extract features and compute all C(14,2)=91 pairs.
 """
-import os, sys, csv, math, time, numpy as np, torch
+import os, sys, csv, time, numpy as np, torch
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import RESULT_DIR, SEED, DATA_DIR
+from metrics.collapse_core import (
+    collapse_4s,
+    effective_rank,
+    is_superadditive,
+    nuclear_mass,
+    superadditivity_delta,
+)
+from metrics.subspace_alignment import principal_angles_from_matrices
 
 RESULTS = str(RESULT_DIR)
 N_SAMPLES = 2000
@@ -49,40 +57,14 @@ def load_imagenet_val_features(model, forward_fn, group_name, class_ids, n_sampl
     return np.concatenate(feats, axis=0).astype(np.float32), np.array(labs, dtype=np.int64)
 
 # ---- Metrics ----
-def effective_rank(H):
-    sv = np.linalg.svd(H, compute_uv=False)
-    sv = sv[sv > 1e-10]
-    p = sv / sv.sum()
-    return math.exp(-np.sum(p * np.log(p + 1e-30)))
-
 def nuclear_norm(H):
-    return np.linalg.svd(H, compute_uv=False).sum()
+    return nuclear_mass(H)
 
 def subspace_alignment(H_A, H_B, k=K):
     """Return (scalar SA_k, per-dim cos²θᵢ array of length k)."""
-    _, _, V_A = np.linalg.svd(H_A, full_matrices=False)
-    _, _, V_B = np.linalg.svd(H_B, full_matrices=False)
-    V_Ak = V_A[:k].T
-    V_Bk = V_B[:k].T
-    M = V_Ak.T @ V_Bk
-    sv = np.linalg.svd(M, compute_uv=False)
-    cos2 = sv ** 2                          # shape (k,), sorted descending
+    cosines, _ = principal_angles_from_matrices(H_A, H_B, k=k)
+    cos2 = cosines ** 2
     return float(np.mean(cos2)), cos2
-
-def collapse_predict(r_A, r_B, gamma, alpha):
-    r_dom = r_A if gamma <= 1 else r_B
-    r_sub = r_B if gamma <= 1 else r_A
-    A = 1 + gamma**2
-    D = math.sqrt((1 - gamma**2)**2 + 4 * gamma**2 * alpha)
-    c_plus = math.sqrt((A + D) / 2)
-    c_minus = math.sqrt(max((A - D) / 2, 1e-30))
-    r_star = c_plus / (c_plus + c_minus)
-    eps = 1e-15
-    r_star = max(min(r_star, 1 - eps), eps)
-    H_b = -r_star * math.log(r_star) - (1 - r_star) * math.log(1 - r_star)
-    log_r = H_b + r_star * math.log(max(r_dom, 1e-10)) + (1 - r_star) * math.log(max(r_sub, 1e-10))
-    rho_c = math.exp(H_b / max(1 - r_star, eps))
-    return math.exp(log_r), r_star, rho_c
 
 def l2_normalize_rows(H):
     norms = np.linalg.norm(H, axis=1, keepdims=True)
@@ -102,9 +84,12 @@ def compute_pair(H_A, H_B):
     alpha, cos2_vec = subspace_alignment(H_A, H_B)   # unpack scalar + vector
     H_merged = np.concatenate([H_A, H_B], axis=0)
     r_merged_true = effective_rank(H_merged)
-    r_merged_pred, r_star, rho_c = collapse_predict(r_A, r_B, gamma, alpha)
-    r_dom = r_A if gamma <= 1 else r_B
-    r_sub = r_B if gamma <= 1 else r_A
+    prediction = collapse_4s(r_A, r_B, gamma, alpha)
+    r_merged_pred = prediction.prediction
+    r_star = prediction.q
+    rho_c = prediction.rho_c
+    r_dom = prediction.dominant_rank
+    r_sub = prediction.subordinate_rank
     # Per-dimension cos²θᵢ stored as cos2_01 … cos2_20 (1-indexed)
     cos2_cols = {f'cos2_{i+1:02d}': float(cos2_vec[i]) for i in range(len(cos2_vec))}
     return {
@@ -114,9 +99,9 @@ def compute_pair(H_A, H_B):
         'gamma': gamma,
         'nuclear_A': nuclear_norm(H_A), 'nuclear_B': nuclear_norm(H_B),
         'r_star': r_star, 'rho_c': rho_c, 'ratio': r_dom/max(r_sub,1e-10),
-        'delta_r': r_merged_true - r_dom,
+        'delta_r': superadditivity_delta(r_merged_true, r_A, r_B, gamma),
         'pred_error_pct': abs(r_merged_pred - r_merged_true) / r_merged_true * 100,
-        'is_superadditive': r_merged_true > r_dom,
+        'is_superadditive': is_superadditive(r_merged_true, r_A, r_B, gamma),
         **cos2_cols,                                    # cos2_01 … cos2_20
     }
 

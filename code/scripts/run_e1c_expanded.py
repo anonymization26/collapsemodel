@@ -2,7 +2,7 @@
 E1c: Large-scale real-dataset validation (Collapse Model)
 =========================================================
 Uses all available feature files to construct the largest possible set of dataset pairs,
-validating the accuracy of the Collapse Model prediction formula and superadditivity coverage.
+measuring Collapse-4S prediction accuracy and superadditivity on observed pairs.
 
 Dataset pairs:
   ResNet-50: 9 datasets -> C(9,2)=36 pairs
@@ -10,9 +10,9 @@ Dataset pairs:
   SBERT:     4 text domains -> C(4,2)= 6 pairs
   Total: 57 pairs
 
-Core formula (Collapse Model):
+Summary predictor (Collapse-4S):
   r_merged_pred = r_dom^r* * r_sub^(1-r*) / (r*^r* * (1-r*)^(1-r*))
-  Superadditivity threshold: r_dom/r_sub < rho_c = exp(H_b(r*) / (1-r*))
+  Model diagnostic: r_dom/r_sub < rho_c = exp(H_b(r*) / (1-r*))
 
 Output:
   results/e1c_expanded_pairs.csv   -- full data for each pair
@@ -25,6 +25,14 @@ import numpy as np
 import pandas as pd
 from itertools import combinations
 from scipy.stats import pearsonr
+from metrics.collapse_core import (
+    collapse_4s,
+    effective_rank as reff,
+    is_superadditive,
+    nuclear_mass,
+    superadditivity_delta,
+)
+from metrics.subspace_alignment import compute_subspace_alignment
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -109,96 +117,9 @@ def load_feat(probe, ds, n_sub=N_SUB, seed=SEED):
 # Collapse Model core computation functions
 # ──────────────────────────────────────────────────────────────
 
-def reff(H):
-    """Effective rank: exp(-sum p_i log p_i), p_i = sigma_i / sum sigma_j (spectral-entropy effective rank, consistent with E1b)"""
-    N, d = H.shape
-    if N <= d:
-        G = (H.astype(np.float64) @ H.astype(np.float64).T) / N
-    else:
-        G = (H.astype(np.float64).T @ H.astype(np.float64)) / N
-    eigvals = np.linalg.eigvalsh(G)[::-1]
-    eigvals = np.maximum(eigvals, 0)
-    eigvals = eigvals[eigvals > 1e-10]
-    if len(eigvals) == 0:
-        return 1.0
-    sigma = np.sqrt(eigvals)
-    p = sigma / sigma.sum()
-    entropy = -np.sum(p * np.log(p + 1e-12))
-    return float(np.exp(entropy))
-
-
-def nuclear_norm(H):
-    """Nuclear norm: sum of singular values."""
-    sv = np.linalg.svd(H, compute_uv=False)
-    return float(sv.sum())
-
-
 def sa_k(H_A, H_B, k=K):
     """Subspace alignment: mean squared cosine of top-k principal angles."""
-    _, _, Vt_A = np.linalg.svd(H_A, full_matrices=False)
-    _, _, Vt_B = np.linalg.svd(H_B, full_matrices=False)
-    k_use = min(k, Vt_A.shape[0], Vt_B.shape[0])
-    M = Vt_A[:k_use] @ Vt_B[:k_use].T
-    sv = np.linalg.svd(M, compute_uv=False)
-    cos2 = np.clip(sv[:k_use], 0.0, 1.0) ** 2
-    return float(np.mean(cos2))
-
-
-def h_binary(p):
-    """Binary entropy function H_b(p)."""
-    p = np.clip(p, 1e-10, 1 - 1e-10)
-    return float(-p * np.log(p) - (1 - p) * np.log(1 - p))
-
-
-def collapse_model_predict(r_A, r_B, gamma, alpha):
-    """
-    Predict the merged effective rank with the Collapse Model (consistent with E1b reff_theoretical_prediction).
-
-    Args:
-      r_A, r_B : individual effective ranks of the two matrices
-      gamma    : ||H_B||_* / ||H_A||_* (nuclear-norm ratio)
-      alpha    : SA_k (subspace alignment) in [0,1]
-
-    Returns:
-      r_merged_pred, r_dom, r_sub, r_star, rho_c
-    """
-    alpha_c = float(np.clip(alpha, 0.0, 1.0 - 1e-8))
-    gamma_f = float(gamma)
-
-    # 2x2 Gram block discriminant (core of the Collapse Model)
-    A    = 1.0 + gamma_f ** 2
-    disc = max(A ** 2 - 4.0 * gamma_f ** 2 * (1.0 - alpha_c), 0.0)
-    D    = float(np.sqrt(disc))
-    amp_plus  = float(np.sqrt((A + D) / 2.0))
-    amp_minus = float(np.sqrt(max((A - D) / 2.0, 0.0)))
-
-    # r* = dominant amplitude weight (nuclear-norm normalized)
-    r_star = float(np.clip(
-        amp_plus / (amp_plus + amp_minus + 1e-12),
-        1e-6, 1.0 - 1e-6,
-    ))
-
-    # Binary entropy H_b(r*)
-    H_bin = -(r_star * np.log(r_star) + (1.0 - r_star) * np.log(1.0 - r_star))
-
-    # Spectral-entropy weighting (dominant amplitude corresponds to larger effective rank direction)
-    H_A_spec = float(np.log(max(r_A, 1e-8)))
-    H_B_spec = float(np.log(max(r_B, 1e-8)))
-    if gamma_f >= 1.0:
-        H_spec_plus, H_spec_minus = H_B_spec, H_A_spec
-    else:
-        H_spec_plus, H_spec_minus = H_A_spec, H_B_spec
-
-    r_pred = float(np.exp(H_bin + r_star * H_spec_plus + (1.0 - r_star) * H_spec_minus))
-    r_pred = float(np.clip(r_pred, min(r_A, r_B), r_A + r_B))
-
-    # Superadditivity critical ratio rho_c
-    r_dom = max(r_A, r_B)
-    r_sub = min(r_A, r_B)
-    denom = max(1.0 - r_star, 1e-10)
-    rho_c = np.exp(H_bin / denom)
-
-    return float(r_pred), float(r_dom), float(r_sub), float(r_star), float(rho_c)
+    return float(compute_subspace_alignment(H_A, H_B, k=k)["sa_k"])
 
 
 # ──────────────────────────────────────────────────────────────
@@ -221,15 +142,18 @@ def compute_pair(probe, ds_A, ds_B):
     alpha = sa_k(H_A, H_B, k=K)
 
     # gamma = nuclear-norm ratio (sum sigma_B / sum sigma_A), consistent with E1b
-    _, s_A, _ = np.linalg.svd(H_A.astype(np.float64), full_matrices=False)
-    _, s_B, _ = np.linalg.svd(H_B.astype(np.float64), full_matrices=False)
-    nuclear_A = float(np.sum(s_A))
-    nuclear_B = float(np.sum(s_B))
-    gamma = nuclear_B / max(nuclear_A, 1e-10)
+    nuclear_A = nuclear_mass(H_A)
+    nuclear_B = nuclear_mass(H_B)
+    gamma = nuclear_B / nuclear_A
 
-    r_pred, r_dom, r_sub, r_star, rho_c = collapse_model_predict(r_A, r_B, gamma, alpha)
+    prediction = collapse_4s(r_A, r_B, gamma, alpha)
+    r_pred = prediction.prediction
+    r_dom = prediction.dominant_rank
+    r_sub = prediction.subordinate_rank
+    q = prediction.q
+    rho_c = prediction.rho_c
 
-    is_superadditive = (r_merged_true > max(r_A, r_B))
+    superadditive = is_superadditive(r_merged_true, r_A, r_B, gamma)
     ratio = r_dom / max(r_sub, 1e-10)
     pred_holds = (ratio < rho_c)
 
@@ -253,13 +177,13 @@ def compute_pair(probe, ds_A, ds_B):
         'gamma':      gamma,
         'nuclear_A':  nuclear_A,
         'nuclear_B':  nuclear_B,
-        'r_star':     r_star,
+        'q':          q,
         'rho_c':      rho_c,
         'ratio':      ratio,
-        'delta_r':    r_merged_true - max(r_A, r_B),
+        'delta_r':    superadditivity_delta(r_merged_true, r_A, r_B, gamma),
         'pred_error': abs(r_merged_true - r_pred),
         'pred_error_pct': abs(r_merged_true - r_pred) / max(r_merged_true, 1e-10) * 100,
-        'is_superadditive': is_superadditive,
+        'is_superadditive': superadditive,
         'pred_holds': pred_holds,        # whether predicted superadditivity matches reality
     }
 

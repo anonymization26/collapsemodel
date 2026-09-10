@@ -18,6 +18,8 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
+from metrics.collapse_core import nuclear_mass
+
 warnings.filterwarnings("ignore")
 sys.path.insert(0, ".")
 # Reuse all infrastructure from P1-A runner
@@ -61,11 +63,11 @@ def hybrid_centroid_collapse(feats, rc, all_ds, k):
     r_cur = reff(H_cur)
     while len(selected) < k:
         best_pred, best_d = -1, None
-        nA = np.linalg.svd(H_cur, compute_uv=False).sum()
+        nA = nuclear_mass(H_cur)
         for d in remaining_set:
             alpha = sa_k(H_cur, feats[d])
-            nB = np.linalg.svd(feats[d], compute_uv=False).sum()
-            pred = cpred(r_cur, rc[d], nB/(nA+1e-8), alpha)
+            nB = nuclear_mass(feats[d])
+            pred = cpred(r_cur, rc[d], nB / nA, alpha)
             if pred > best_pred: best_pred, best_d = pred, d
         if best_d is None: break
         selected.append(best_d); remaining_set.discard(best_d)

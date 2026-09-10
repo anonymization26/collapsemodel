@@ -210,6 +210,10 @@ The \textbf{effective rank} summarizes spectral distribution:
 \end{equation}
 where $p_i$ is the singular-value share (not squared), so $r_{\mathrm{eff}}\in[1,r]$.
 The nuclear norm $\|H\|_*=\sum_i\sigma_i$ is the normalizing mass.
+In all numerical results, we retain singular modes satisfying
+$\sigma_i>\sigma_1\sqrt{8\epsilon_{64}\max(N,d)}$.
+Direct-SVD and Gram-eigensolver paths apply this same cutoff before
+computing nuclear mass or effective rank.
 
 \textbf{$V$ channel --- directional structure.}
 Right singular vectors $V$ encode which directions are activated.
@@ -353,8 +357,11 @@ individual ranks plus a balance bonus $H_b(q)$ (maximal when
 $q{=}0.5$, vanishing as $q{\to}0,1$).
 
 \textbf{Behavior regimes.}
-\emph{Superadditive} ($\alpha{\approx}0$, $\gamma{\approx}1$): $q{\approx}0.5$,
-$\hat{r}_{\mathrm{merged}}{\approx}2\sqrt{r_Ar_B}\geq r_{\mathrm{dom}}$.
+\emph{Complementary directions} ($\alpha{\approx}0$, $\gamma{\approx}1$):
+$q{\approx}0.5$ and
+$\hat{r}_{\mathrm{merged}}{\approx}2\sqrt{r_Ar_B}$.
+At exactly $(\alpha,\gamma)=(0,1)$, this prediction is superadditive if and
+only if $r_{\mathrm{dom}}/r_{\mathrm{sub}}<4$.
 \emph{Directional collapse} ($\alpha{\to}1$): $q{\to}1$, $H_b(q){\to}0$,
 $\hat{r}_{\mathrm{merged}}{\to}r_{\mathrm{dom}}$.
 \emph{Energy collapse} ($\gamma{\gg}1$ or $\gamma{\ll}1$): $q{\to}1$,
@@ -387,6 +394,10 @@ $\hat r_{\mathrm{merged}}=r_{\mathrm{dom}}$ exactly.
 This is an exact decision boundary for the summary model, and for the
 proportional-spectrum model of Proposition~\ref{prop:proportional}; on
 general data it is a diagnostic rather than a guarantee.
+For finite-precision empirical decisions, a predicted or measured value
+$x$ is declared superadditive only when
+$x-r_{\mathrm{dom}}>10^{-10}\max(x,r_{\mathrm{dom}},1)$; this suppresses
+roundoff-only positives at the equality boundary.
 
 \textbf{Physical meaning.}
 $\rho_c$ is a decision threshold internal to the summary model.  Near
@@ -526,9 +537,11 @@ Additional controls (E1a-Ind 120 non-principal-angle pairs,
 E1b 30 real pairs, E1c 57 pairs, E\_diverse cross-architecture,
 E\_downstream $\reff$/LP-accuracy) all agree with the same picture
 and are deferred to Appendix~\ref{app:exp_extras}.
-Feature matrices are L2-row-normalized and subsampled to
+Real-data feature matrices are L2-row-normalized and subsampled to
 $N_{\mathrm{sub}}$ samples; effective rank uses Eq.~\eqref{eq:reff};
-bootstrap CIs use $B=10{,}000$ resamples.
+bootstrap CIs use $B=10{,}000$ resamples.  E1a is the explicit exception:
+it uses exact unnormalized float64 matrices because row normalization would
+alter the proportional spectrum being checked.
 
 \subsection{Step 1 --- Idealized-Model Agreement: Synthetic Controlled Grid (E1a, 280 pairs)}
 \label{sec:e1a_main}
@@ -536,24 +549,25 @@ bootstrap CIs use $B=10{,}000$ resamples.
 As a within-model sanity check, we evaluate Collapse-4S on
 280 controlled synthetic pairs generated under the proportional-spectrum,
 paired-direction model
-with $\alpha\in\{0,0.05,\ldots,1.0\}$ and $\gamma\in\{0.1,0.33,\ldots,10.0\}$
+with $\alpha\in\{0,0.05,0.1,0.2,0.4,0.6,0.8,1.0\}$ and
+$\gamma\in\{0.1,0.33,0.5,1.0,2.0,3.0,10.0\}$
 ($d{=}512$, $N{=}1000$, 5 repeats per setting).
 
 \begin{table}[t]
 \centering
-\caption{E1a: Synthetic grid results ($N=280$). Naive baseline fails at large $\gamma$.}
+\caption{E1a: Canonical Collapse-4S prediction cross-checked against direct SVD on the exact synthetic grid ($N=280$).}
 \label{tab:e1a}
 \begin{tabular}{lcccc}
 \toprule
 Method & $R^2$ & Max error & Superadd.\ (\%) & $\alpha<1$ superadd.\ \\
 \midrule
-Naive $\sqrt{1+\alpha\gamma^2}$ & 0.30 & 28.73 & --- & --- \\
-\textbf{Collapse-4S} & \textbf{0.9999} & \textbf{0.27} & \textbf{87.5\%} & \textbf{100\%} (245/245) \\
+\textbf{Canonical Collapse-4S} & \textbf{1.0000} & \textbf{$1.3{\times}10^{-13}$} & \textbf{87.5\%} & \textbf{100\%} (245/245) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:e1a} shows $R^2{=}0.9999$ (vs.\ $0.30$ for the naive baseline).
+Table~\ref{tab:e1a} shows $R^2{=}1.0000$ and a maximum absolute effective-rank
+error of $1.3{\times}10^{-13}$ against direct SVD.
 All 245 configurations with $\alpha{<}1$ achieve 100\% superadditivity;
 all 35 non-superadditive cases concentrate exclusively at $\alpha{=}1$
 (identical subspaces), as expected from the generator and the boundary of
@@ -939,7 +953,7 @@ search is used only as a finite small-pool reference.
 \toprule
 Experiment & Metric & Point estimate & 95\% CI & SE \\
 \midrule
-E1a (280 pairs)  & $R^2$                  & 0.9999 & [0.9999, 0.9999] & 0.000013 \\
+E1a (280 pairs)  & $R^2$                  & 1.0000 & [1.0000, 1.0000] & 0.000000 \\
 E1a                & Superadd.\ ($\alpha<1$) & 1.0000 & [1.000, 1.000]  & 0.000000 \\
 E1b (30 pairs)     & Pearson $r$             & 0.9478 & [0.906, 0.978]  & 0.019 \\
 E1b                & Superadd.\ \%          & 0.8667 & [0.733, 0.967]  & 0.062 \\
@@ -1455,8 +1469,8 @@ $\gamma$ ($\Sigma$ only) & $\Sigma$ only & 0.277 & 0.001 & 0.271 \\
 \centering
 \includegraphics[width=0.9\linewidth]{e1a_heatmap.png}
 \caption{E1a: Collapse Model prediction accuracy on the synthetic $(\alpha,\gamma)$ grid.
-Left: collapse ratio heatmap. Center: superadditivity ($\delta_r>0$) region.
-Right: predicted vs.\ actual $\reff$ scatter ($R^2{=}0.9999$).}
+Left: collapse ratio heatmap. Center: tolerance-aware superadditivity region.
+Right: predicted vs.\ actual $\reff$ scatter ($R^2{=}1.0000$).}
 \label{fig:e1a}
 \end{figure}
 
@@ -1468,6 +1482,9 @@ proportional-spectrum paired-direction model with
 $\alpha\in\{0,0.05,0.1,0.2,0.4,0.6,0.8,1.0\}$ and
 $\gamma\in\{0.1,0.33,0.5,1.0,2.0,3.0,10.0\}$,
 $d=512$, $N=1000$, 5 independent repeats per setting (280 pairs).
+The exact float64 construction is not row-normalized; both direct SVD and
+the predictor use the common numerical-rank cutoff stated in
+Sec.~\ref{sec:background}.
 All 35 non-superadditive cases concentrate exclusively at $\alpha=1$
 (identical subspaces), confirming the degenerate boundary of
 Corollary~\ref{cor:superadd}.
@@ -1479,7 +1496,7 @@ Corollary~\ref{cor:superadd}.
 A critical concern with E1a is circularity: synthetic data generated from the
 \emph{proportional-spectrum paired-direction model} satisfies the exact
 model assumptions,
-making $R^2=0.9999$ a near-tautological result.
+making $R^2=1.0000$ a near-tautological result.
 To independently test whether Eq.~\eqref{eq:pred} remains predictive
 beyond its derivation assumptions, we generate 120 synthetic matrix pairs
 using \emph{four generation methods that do not use that paired model}:

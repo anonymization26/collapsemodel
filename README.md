@@ -65,12 +65,13 @@ code/                   Reproducibility package
   configs/
     repro_config.yaml   Master configuration (paths, seeds, which experiments to run)
   metrics/              Core metric implementations
-    reff.py             Effective rank and UID
+    collapse_core.py    Canonical Collapse-4S, effective-rank cutoff, and superadditivity
+    reff.py             Matrix-pair measurement and compatibility API
     subspace_alignment.py  Subspace alignment SA_k
     grassmann.py        Grassmann/principal-angle utilities
     direction_gain.py   Direction-gain helper
   scripts/              One script per paper experiment/table
-  results/              Populated by run_all.py (empty at submission time)
+  results/              Committed E1a audit outputs plus generated large-run outputs
   REPRODUCE.md          Full step-by-step reproduction instructions
   requirements.txt      Python dependencies
 

@@ -1,6 +1,6 @@
 """
-E1b Collapse Theorem Extended Validation: 6 pairs -> 30 pairs
-==============================================================
+E1b Collapse-4S Extended Association Study: 6 pairs -> 30 pairs
+================================================================
 Expands the original 3 pairs x 2 probes = 6 rows to:
   C(6, 2) = 15 unique dataset pairs x 2 probes = 30 rows
 
@@ -18,6 +18,15 @@ import itertools
 import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr, spearmanr
+
+from metrics.collapse_core import (
+    collapse_4s,
+    effective_rank,
+    is_superadditive,
+    nuclear_mass,
+    superadditivity_delta,
+)
+from metrics.subspace_alignment import compute_subspace_alignment
 
 BASE    = os.path.dirname(os.path.abspath(__file__))
 RESULTS = os.path.join(BASE, "results")
@@ -54,7 +63,7 @@ DOMAIN_MAP = {
 }
 
 # ──────────────────────────────────────────────
-# Core computation functions (self-contained, no dependency on metrics module)
+# Core pair computation
 # ──────────────────────────────────────────────
 
 def load_features(probe, ds, max_n=2000, seed=42):
@@ -78,61 +87,13 @@ def load_features(probe, ds, max_n=2000, seed=42):
     return H.astype(np.float32)
 
 
-def effective_rank(H):
-    """Spectral-entropy effective rank: r_eff = exp(-sum p_i log p_i), p_i = sigma_i / sum sigma_j"""
-    N, d = H.shape
-    if N <= d:
-        G = (H.astype(np.float64) @ H.astype(np.float64).T) / N
-    else:
-        G = (H.astype(np.float64).T @ H.astype(np.float64)) / N
-    eigvals = np.linalg.eigvalsh(G)[::-1]
-    eigvals = np.maximum(eigvals, 0)
-    eigvals = eigvals[eigvals > 1e-10]
-    if len(eigvals) == 0:
-        return 1.0
-    sigma = np.sqrt(eigvals)
-    p = sigma / sigma.sum()
-    entropy = -np.sum(p * np.log(p + 1e-12))
-    return float(np.exp(entropy))
-
-
 def compute_sa_k(H_A, H_B, k=20):
     """Subspace alignment SA_k in [0,1]; higher values indicate more similar directions."""
-    _, _, Vt_A = np.linalg.svd(H_A.astype(np.float64), full_matrices=False)
-    _, _, Vt_B = np.linalg.svd(H_B.astype(np.float64), full_matrices=False)
-    k_a = min(k, Vt_A.shape[0], Vt_B.shape[0])
-    M = Vt_A[:k_a] @ Vt_B[:k_a].T
-    sv = np.linalg.svd(M, compute_uv=False)
-    cos2 = np.clip(sv[:k_a], 0.0, 1.0) ** 2
-    return float(np.mean(cos2))
-
-
-def reff_theoretical_prediction(r_A, r_B, alpha, gamma):
-    """Theoretical r_eff prediction based on the mixture-entropy formula (consistent with metrics/reff.py)."""
-    alpha_c = float(np.clip(alpha, 0.0, 1.0 - 1e-8))
-    gamma_f = float(gamma)
-    A    = 1.0 + gamma_f ** 2
-    disc = max(A ** 2 - 4.0 * gamma_f ** 2 * (1.0 - alpha_c), 0.0)
-    D    = float(np.sqrt(disc))
-    amp_plus  = float(np.sqrt((A + D) / 2.0))
-    amp_minus = float(np.sqrt(max((A - D) / 2.0, 0.0)))
-    r_star = float(np.clip(
-        amp_plus / (amp_plus + amp_minus + 1e-12),
-        1e-6, 1.0 - 1e-6,
-    ))
-    H_bin    = -(r_star * np.log(r_star) + (1.0 - r_star) * np.log(1.0 - r_star))
-    H_A_spec = float(np.log(max(r_A, 1e-8)))
-    H_B_spec = float(np.log(max(r_B, 1e-8)))
-    if gamma_f >= 1.0:
-        H_spec_plus, H_spec_minus = H_B_spec, H_A_spec
-    else:
-        H_spec_plus, H_spec_minus = H_A_spec, H_B_spec
-    r_pred = float(np.exp(H_bin + r_star * H_spec_plus + (1.0 - r_star) * H_spec_minus))
-    return float(np.clip(r_pred, min(r_A, r_B), r_A + r_B))
+    return float(compute_subspace_alignment(H_A, H_B, k=k)["sa_k"])
 
 
 def compute_pair(probe, ds_A, ds_B, k=20):
-    """Compute collapse-theorem metrics for a dataset pair. Returns a dict or None if features are missing."""
+    """Compute Collapse-4S diagnostics for one measured dataset pair."""
     H_A = load_features(probe, ds_A)
     H_B = load_features(probe, ds_B)
     if H_A is None or H_B is None:
@@ -147,23 +108,18 @@ def compute_pair(probe, ds_A, ds_B, k=20):
     r_ideal = r_A + r_B
     collapse_ratio = max(0.0, (r_ideal - r_merged) / r_ideal) if r_ideal > 0 else 0.0
 
-    # SA_k (directional alignment alpha used in the collapse theorem)
+    # SA_k (directional alignment alpha used by the summary predictor)
     sa_k = compute_sa_k(H_A, H_B, k=k)
 
     # Energy ratio gamma = ||H_B||_* / ||H_A||_* (nuclear-norm ratio)
-    _, s_A, _ = np.linalg.svd(H_A.astype(np.float64), full_matrices=False)
-    _, s_B, _ = np.linalg.svd(H_B.astype(np.float64), full_matrices=False)
-    nuclear_A = float(np.sum(s_A))
-    nuclear_B = float(np.sum(s_B))
-    gamma = nuclear_B / (nuclear_A + 1e-8)
-    r_star = nuclear_A / (nuclear_A + nuclear_B + 1e-8)
+    nuclear_A = nuclear_mass(H_A)
+    nuclear_B = nuclear_mass(H_B)
+    gamma = nuclear_B / nuclear_A
 
-    # delta_r (superadditive / subadditive determination)
-    r_max = max(r_A, r_B)
-    delta_r = r_merged - r_max
-
-    # Theoretical prediction
-    r_pred = reff_theoretical_prediction(r_A, r_B, sa_k, gamma)
+    prediction = collapse_4s(r_A, r_B, gamma, sa_k)
+    r_pred = prediction.prediction
+    delta_r = superadditivity_delta(r_merged, r_A, r_B, gamma)
+    superadditive = is_superadditive(r_merged, r_A, r_B, gamma)
     pred_error = abs(r_pred - r_merged)
 
     # Dominant cause
@@ -175,7 +131,7 @@ def compute_pair(probe, ds_A, ds_B, k=20):
         cause = "direction"
     elif energy_dominant:
         cause = "energy"
-    elif delta_r > 0:
+    elif superadditive:
         cause = "superadditive"
     else:
         cause = "none"
@@ -204,15 +160,18 @@ def compute_pair(probe, ds_A, ds_B, k=20):
         'cross_domain':    cross_domain,
         'r_eff_A':         r_A,
         'r_eff_B':         r_B,
+        'r_eff_dominant':  prediction.dominant_rank,
+        'r_eff_subordinate': prediction.subordinate_rank,
         'r_eff_merged':    r_merged,
         'r_eff_ideal':     r_ideal,
         'collapse_ratio':  collapse_ratio,
         'delta_r':         delta_r,
+        'is_superadditive': superadditive,
         'sa_k':            sa_k,
         'nuclear_A':       nuclear_A,
         'nuclear_B':       nuclear_B,
         'energy_ratio':    gamma,
-        'r_star':          r_star,
+        'q':               prediction.q,
         'r_pred_theory':   r_pred,
         'pred_error':      pred_error,
         'dominant_cause':  cause,
@@ -261,7 +220,7 @@ def run():
                 continue
             rows.append(result)
 
-            sign = "superadditive" if result['delta_r'] > 0 else "subadditive"
+            sign = "superadditive" if result['is_superadditive'] else "subadditive"
             cross = "cross-domain" if result['cross_domain'] else "same-domain"
             print(f"  [{probe:9s}] {ds_A:13s}+{ds_B:13s}  "
                   f"r=[{result['r_eff_A']:.0f}+{result['r_eff_B']:.0f}→{result['r_eff_merged']:.0f}]  "
@@ -295,14 +254,14 @@ def run():
     r_gamma_collapse, _ = pearsonr(np.abs(log_gamma), df['collapse_ratio'].values)
 
     # Superadditivity statistics
-    n_superadd = int((df['delta_r'] > 0).sum())
-    n_subaddive = int((df['delta_r'] <= 0).sum())
+    n_superadd = int(df['is_superadditive'].sum())
+    n_subaddive = n_total - n_superadd
     pct_superadd = n_superadd / n_total * 100
 
     # Cross-domain vs same-domain superadditivity comparison
     cross = df['cross_domain']
-    n_super_cross = int((df[cross]['delta_r'] > 0).sum())
-    n_super_same  = int((df[~cross]['delta_r'] > 0).sum())
+    n_super_cross = int(df[cross]['is_superadditive'].sum())
+    n_super_same  = int(df[~cross]['is_superadditive'].sum())
     n_cross_total = int(cross.sum())
     n_same_total  = int((~cross).sum())
 
@@ -321,8 +280,8 @@ def run():
     print(f"    Pearson r(|log gamma|, collapse_ratio) = {r_gamma_collapse:+.4f}")
     print()
     print(f"  Superadditive / subadditive distribution:")
-    print(f"    Superadditive (delta_r>0): {n_superadd}/{n_total} = {pct_superadd:.1f}%")
-    print(f"    Subadditive (delta_r<=0): {n_subaddive}/{n_total}")
+    print(f"    Superadditive (tolerance-aware): {n_superadd}/{n_total} = {pct_superadd:.1f}%")
+    print(f"    Not superadditive (tolerance-aware): {n_subaddive}/{n_total}")
     print(f"    Cross-domain: {n_super_cross}/{n_cross_total} superadditive "
           f"= {n_super_cross/max(n_cross_total,1)*100:.1f}%  (complementary domains -> superadditive)")
     print(f"    Same-domain: {n_super_same}/{n_same_total} superadditive "
@@ -337,7 +296,7 @@ def run():
         sub = df[df['expected_regime'] == regime]
         if len(sub) == 0:
             continue
-        actual_super = int((sub['delta_r'] > 0).sum())
+        actual_super = int(sub['is_superadditive'].sum())
         err_m = sub['pred_error'].mean()
         print(f"  {regime:20s}  n={len(sub):3d}  "
               f"superadd={actual_super}/{len(sub)}  "
@@ -352,10 +311,10 @@ def run():
     low_sa  = df[df['sa_k'] <= q25]
     high_sa = df[df['sa_k'] >= q75]
     print(f"  Low SA_k (<=={q25:.3f}, n={len(low_sa)}):  "
-          f"superadd={int((low_sa['delta_r']>0).sum())}/{len(low_sa)}  "
+          f"superadd={int(low_sa['is_superadditive'].sum())}/{len(low_sa)}  "
           f"mean_collapse={low_sa['collapse_ratio'].mean():.3f}")
     print(f"  High SA_k (>={q75:.3f}, n={len(high_sa)}): "
-          f"superadd={int((high_sa['delta_r']>0).sum())}/{len(high_sa)}  "
+          f"superadd={int(high_sa['is_superadditive'].sum())}/{len(high_sa)}  "
           f"mean_collapse={high_sa['collapse_ratio'].mean():.3f}")
 
     # ──────────────────────────────────────────────
@@ -366,7 +325,16 @@ def run():
     if os.path.exists(orig_path):
         df_orig = pd.read_csv(orig_path)
         r2_orig = compute_r2(df_orig['r_eff_merged'].values, df_orig['r_pred_theory'].values)
-        super_orig = int((df_orig['delta_r'] > 0).sum())
+        required = {'r_eff_merged', 'r_eff_A', 'r_eff_B', 'energy_ratio'}
+        if not required.issubset(df_orig.columns):
+            raise ValueError('original E1b results lack inputs for canonical superadditivity')
+        super_orig = sum(
+            is_superadditive(
+                row['r_eff_merged'], row['r_eff_A'], row['r_eff_B'],
+                row['energy_ratio'],
+            )
+            for _, row in df_orig.iterrows()
+        )
         print(f"  Original experiment (n=6):  R^2={r2_orig:.4f}  superadd={super_orig}/{len(df_orig)}")
         print(f"  Extended experiment (n={n_total}): R^2={r2:.4f}  superadd={n_superadd}/{n_total}")
     else:

@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import math
 import random
 from pathlib import Path
 
@@ -21,6 +20,14 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch_npu  # noqa: F401
+
+from two_stage_classic_baselines import (
+    collapse_predict,
+    effective_rank as reff_numpy,
+    effective_rank_from_singular_values,
+    split_numerical_singular_values,
+    stable_singular_values_and_vh,
+)
 
 
 SOURCES = [
@@ -40,34 +47,14 @@ def load_feature(root: Path, name: str) -> tuple[np.ndarray, np.ndarray]:
     return h, y.astype(np.int64)
 
 
-def reff_numpy(h: np.ndarray) -> float:
-    gram = h @ h.T if len(h) <= h.shape[1] else h.T @ h
-    values = np.linalg.eigvalsh(gram)
-    singular = np.sqrt(np.maximum(values, 0.0))
-    singular = singular[singular > 1e-8]
-    p = singular / singular.sum()
-    return float(np.exp(-(p * np.log(p)).sum()))
-
-
 def summary(h: np.ndarray, k: int) -> dict[str, object]:
-    _, singular, vh = np.linalg.svd(h, full_matrices=False)
-    p = singular / singular.sum()
+    singular, vh = stable_singular_values_and_vh(h)
+    singular, _ = split_numerical_singular_values(singular, h.shape)
     return {
-        "reff": float(np.exp(-(p * np.log(np.maximum(p, 1e-12))).sum())),
+        "reff": effective_rank_from_singular_values(singular, h.shape),
         "nuclear": float(singular.sum()),
-        "vh": vh[:k].astype(np.float32),
+        "vh": vh[: min(k, len(singular))].astype(np.float32),
     }
-
-
-def collapse_predict(r_a: float, r_b: float, gamma: float, alpha: float) -> float:
-    r_dom, r_sub = (r_a, r_b) if gamma <= 1 else (r_b, r_a)
-    total = 1 + gamma * gamma
-    disc = math.sqrt(max((1 - gamma * gamma) ** 2 + 4 * gamma * gamma * alpha, 0.0))
-    plus = math.sqrt((total + disc) / 2)
-    minus = math.sqrt(max((total - disc) / 2, 1e-30))
-    q = min(max(plus / (plus + minus), 1e-12), 1 - 1e-12)
-    entropy = -q * math.log(q) - (1 - q) * math.log(1 - q)
-    return math.exp(entropy + q * math.log(r_dom) + (1 - q) * math.log(r_sub))
 
 
 def make_collection(

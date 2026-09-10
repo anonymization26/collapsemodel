@@ -1,11 +1,76 @@
 """Verify key numerical claims in the paper against raw CSV data."""
+
+import json
+from pathlib import Path
+
 import pandas as pd
 import numpy as np
 from scipy import stats
 
-# Load data
-df1 = pd.read_csv('results/e1c_expanded_200plus.csv')
-df2 = pd.read_csv('results/exp1_clip_dino_expanded.csv')
+
+ROOT = Path(__file__).resolve().parents[1]
+RESULTS = ROOT / 'results'
+
+
+def boolean_series(values: pd.Series) -> pd.Series:
+    """Parse persisted booleans without treating the string 'False' as true."""
+
+    if values.dtype == bool:
+        return values
+    parsed = values.astype(str).str.lower().map({'true': True, 'false': False})
+    if parsed.isna().any():
+        raise ValueError('boolean column contains values other than true/false')
+    return parsed
+
+
+# E1a is deterministic and committed, so it can always be verified locally.
+e1a = pd.read_csv(RESULTS / 'e1a_synth_grid.csv')
+with open(RESULTS / 'e1a_summary.json') as handle:
+    e1a_summary = json.load(handle)
+
+true = e1a['r_eff_merged'].to_numpy(dtype=float)
+pred = e1a['r_pred_theory'].to_numpy(dtype=float)
+ss_res = float(np.square(true - pred).sum())
+ss_tot = float(np.square(true - true.mean()).sum())
+e1a_r2 = 1.0 - ss_res / ss_tot
+e1a_max_error = float(np.abs(true - pred).max())
+e1a_superadditive = boolean_series(e1a['is_superadditive'])
+e1a_alpha_lt_one = e1a['alpha_target'] < 1.0
+
+e1a_checks = {
+    '280 rows': len(e1a) == 280,
+    'R^2 rounds to 1.0000': e1a_r2 >= 1.0 - 5e-13,
+    'max absolute error <= 1e-10': e1a_max_error <= 1e-10,
+    '245/280 globally superadditive': int(e1a_superadditive.sum()) == 245,
+    '245/245 alpha<1 superadditive': bool(e1a_superadditive[e1a_alpha_lt_one].all()),
+    '0/35 alpha=1 superadditive': not bool(e1a_superadditive[~e1a_alpha_lt_one].any()),
+    'summary matches recomputation': (
+        e1a_summary['n_pairs'] == len(e1a)
+        and np.isclose(e1a_summary['r2_theory_pred'], e1a_r2, atol=1e-15)
+        and np.isclose(e1a_summary['max_absolute_error'], e1a_max_error, atol=1e-15)
+        and e1a_summary['n_superadditive'] == int(e1a_superadditive.sum())
+    ),
+}
+
+print('=== CLAIM: E1a canonical synthetic cross-check ===')
+print(f'  R^2={e1a_r2:.16f}; max absolute error={e1a_max_error:.8g}')
+for label, passed in e1a_checks.items():
+    print(f"  {label}: {'PASS' if passed else 'FAIL'}")
+if not all(e1a_checks.values()):
+    raise SystemExit(1)
+
+# The larger real-data files are generated on demand and are optional here.
+real_paths = (
+    RESULTS / 'e1c_expanded_200plus.csv',
+    RESULTS / 'exp1_clip_dino_expanded.csv',
+)
+missing = [path.name for path in real_paths if not path.exists()]
+if missing:
+    print(f"\nSKIP real-data claims; missing generated files: {', '.join(missing)}")
+    raise SystemExit(0)
+
+df1 = pd.read_csv(real_paths[0])
+df2 = pd.read_csv(real_paths[1])
 
 print("=== DATA INVENTORY ===")
 print(f"e1c_expanded_200plus.csv: {len(df1)} rows")
@@ -18,6 +83,7 @@ df = pd.concat([df1, df2], ignore_index=True)
 key = ['probe','ds_A','ds_B']
 before = len(df)
 df = df.drop_duplicates(subset=key, keep='first')
+df['is_superadditive'] = boolean_series(df['is_superadditive'])
 print(f"\nAfter merge+dedup: {before} -> {len(df)} unique pairs")
 print(f"  probes: {df['probe'].value_counts().to_dict()}")
 

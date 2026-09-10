@@ -28,7 +28,13 @@ from itertools import combinations
 
 from config import RESULT_DIR, FIG_DIR, K_DEFAULT
 from metrics.subspace_alignment import compute_subspace_alignment
-from metrics.reff import effective_rank
+from metrics.collapse_core import (
+    effective_rank,
+    energy_dominant_ranks,
+    is_superadditive,
+    nuclear_mass,
+    superadditivity_delta,
+)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -129,7 +135,8 @@ def compute_gain_consistency(features: dict, sa_df: pd.DataFrame,
 
     For all dataset pairs, compute:
         - SA_k (subspace overlap; lower = more complementary)
-        - delta_r = r_eff([H_i; H_j]) - max(r_eff(H_i), r_eff(H_j))
+        - delta_r = r_eff([H_i; H_j]) - r_dom, where r_dom is the
+          higher-nuclear-mass source's effective rank
         - Expected: SA_k down -> delta_r up (orthogonal domains have greatest merge gain)
     """
     rows = []
@@ -143,7 +150,11 @@ def compute_gain_consistency(features: dict, sa_df: pd.DataFrame,
         r_i      = effective_rank(H_i)
         r_j      = effective_rank(H_j)
         r_merged = effective_rank(H_merged)
-        delta_r  = r_merged - max(r_i, r_j)
+        nuclear_i = nuclear_mass(H_i)
+        nuclear_j = nuclear_mass(H_j)
+        gamma = nuclear_j / nuclear_i
+        r_dom, _ = energy_dominant_ranks(r_i, r_j, gamma)
+        delta_r = superadditivity_delta(r_merged, r_i, r_j, gamma)
 
         sa_val = sa_df.loc[ds_i, ds_j] if ds_i in sa_df.index and ds_j in sa_df.columns \
                  else sa_df.loc[ds_j, ds_i]
@@ -154,7 +165,10 @@ def compute_gain_consistency(features: dict, sa_df: pd.DataFrame,
             "r_i":     round(r_i, 2),
             "r_j":     round(r_j, 2),
             "r_merged":round(r_merged, 2),
+            "r_dom": round(r_dom, 2),
+            "gamma": round(gamma, 6),
             "delta_r": round(delta_r, 2),
+            "is_superadditive": is_superadditive(r_merged, r_i, r_j, gamma),
             "sa_k":    round(float(sa_val), 4),
             "delta_dir": round(1.0 - float(sa_val), 4),
         })
@@ -271,7 +285,7 @@ def plot_all(sa_resnet: pd.DataFrame, sa_vit: pd.DataFrame,
         else:
             ax4.set_title("SA_k vs delta_r (ResNet50)")
         ax4.set_xlabel("SA_k (subspace overlap)")
-        ax4.set_ylabel("delta_r = r_merged - max(r_A, r_B)")
+        ax4.set_ylabel("delta_r = r_merged - r_dom")
         ax4.axhline(0, color="gray", lw=0.8, ls="--")
         ax4.grid(True, alpha=0.3)
 
@@ -377,7 +391,7 @@ def main():
         for _, row in gain_df.iterrows():
             sa_str = f"SA_k={row['sa_k']:.4f}"
             dr_str = f"delta_r={row['delta_r']:+.2f}"
-            flag   = "superadditive" if row["delta_r"] > 0 else "subadditive"
+            flag = "superadditive" if row["is_superadditive"] else "subadditive"
             print(f"  {row['ds_i']:12s}+{row['ds_j']:12s}  "
                   f"{sa_str}  {dr_str}  {flag}")
         out_gain = RESULT_DIR / "e4_gain_consistency.csv"
@@ -394,7 +408,7 @@ def main():
 
     # Summary statistics
     if "resnet50" in results and len(gain_df) > 0:
-        n_super = int((gain_df["delta_r"] > 0).sum())
+        n_super = int(gain_df["is_superadditive"].sum())
         print(f"\nSummary statistics:")
         print(f"  Superadditive dataset pairs: {n_super}/{len(gain_df)}")
         from scipy.stats import pearsonr as _pr

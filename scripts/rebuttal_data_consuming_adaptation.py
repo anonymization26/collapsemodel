@@ -12,7 +12,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import math
 import random
 from pathlib import Path
 
@@ -20,6 +19,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch_npu  # noqa: F401
+
+from two_stage_classic_baselines import collapse_predict, numerical_singular_tolerance
 
 
 CANDIDATES = [
@@ -45,20 +46,13 @@ def load(root: Path, name: str) -> tuple[np.ndarray, np.ndarray]:
 def spectrum(h: np.ndarray, device: torch.device) -> tuple[float, float, np.ndarray]:
     x = torch.from_numpy(h).to(device)
     _, s, vh = torch.linalg.svd(x, full_matrices=False)
+    tolerance = numerical_singular_tolerance(float(s.max().cpu()), tuple(h.shape))
+    retained = s > tolerance
+    s = s[retained]
+    vh = vh[retained]
     p = s / s.sum()
-    reff = torch.exp(-(p * torch.log(p.clamp_min(1e-12))).sum())
+    reff = torch.exp(-(p * torch.log(p)).sum())
     return float(reff.cpu()), float(s.sum().cpu()), vh[:20].float().cpu().numpy()
-
-
-def collapse_predict(r_a: float, r_b: float, gamma: float, alpha: float) -> float:
-    r_dom, r_sub = (r_a, r_b) if gamma <= 1 else (r_b, r_a)
-    a = 1 + gamma * gamma
-    d = math.sqrt(max((1 - gamma * gamma) ** 2 + 4 * gamma * gamma * alpha, 0.0))
-    cp = math.sqrt((a + d) / 2)
-    cm = math.sqrt(max((a - d) / 2, 1e-30))
-    q = min(max(cp / (cp + cm), 1e-12), 1 - 1e-12)
-    hb = -q * math.log(q) - (1 - q) * math.log(1 - q)
-    return math.exp(hb + q * math.log(r_dom) + (1 - q) * math.log(r_sub))
 
 
 def selections(

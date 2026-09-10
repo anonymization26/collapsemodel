@@ -16,6 +16,7 @@ import itertools
 import json
 import math
 import os
+import sys
 import time
 from collections import defaultdict
 from dataclasses import dataclass
@@ -24,6 +25,24 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 import numpy as np
+
+
+CODE_ROOT = Path(__file__).resolve().parents[1] / "code"
+if str(CODE_ROOT) not in sys.path:
+    sys.path.insert(0, str(CODE_ROOT))
+
+from metrics.collapse_core import (  # noqa: E402
+    collapse_4s,
+    collapse_4s_predict as collapse_predict,
+    effective_rank,
+    effective_rank_from_scatter,
+    effective_rank_from_singular_values,
+    is_superadditive,
+    numerical_singular_tolerance,
+    split_numerical_singular_values,
+    stable_singular_values_and_vh,
+    superadditivity_delta,
+)
 
 
 SOURCES = [
@@ -53,99 +72,6 @@ def load_feature(root: Path, name: str, encoder: str) -> np.ndarray:
     with np.load(path) as archive:
         h = archive["H"].astype(np.float32)
     return normalize_rows(h)
-
-
-def effective_rank_from_singular_values(singular: np.ndarray) -> float:
-    """Return entropy effective rank after a scale-aware numerical-rank cutoff."""
-
-    values = np.asarray(singular, dtype=np.float64)
-    if values.size == 0:
-        return 0.0
-    values = np.maximum(values, 0.0)
-    tolerance = max(
-        float(values.max()) * np.finfo(np.float64).eps * max(values.size, 1) * 8.0,
-        np.finfo(np.float64).tiny,
-    )
-    values = values[values > tolerance]
-    if values.size == 0:
-        return 0.0
-    probabilities = values / values.sum()
-    return float(np.exp(-np.sum(probabilities * np.log(probabilities))))
-
-
-def split_numerical_singular_values(
-    singular: np.ndarray, matrix_shape: tuple[int, int],
-) -> tuple[np.ndarray, np.ndarray]:
-    """Split numerical signal from roundoff-scale singular values."""
-
-    values = np.maximum(np.asarray(singular, dtype=np.float64), 0.0)
-    if values.size == 0:
-        return values, values
-    tolerance = max(
-        float(values.max()) * np.finfo(np.float64).eps * max(matrix_shape) * 8.0,
-        np.finfo(np.float64).tiny,
-    )
-    positive = values > tolerance
-    return values[positive], values[~positive]
-
-
-def effective_rank_from_scatter(scatter: np.ndarray) -> float:
-    """Compute effective rank of a PSD scatter matrix without counting roundoff modes."""
-
-    matrix = np.asarray(scatter, dtype=np.float64)
-    matrix = (matrix + matrix.T) / 2.0
-    eigenvalues = np.linalg.eigvalsh(matrix)
-    maximum = max(float(eigenvalues[-1]), 0.0) if eigenvalues.size else 0.0
-    tolerance = max(
-        maximum * np.finfo(np.float64).eps * max(matrix.shape) * 8.0,
-        np.finfo(np.float64).tiny,
-    )
-    singular = np.sqrt(np.maximum(eigenvalues[eigenvalues > tolerance], 0.0))
-    return effective_rank_from_singular_values(singular)
-
-
-def effective_rank(h: np.ndarray) -> float:
-    matrix = np.asarray(h, dtype=np.float64)
-    gram = matrix @ matrix.T if matrix.shape[0] <= matrix.shape[1] else matrix.T @ matrix
-    return effective_rank_from_scatter(gram)
-
-
-def stable_singular_values_and_vh(matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Compute a thin SVD, with a deterministic symmetric-eigen fallback."""
-
-    values = np.asarray(matrix, dtype=np.float64)
-    if values.ndim != 2:
-        raise ValueError(f"expected a matrix, got shape {values.shape}")
-    if not np.isfinite(values).all():
-        raise ValueError("SVD input contains non-finite values")
-    try:
-        _, singular, vh = np.linalg.svd(values, full_matrices=False)
-        return singular, vh
-    except np.linalg.LinAlgError:
-        rows, columns = values.shape
-        size = min(rows, columns)
-        if rows <= columns:
-            gram = values @ values.T
-            eigenvalues, left = np.linalg.eigh((gram + gram.T) / 2.0)
-            order = np.argsort(eigenvalues)[::-1]
-            singular = np.sqrt(np.maximum(eigenvalues[order], 0.0))
-            left = left[:, order]
-            vh = np.zeros((size, columns), dtype=np.float64)
-            tolerance = (
-                singular[0] * np.finfo(np.float64).eps * max(values.shape) * 8.0
-                if singular.size else 0.0
-            )
-            positive = singular > tolerance
-            vh[positive] = (
-                left[:, positive].T @ values
-            ) / singular[positive, None]
-            return singular, vh
-
-        gram = values.T @ values
-        eigenvalues, right = np.linalg.eigh((gram + gram.T) / 2.0)
-        order = np.argsort(eigenvalues)[::-1]
-        singular = np.sqrt(np.maximum(eigenvalues[order], 0.0))
-        return singular, right[:, order].T
 
 
 def feature_vendi_score(h: np.ndarray) -> float:
@@ -195,7 +121,7 @@ def make_gram_sketch(features: np.ndarray, rank: int) -> GramSketch:
         tail_squared_bound=float(tail @ tail),
         tail_rank_bound=int(tail.size),
         full_rank_bound=min(matrix.shape),
-        marginal_effective_rank=effective_rank_from_singular_values(marginal),
+        marginal_effective_rank=effective_rank_from_singular_values(marginal, matrix.shape),
         marginal_nuclear_mass=float(marginal.sum()),
     )
 
@@ -219,7 +145,7 @@ def gram_sketch_statistics(sketches: Iterable[GramSketch]) -> dict[str, float | 
     )
     if singular.size == 0:
         raise ValueError("aggregate Gram sketch is numerically zero")
-    approximate_rank = effective_rank_from_singular_values(singular)
+    approximate_rank = effective_rank_from_singular_values(singular, factor.shape)
     approximate_nuclear = float(singular.sum())
     numerical_tail_nuclear = float(numerical_tail.sum())
     numerical_tail_squared = float(numerical_tail @ numerical_tail)
@@ -369,7 +295,7 @@ def pool_statistics(
     for name, h in features.items():
         singular, vh = stable_singular_values_and_vh(h)
         positive, _ = split_numerical_singular_values(singular, h.shape)
-        ranks[name] = effective_rank_from_singular_values(positive)
+        ranks[name] = effective_rank_from_singular_values(positive, h.shape)
         nuclear[name] = float(positive.sum())
         centroid = h.mean(axis=0)
         centroids[name] = centroid / max(float(np.linalg.norm(centroid)), 1e-8)
@@ -441,19 +367,6 @@ def family_rank(ranks: dict[str, float], family: dict[str, str], k: int) -> list
         if len(selected) == k:
             break
     return selected
-
-
-def collapse_predict(r_a: float, r_b: float, gamma: float, alpha: float) -> float:
-    dominant, subordinate = (r_a, r_b) if gamma <= 1 else (r_b, r_a)
-    total = 1 + gamma * gamma
-    discriminant = math.sqrt(max((1 - gamma * gamma) ** 2 + 4 * gamma * gamma * alpha, 0.0))
-    plus = math.sqrt((total + discriminant) / 2)
-    minus = math.sqrt(max((total - discriminant) / 2, 1e-30))
-    probability = min(max(plus / (plus + minus), 1e-12), 1 - 1e-12)
-    entropy = -probability * math.log(probability) - (1 - probability) * math.log(1 - probability)
-    return math.exp(
-        entropy + probability * math.log(dominant) + (1 - probability) * math.log(subordinate)
-    )
 
 
 def collapse_greedy(features: dict[str, np.ndarray], k: int, top_k: int) -> list[str]:

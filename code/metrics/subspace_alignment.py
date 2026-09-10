@@ -14,8 +14,15 @@ dependency, suitable for callers that pass feature matrices directly.
 The SAMetric class (with feature extraction) is available in sa_metric_full.py.
 """
 
+from __future__ import annotations
+
 import numpy as np
 from typing import Dict, Tuple
+
+from .collapse_core import (
+    split_numerical_singular_values,
+    stable_singular_values_and_vh,
+)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -49,10 +56,13 @@ def principal_angles_from_matrices(
     if d_A != d_B:
         raise ValueError(f"Feature dimension mismatch: {d_A} vs {d_B}")
 
-    k_eff = max(1, min(k, N_A, N_B, d_A))
-
-    _, _, Vt_A = np.linalg.svd(H_A, full_matrices=False)
-    _, _, Vt_B = np.linalg.svd(H_B, full_matrices=False)
+    singular_a, Vt_A = stable_singular_values_and_vh(H_A)
+    singular_b, Vt_B = stable_singular_values_and_vh(H_B)
+    retained_a, _ = split_numerical_singular_values(singular_a, H_A.shape)
+    retained_b, _ = split_numerical_singular_values(singular_b, H_B.shape)
+    k_eff = min(max(int(k), 1), len(retained_a), len(retained_b))
+    if k_eff == 0:
+        raise ValueError("subspace alignment requires two matrices with positive numerical rank")
 
     V_A = Vt_A[:k_eff, :].T   # (d, k_eff)
     V_B = Vt_B[:k_eff, :].T   # (d, k_eff)
@@ -132,8 +142,11 @@ def top_k_basis(H: np.ndarray, k: int) -> np.ndarray:
     Returns:
         V_k: (d, k) orthonormal matrix whose columns are the top-k principal directions
     """
-    k_eff = max(1, min(k, min(H.shape)))
-    _, _, Vt = np.linalg.svd(H, full_matrices=False)
+    singular, Vt = stable_singular_values_and_vh(H)
+    retained, _ = split_numerical_singular_values(singular, H.shape)
+    k_eff = min(max(int(k), 1), len(retained))
+    if k_eff == 0:
+        raise ValueError("subspace extraction requires positive numerical rank")
     return Vt[:k_eff, :].T   # (d, k_eff)
 
 

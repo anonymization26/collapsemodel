@@ -324,23 +324,44 @@ def source_scatters(features: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
 
 
 def full_rank_greedy_from_scatters(
-    scatters: dict[str, np.ndarray], budget: int,
+    scatters: dict[str, np.ndarray],
+    budget: int,
+    source_rows: dict[str, int] | None = None,
 ) -> list[str]:
     selected: list[str] = []
     current = np.zeros_like(next(iter(scatters.values())), dtype=np.float64)
+    current_rows = 0
     while len(selected) < budget:
         remaining = sorted(set(scatters) - set(selected))
+
+        def score(name: str) -> float:
+            rows = (
+                current_rows + source_rows[name]
+                if source_rows is not None
+                else current.shape[0]
+            )
+            return classic.effective_rank_from_scatter(
+                current + scatters[name],
+                source_shape=(rows, current.shape[0]),
+            )
+
         choice = max(
             remaining,
-            key=lambda name: effective_rank_from_scatter(current + scatters[name]),
+            key=score,
         )
         selected.append(choice)
         current = current + scatters[choice]
+        if source_rows is not None:
+            current_rows += source_rows[choice]
     return selected
 
 
 def full_rank_greedy(features: dict[str, np.ndarray], budget: int) -> list[str]:
-    return full_rank_greedy_from_scatters(source_scatters(features), budget)
+    return full_rank_greedy_from_scatters(
+        source_scatters(features),
+        budget,
+        source_rows={name: len(value) for name, value in features.items()},
+    )
 
 
 def run_screen(args: argparse.Namespace) -> None:
@@ -460,16 +481,27 @@ def run_screen(args: argparse.Namespace) -> None:
     )
     exact_started = time.perf_counter()
     scatters = source_scatters(features)
-    exact_order = full_rank_greedy_from_scatters(scatters, max_shortlist)
+    source_rows_by_name = {name: len(value) for name, value in features.items()}
+    exact_order = full_rank_greedy_from_scatters(
+        scatters,
+        max_shortlist,
+        source_rows=source_rows_by_name,
+    )
     runtimes["exact_merged_rank_greedy"] = time.perf_counter() - exact_started
     classic.validate_selection(exact_order, names, max_shortlist)
     method_sequences["exact_merged_rank_greedy"] = exact_order
 
     rank_l_interval_diagnostics = []
     rank_l_scatter = np.zeros_like(next(iter(scatters.values())), dtype=np.float64)
+    rank_l_rows = 0
     for step, diagnostic in enumerate(rank_l_diagnostics, 1):
-        rank_l_scatter = rank_l_scatter + scatters[rank_l_order[step - 1]]
-        exact_reff = effective_rank_from_scatter(rank_l_scatter)
+        selected_name = rank_l_order[step - 1]
+        rank_l_scatter = rank_l_scatter + scatters[selected_name]
+        rank_l_rows += source_rows_by_name[selected_name]
+        exact_reff = classic.effective_rank_from_scatter(
+            rank_l_scatter,
+            source_shape=(rank_l_rows, rank_l_scatter.shape[0]),
+        )
         approximate_log_reff = float(np.log(max(
             float(diagnostic["approximate_effective_rank"]), 1.0,
         )))

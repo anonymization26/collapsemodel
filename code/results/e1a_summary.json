@@ -1,0 +1,39 @@
+{
+  "method": "Collapse-4S canonical",
+  "generator": "exact proportional-spectrum paired-direction model",
+  "row_normalized": false,
+  "matrix_dtype": "float64",
+  "alpha_grid": [
+    0.0,
+    0.05,
+    0.1,
+    0.2,
+    0.4,
+    0.6,
+    0.8,
+    1.0
+  ],
+  "gamma_grid": [
+    0.1,
+    0.33,
+    0.5,
+    1.0,
+    2.0,
+    3.0,
+    10.0
+  ],
+  "superadditivity_reference": "higher-nuclear-mass source",
+  "superadditivity_relative_tolerance": 1e-10,
+  "numerical_rank_policy": "shared Gram-stable singular-value cutoff",
+  "numerical_rank_cutoff": "sigma_i > sigma_max * sqrt(eps64 * max(N,d) * multiplier)",
+  "numerical_rank_epsilon_multiplier": 8.0,
+  "n_pairs": 280,
+  "r2_theory_pred": 1.0,
+  "mean_absolute_error": 3.2862601528904634e-14,
+  "max_absolute_error": 1.2789769243681803e-13,
+  "n_superadditive": 245,
+  "frac_superadditive": 0.875,
+  "n_alpha_lt_one": 245,
+  "n_superadditive_alpha_lt_one": 245,
+  "frac_superadditive_alpha_lt_one": 1.0
+}

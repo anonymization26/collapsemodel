@@ -11,11 +11,18 @@ LP design (fix D): For each target T ∈ {CIFAR-10, STL-10} (has test set):
 - LP = proportion of target test samples correctly classified
 - Always computable regardless of what strategy selected
 """
-import os, sys, math, time, warnings, glob, csv
+import os, sys, time, warnings, glob, csv
 import numpy as np
 from itertools import combinations
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
+
+from metrics.collapse_core import (
+    collapse_4s_predict as cpred,
+    effective_rank as reff,
+    nuclear_mass,
+)
+from metrics.subspace_alignment import compute_subspace_alignment
 
 warnings.filterwarnings("ignore")
 RESULTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "results")
@@ -44,27 +51,8 @@ def load(probe, ds, split="train", base_dir=None):
             return H, y
     return None, None
 
-def reff(H):
-    N, d = H.shape
-    G = (H @ H.T) / N if N <= d else (H.T @ H) / N
-    ev = np.linalg.eigvalsh(G)[::-1]; ev = ev[ev > 1e-10]
-    s = np.sqrt(ev); p = s / s.sum()
-    return float(np.exp(-np.sum(p * np.log(p + 1e-12))))
-
 def sa_k(HA, HB, k=K_SA):
-    _, _, VtA = np.linalg.svd(HA, full_matrices=False)
-    _, _, VtB = np.linalg.svd(HB, full_matrices=False)
-    ke = min(k, VtA.shape[0], VtB.shape[0])
-    cs = np.linalg.svd(VtA[:ke] @ VtB[:ke].T, compute_uv=False)
-    return float(np.mean(np.clip(cs, 0, 1) ** 2))
-
-def cpred(rA, rB, gamma, alpha):
-    rd = rA if gamma <= 1 else rB; rs = rB if gamma <= 1 else rA
-    A = 1 + gamma**2; D = math.sqrt(max((1-gamma**2)**2 + 4*gamma**2*alpha, 0))
-    cp = math.sqrt((A+D)/2); cm = math.sqrt(max((A-D)/2, 1e-30))
-    r = max(min(cp/(cp+cm), 1-1e-15), 1e-15)
-    Hb = -r*math.log(r) - (1-r)*math.log(1-r)
-    return math.exp(Hb + r*math.log(max(rd, 1e-10)) + (1-r)*math.log(max(rs, 1e-10)))
+    return float(compute_subspace_alignment(HA, HB, k=k)["sa_k"])
 
 def collapse_greedy(feats, rc, all_ds, k):
     if k >= len(all_ds): return list(all_ds)
@@ -74,11 +62,11 @@ def collapse_greedy(feats, rc, all_ds, k):
     remaining = set(all_ds) - {seed}
     while len(selected) < k:
         best_pred, best_d = -1, None
-        nA = np.linalg.svd(H_cur, compute_uv=False).sum()
+        nA = nuclear_mass(H_cur)
         for d in remaining:
             alpha = sa_k(H_cur, feats[d])
-            nB = np.linalg.svd(feats[d], compute_uv=False).sum()
-            pred = cpred(r_cur, rc[d], nB/(nA+1e-8), alpha)
+            nB = nuclear_mass(feats[d])
+            pred = cpred(r_cur, rc[d], nB / nA, alpha)
             if pred > best_pred: best_pred, best_d = pred, d
         if best_d is None: break
         selected.append(best_d); remaining.discard(best_d)

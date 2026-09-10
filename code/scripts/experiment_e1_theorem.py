@@ -2,8 +2,9 @@
 Experiment E1: Collapse Model Validation
 
 Goal:
-    Validate the Collapse Model (Proposition 1): r_eff([H_A; H_B]) is jointly
-    determined by alpha (SA_k) and gamma (energy ratio).
+    Cross-check the canonical Collapse-4S formula against direct SVD under
+    its exact proportional-spectrum paired-direction assumptions. Real-data
+    pairs are an empirical diagnostic, not a universal theorem test.
 
 Sub-experiments:
     E1a -- Synthetic controlled experiment (precise control of alpha and gamma)
@@ -21,6 +22,8 @@ Usage:
     python experiment_e1_theorem.py --mini       # synthetic + 1 dataset pair (CPU-friendly)
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import time
@@ -37,8 +40,11 @@ from config import (
     E1_SYNTH_D, E1_SYNTH_K, E1_SYNTH_N, E1_N_REPEAT,
     E1_REAL_PAIRS, E1_PROBES, N_SAMPLES, BATCH_SIZE, K_DEFAULT,
 )
-from metrics.reff import effective_rank, predict_reff_collapse, make_controlled_pair, reff_theoretical_prediction
-from metrics.subspace_alignment import compute_subspace_alignment
+from metrics.collapse_core import (
+    NUMERICAL_RANK_EPS_MULTIPLIER,
+    SUPERADDITIVITY_RELATIVE_TOLERANCE,
+)
+from metrics.reff import effective_rank, make_controlled_pair, predict_reff_collapse
 
 
 # ─────────────────────────────────────────────────────────────
@@ -73,8 +79,6 @@ def run_e1a_synthetic(
         for gamma in gamma_grid:
             for rep in range(n_repeat):
                 seed = SEED + rep * 1000 + int(alpha_target * 100) + int(gamma * 10)
-                t0 = time.time()
-
                 H_A, H_B = make_controlled_pair(
                     d=d, k=k, n=n,
                     target_alpha=alpha_target,
@@ -83,10 +87,7 @@ def run_e1a_synthetic(
                 )
 
                 result = predict_reff_collapse(H_A, H_B, k=k)
-                r_pred = reff_theoretical_prediction(
-                    result["r_eff_A"], result["r_eff_B"],
-                    result["sa_k"], result["energy_ratio"],
-                )
+                r_pred = float(result["r_pred_theory"])
                 pred_error = abs(r_pred - result["r_eff_merged"])
 
                 rows.append({
@@ -97,17 +98,19 @@ def run_e1a_synthetic(
                     "gamma_actual":   result["energy_ratio"],
                     "r_eff_A":        result["r_eff_A"],
                     "r_eff_B":        result["r_eff_B"],
+                    "r_eff_dominant": result["r_eff_dominant"],
+                    "r_eff_subordinate": result["r_eff_subordinate"],
                     "r_eff_merged":   result["r_eff_merged"],
                     "r_eff_ideal":    result["r_eff_ideal"],
                     "collapse_ratio": result["collapse_ratio"],
                     "delta_r":        result["delta_r"],
+                    "is_superadditive": result["is_superadditive"],
                     "nuclear_A":      result["nuclear_A"],
                     "nuclear_B":      result["nuclear_B"],
-                    "r_star":         result["r_star"],
+                    "q":              result["q"],
                     "r_pred_theory":  r_pred,
                     "pred_error":     pred_error,
                     "dominant_cause": result["dominant_cause"],
-                    "elapsed_s":      time.time() - t0,
                 })
 
                 done += 1
@@ -119,23 +122,24 @@ def run_e1a_synthetic(
     df = pd.DataFrame(rows)
     out_path = RESULT_DIR / "e1a_synth_grid.csv"
     df.to_csv(out_path, index=False)
+    save_e1a_summary(df)
     print(f"\nResults saved: {out_path}")
 
     # Statistics
     r2 = _compute_r2_synth(df)
-    n_superadd = (df["delta_r"] > 0).sum()
+    n_superadd = df["is_superadditive"].sum()
     n_total    = len(df)
     print(f"\nSynthetic experiment statistics:")
-    print(f"  Theory prediction R^2 = {r2:.4f}  (expected > 0.8)")
+    print(f"  Canonical prediction R^2 = {r2:.4f}  (expected > 0.8)")
     print(f"  SA_k up -> collapse up  Pearson r = "
           f"{pearsonr(df['alpha_actual'], df['collapse_ratio'])[0]:.4f}")
     print(f"  |log gamma| up -> collapse up  Pearson r = "
           f"{pearsonr(np.log(df['gamma_actual'].clip(0.01)), df['collapse_ratio'])[0]:.4f}")
-    print(f"  Superadditive (delta_r>0): {n_superadd}/{n_total} = {n_superadd/n_total:.1%}")
+    print(f"  Superadditive (tolerance-aware): {n_superadd}/{n_total} = {n_superadd/n_total:.1%}")
     # Analyze superadditive cases at alpha~0
     df_low_alpha = df[df["alpha_actual"] < 0.1]
     if len(df_low_alpha) > 0:
-        n_super_low = (df_low_alpha["delta_r"] > 0).sum()
+        n_super_low = df_low_alpha["is_superadditive"].sum()
         print(f"  SA_k~0 subset: superadditive {n_super_low}/{len(df_low_alpha)} = "
               f"{n_super_low/len(df_low_alpha):.1%}  "
               f"mean delta_r = {df_low_alpha['delta_r'].mean():.2f}")
@@ -144,12 +148,55 @@ def run_e1a_synthetic(
 
 
 def _compute_r2_synth(df: pd.DataFrame) -> float:
-    """Compute R^2 of theoretical prediction vs. measured r_eff_merged."""
+    """Compute R^2 of the summary prediction vs. measured r_eff_merged."""
     y_true = df["r_eff_merged"].values
     y_pred = df["r_pred_theory"].values
     ss_res = np.sum((y_true - y_pred) ** 2)
     ss_tot = np.sum((y_true - y_true.mean()) ** 2)
-    return float(1.0 - ss_res / (ss_tot + 1e-10))
+    if ss_tot <= 0.0:
+        return 1.0 if ss_res <= 0.0 else float("-inf")
+    return float(1.0 - ss_res / ss_tot)
+
+
+def summarize_e1a(df: pd.DataFrame) -> Dict[str, object]:
+    """Compute the complete paper-facing E1a statistics from one result table."""
+
+    alpha_lt_one = df[df["alpha_target"] < 1.0]
+    return {
+        "method": "Collapse-4S canonical",
+        "generator": "exact proportional-spectrum paired-direction model",
+        "row_normalized": False,
+        "matrix_dtype": "float64",
+        "alpha_grid": sorted(float(value) for value in df["alpha_target"].unique()),
+        "gamma_grid": sorted(float(value) for value in df["gamma_target"].unique()),
+        "superadditivity_reference": "higher-nuclear-mass source",
+        "superadditivity_relative_tolerance": SUPERADDITIVITY_RELATIVE_TOLERANCE,
+        "numerical_rank_policy": "shared Gram-stable singular-value cutoff",
+        "numerical_rank_cutoff": (
+            "sigma_i > sigma_max * sqrt(eps64 * max(N,d) * multiplier)"
+        ),
+        "numerical_rank_epsilon_multiplier": NUMERICAL_RANK_EPS_MULTIPLIER,
+        "n_pairs": int(len(df)),
+        "r2_theory_pred": _compute_r2_synth(df),
+        "mean_absolute_error": float(df["pred_error"].mean()),
+        "max_absolute_error": float(df["pred_error"].max()),
+        "n_superadditive": int(df["is_superadditive"].sum()),
+        "frac_superadditive": float(df["is_superadditive"].mean()),
+        "n_alpha_lt_one": int(len(alpha_lt_one)),
+        "n_superadditive_alpha_lt_one": int(alpha_lt_one["is_superadditive"].sum()),
+        "frac_superadditive_alpha_lt_one": float(
+            alpha_lt_one["is_superadditive"].mean()
+        ),
+    }
+
+
+def save_e1a_summary(df: pd.DataFrame) -> Dict[str, object]:
+    summary = summarize_e1a(df)
+    path = RESULT_DIR / "e1a_summary.json"
+    with path.open("w", encoding="utf-8") as stream:
+        json.dump(summary, stream, indent=2, ensure_ascii=False)
+    print(f"E1a summary saved: {path}")
+    return summary
 
 
 # ─────────────────────────────────────────────────────────────
@@ -219,10 +266,7 @@ def run_e1b_real_pairs(
             H_B = _load_or_extract_features(probe_name, ds_B, n_samples)
 
             result = predict_reff_collapse(H_A, H_B, k=k)
-            r_pred = reff_theoretical_prediction(
-                result["r_eff_A"], result["r_eff_B"],
-                result["sa_k"], result["energy_ratio"],
-            )
+            r_pred = float(result["r_pred_theory"])
 
             # Determine expected behavior regime
             if result["sa_k"] < 0.2 and 0.5 <= result["energy_ratio"] <= 2.0:
@@ -244,6 +288,7 @@ def run_e1b_real_pairs(
                 "r_eff_ideal":    result["r_eff_ideal"],
                 "collapse_ratio": result["collapse_ratio"],
                 "delta_r":        result["delta_r"],
+                "is_superadditive": result["is_superadditive"],
                 "sa_k":           result["sa_k"],
                 "nuclear_A":      result["nuclear_A"],
                 "nuclear_B":      result["nuclear_B"],
@@ -255,9 +300,9 @@ def run_e1b_real_pairs(
                 "expected_regime": expected_regime,
             })
 
-            delta_r_sign = "superadditive" if result["delta_r"] > 0 else "subadditive"
+            delta_r_sign = "superadditive" if result["is_superadditive"] else "subadditive"
             match_str    = ("matches expected" if result["dominant_cause"] == expected_regime
-                            or (expected_regime == "superadditive" and result["delta_r"] > 0)
+                            or (expected_regime == "superadditive" and result["is_superadditive"])
                             else "needs analysis")
             print(f"    r_eff: {result['r_eff_A']:.1f} + {result['r_eff_B']:.1f} "
                   f"→ {result['r_eff_merged']:.1f}  (ideal={result['r_eff_ideal']:.1f})")
@@ -281,7 +326,7 @@ def run_e1b_real_pairs(
 # ─────────────────────────────────────────────────────────────
 
 def plot_e1a_heatmap(df: pd.DataFrame):
-    """Plot a triptych: collapse_ratio heatmap / delta_r superadditivity heatmap / theory prediction scatter."""
+    """Plot collapse, canonical superadditivity, and prediction diagnostics."""
     try:
         import matplotlib.pyplot as plt
         import seaborn as sns
@@ -290,7 +335,11 @@ def plot_e1a_heatmap(df: pd.DataFrame):
         return
 
     pivot_collapse = df.groupby(["alpha_target", "gamma_target"])["collapse_ratio"].mean().unstack()
-    pivot_delta    = df.groupby(["alpha_target", "gamma_target"])["delta_r"].mean().unstack()
+    pivot_superadd = (
+        df.groupby(["alpha_target", "gamma_target"])["is_superadditive"]
+        .mean()
+        .unstack()
+    )
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
@@ -305,12 +354,12 @@ def plot_e1a_heatmap(df: pd.DataFrame):
     axes[0].set_xlabel("Energy ratio gamma (nuclear norm)")
     axes[0].set_ylabel("Subspace alignment alpha = SA_k")
 
-    # Center: delta_r heatmap (positive = superadditive blue, negative = subadditive red)
-    vmax_d = float(np.abs(pivot_delta.values).max()) + 1e-3
-    sns.heatmap(pivot_delta, ax=axes[1], annot=True, fmt=".1f",
-                cmap="RdBu_r", center=0, vmin=-vmax_d, vmax=vmax_d,
-                yticklabels=alpha_labels, xticklabels=gamma_labels)
-    axes[1].set_title("Delta_r = r_merged - max(r_A,r_B)\n(blue = superadditive, red = subadditive)")
+    # Center: repeat-level rate under the canonical tolerance-aware decision.
+    sns.heatmap(pivot_superadd, ax=axes[1], annot=True, fmt=".0%",
+                cmap="RdBu", vmin=0, vmax=1,
+                yticklabels=alpha_labels, xticklabels=gamma_labels,
+                cbar_kws={"label": "superadditive fraction"})
+    axes[1].set_title("Superadditive fraction\n(canonical tolerance-aware decision)")
     axes[1].set_xlabel("Energy ratio gamma (nuclear norm)")
     axes[1].set_ylabel("Subspace alignment alpha = SA_k")
 
@@ -323,7 +372,7 @@ def plot_e1a_heatmap(df: pd.DataFrame):
     r2 = _compute_r2_synth(df)
     axes[2].set_xlabel("r_eff measured")
     axes[2].set_ylabel("r_eff theory prediction (mixed-entropy formula)")
-    axes[2].set_title(f"Theorem prediction accuracy  R^2={r2:.3f}")
+    axes[2].set_title(f"Collapse-4S prediction accuracy  R^2={r2:.3f}")
     axes[2].legend()
     axes[2].grid(True, alpha=0.3)
 
@@ -367,8 +416,8 @@ def plot_e1b_scatter(df: pd.DataFrame):
     # Superadditive / subadditive boundary line
     axes[0].axhline(0, color="gray", linestyle="--", lw=1.2, label="delta_r=0")
     axes[0].set_xlabel("SA_k (subspace alignment)")
-    axes[0].set_ylabel("delta_r = r_merged - max(r_A,r_B)")
-    axes[0].set_title("Superadditivity analysis\n(above = superadditive, below = subadditive)")
+    axes[0].set_ylabel("delta_r = r_merged - r_dom")
+    axes[0].set_title("Merge-gain analysis\n(zero reference shown)")
     axes[0].legend(fontsize=8)
     axes[0].grid(True, alpha=0.3)
 
@@ -398,10 +447,10 @@ def save_summary(df_synth: pd.DataFrame, df_real: pd.DataFrame):
     rho_gamma = spearmanr(
         np.log(df_synth["gamma_actual"].clip(0.01)), df_synth["collapse_ratio"])[0]
 
-    n_super = int((df_synth["delta_r"] > 0).sum())
+    n_super = int(df_synth["is_superadditive"].sum())
     n_total = int(len(df_synth))
     df_low  = df_synth[df_synth["alpha_actual"] < 0.1]
-    n_super_low = int((df_low["delta_r"] > 0).sum()) if len(df_low) > 0 else 0
+    n_super_low = int(df_low["is_superadditive"].sum()) if len(df_low) > 0 else 0
 
     summary = {
         "e1a_synthetic": {
@@ -430,7 +479,7 @@ def save_summary(df_synth: pd.DataFrame, df_real: pd.DataFrame):
 # ─────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="E1: r_eff collapse theorem validation v2")
+    parser = argparse.ArgumentParser(description="E1: Collapse-4S model validation")
     parser.add_argument("--mini",       action="store_true",
                         help="Fast mode: 3x3 synthetic grid + resnet50 only")
     parser.add_argument("--probe",      default=None,
@@ -481,7 +530,7 @@ def main():
         r2 = summary["e1a_synthetic"]["r2_theory_pred"]
         print(f"\n{'='*60}")
         print(f"E1 done  total time: {(time.time()-t_start)/60:.1f} min")
-        print(f"  Main theorem R^2 = {r2:.4f}  {'PASS' if r2 > 0.8 else 'FAIL (please check)'}")
+        print(f"  E1a model-check R^2 = {r2:.4f}  {'PASS' if r2 > 0.8 else 'FAIL (please check)'}")
 
 
 if __name__ == "__main__":

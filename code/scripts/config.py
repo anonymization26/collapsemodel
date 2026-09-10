@@ -3,7 +3,7 @@ Collapse Model: predicting effective rank of merged feature matrices
 Global experiment configuration
 
 Core question: how does r_eff change when two feature matrices H_A and H_B are merged into [H_A; H_B]?
-Core answer:   Collapse Model closed-form formula, based on eigenvalue analysis of 2x2 Gram blocks.
+Legacy summary: Collapse-4S, based on eigenvalue analysis of idealized 2x2 Gram blocks.
 Three-channel decomposition: gamma (Sigma energy ratio) x alpha (V directional alignment SA_k) x UID (U sample geometry)
 """
 from pathlib import Path
@@ -48,7 +48,8 @@ if DEBUG_MODE:
 # where r* is determined by the 2x2 Gram block discriminant D = sqrt((1-gamma^2)^2 + 4*gamma^2*alpha)
 #
 # Three behavior regimes:
-#   (1) Superadditive (small alpha, balanced gamma): r_merged > max(r_A, r_B)
+#   (1) Superadditive (small alpha, balanced gamma): r_merged > r_dom,
+#       where r_dom is the higher-nuclear-mass source's effective rank
 #   (2) Direction collapse (alpha -> 1): subspace overlap causes redundancy
 #   (3) Energy collapse (gamma >> 1 or gamma << 1): one side dominates
 # ═══════════════════════════════════════════════════════════════

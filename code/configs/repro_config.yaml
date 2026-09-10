@@ -34,7 +34,8 @@ experiments:
   e1a_synthetic:
     enabled: true
     script: experiment_e1_theorem.py
-    description: "E1a 280-pair synthetic grid (Tab 1, R²=0.9994)"
+    args: ["--skip-real"]
+    description: "E1a 280-pair exact synthetic grid (Tab 1, R²=1.0000)"
     expected_runtime_min: 2
 
   e1a_ind:

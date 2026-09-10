@@ -130,6 +130,9 @@ $V\in\R^{d\times r}$），该分解分离出三种正交的表示方面。
 \end{equation}
 其中 $p_i$ 是奇异值份额（未平方），因此 $r_{\mathrm{eff}}\in[1,r]$。
 核范数 $\|H\|_*=\sum_i\sigma_i$ 捕捉总能量。
+所有数值结果仅保留满足
+$\sigma_i>\sigma_1\sqrt{8\epsilon_{64}\max(N,d)}$ 的奇异模态。
+直接 SVD 与 Gram 特征值分解路径在计算核范数和有效秩前使用同一截断。
 \textbf{$V$ 通道 --- 方向结构。}
 右奇异向量 $V$ 编码了哪些方向被激活。
 \begin{definition}[子空间对齐度]
@@ -254,7 +257,10 @@ Equation~\eqref{eq:pred} 是一个基于理论的低维近似，而不是恒等�
 Equation~\eqref{eq:pred} 是个体秩加权对数几何平均值加上一个平衡奖金 $H_b(q)$（当 $q{=}0.5$ 时最大，随着 $q{\to}0,1$ 而消失）。
 
 \textbf{行为模式。}
-\emph{超加性} ($\alpha{\approx}0$, $\gamma{\approx}1$): $q{\approx}0.5$, $\hat{r}_{\mathrm{merged}}{\approx}2\sqrt{r_Ar_B}\geq r_{\mathrm{dom}}$。
+\emph{方向互补}（$\alpha{\approx}0$，$\gamma{\approx}1$）：$q{\approx}0.5$，且
+$\hat{r}_{\mathrm{merged}}{\approx}2\sqrt{r_Ar_B}$。
+在严格的 $(\alpha,\gamma)=(0,1)$ 情形下，该预测超加当且仅当
+$r_{\mathrm{dom}}/r_{\mathrm{sub}}<4$。
 \emph{方向塌陷} ($\alpha{\to}1$): $q{\to}1$, $H_b(q){\to}0$, $\hat{r}_{\mathrm{merged}}{\to}r_{\mathrm{dom}}$。
 \emph{能量塌陷} ($\gamma{\gg}1$ 或 $\gamma{\ll}1$): $q{\to}1$, $\hat{r}_{\mathrm{merged}}{\to}r_{\mathrm{dom}}$。
 当 $\alpha{\to}1$ \emph{和} $\gamma{\gg}1$ 时，合并的秩可以 \emph{低于} $r_{\mathrm{sub}}$——净损失多样性。
@@ -278,7 +284,11 @@ $\hat{r}_{\mathrm{merged}}>r_{\mathrm{dom}}$
 在退化点 $q=1$ 中，Equation~\eqref{eq:rho_c} 的除法未定义且 Equation~\eqref{eq:pred} 给出
 $\hat r_{\mathrm{merged}}=r_{\mathrm{dom}}$ 精确值。
 \end{corollary}
-This is an exact decision boundary for the summary model, and for the proportional-spectrum model of Proposition~\ref{prop:proportional}; on general data it is a diagnostic rather than a guarantee.
+这是摘要模型以及命题~\ref{prop:proportional} 中比例谱模型的精确决策边界；
+对于一般数据，它只是诊断而不是保证。
+在有限精度的经验判定中，只有当预测值或实测值 $x$ 满足
+$x-r_{\mathrm{dom}}>10^{-10}\max(x,r_{\mathrm{dom}},1)$ 时才判为超加性，
+从而排除等号边界上仅由舍入误差产生的正值。
 
 \textbf{物理意义。}
 $\rho_c$ 是摘要模型内部的一个决策阈值。在 $q=1$ 附近，它可以将任意小的正熵增量分类为超加性；因此 $\hat r_{\mathrm{merged}}-r_{\mathrm{dom}}$ 的大小必须与二元诊断一起报告。完全的方向重叠给出 $q=1$ 并无预测增益。证明和模型范围在附录~\ref{app:proof_thm}、\ref{app:pa_scope} 中。
@@ -373,27 +383,28 @@ $e_j=\Phi_{D_{S\cup\{j\}}}(\varepsilon_{S\cup\{j\}})$。若候选 $j^*$ 满足
 (ii) \textbf{真实数据的预测有效性}——公式在5种编码器家族、14个视觉数据集和19个文本语料库中仍然是一个强大的近似（§\ref{sec:e1d}，共427对）;
 (iii) \textbf{行为模式一致性}——经验上的超加性模式与Corollary~\ref{cor:superadd}预测的三种模式一致 (§\ref{sec:e1d}，表~\ref{tab:e1d})。
 这些测试用于定位启发式的有效与失效区间。额外控制见附录~\ref{app:exp_extras}。
-特征矩阵进行L2行归一化并子采样到$N_{\mathrm{sub}}$样本；有效秩使用公式~\eqref{eq:reff}；Bootstrap置信区间使用$B=10{,}000$次抽样。
+真实数据特征矩阵进行 L2 行归一化并子采样到 $N_{\mathrm{sub}}$ 个样本；
+有效秩使用公式~\eqref{eq:reff}；Bootstrap 置信区间使用 $B=10{,}000$ 次抽样。
+E1a 是明确的例外：它使用未做行归一化的精确 float64 矩阵，因为行归一化会改变待核查的比例谱。
 
 \subsection{步骤 1 --- 理想化模型一致性：合成控制网格 (E1a, 280对)}
 \label{sec:e1a_main}
 
-作为模型内 sanity check，我们在比例谱、成对方向模型下生成的 280 个受控合成对上评估 Collapse-4S（$\alpha\in\{0,0.05,\ldots,1.0\}$，$\gamma\in\{0.1,0.33,\ldots,10.0\}$，$d{=}512$，$N{=}1000$，每种设置重复 5 次）。
+作为模型内一致性检查，我们在比例谱、成对方向模型下生成的 280 个受控合成对上评估 Collapse-4S（$\alpha\in\{0,0.05,0.1,0.2,0.4,0.6,0.8,1.0\}$，$\gamma\in\{0.1,0.33,0.5,1.0,2.0,3.0,10.0\}$，$d{=}512$，$N{=}1000$，每种设置重复 5 次）。
 
 \begin{table}[t]
 \centering
-\caption{E1a: 合成网格结果 ($N=280$)。朴素基线在大$\gamma$时失效。}
+\caption{E1a：在精确合成网格上用直接 SVD 交叉核查唯一的 Collapse-4S 实现（$N=280$）。}
 \label{tab:e1a}
 \begin{tabular}{lcccc}
 \toprule
 方法 & $R^2$ & 最大误差 & 超加性 (\%) & $\alpha<1$ 超加性 \\
 \midrule
-朴素 $\sqrt{1+\alpha\gamma^2}$ & 0.30 & 28.73 & --- & --- \\
-\textbf{Collapse-4S} & \textbf{0.9999} & \textbf{0.27} & \textbf{87.5\%} & \textbf{100\%} (245/245) \\
+\textbf{唯一 Collapse-4S 实现} & \textbf{1.0000} & \textbf{$1.3{\times}10^{-13}$} & \textbf{87.5\%} & \textbf{100\%} (245/245) \\
 \bottomrule
 \end{tabular}
 \end{table}
-表~\ref{tab:e1a} 显示 $R^2{=}0.9999$（朴素基线为 $0.30$）。
+表~\ref{tab:e1a} 显示，相对直接 SVD 的 $R^2{=}1.0000$，最大有效秩绝对误差为 $1.3{\times}10^{-13}$。
 在 $\alpha{<}1$ 的 245 种配置中，超加性比例均为 100\%；全部 35 个非超加性样例只出现在 $\alpha{=}1$（子空间相同）处，验证了推论~\ref{cor:superadd} 的退化边界。
 $(\alpha,\gamma)$ 热图和超加性区域的可视化见附录~\ref{app:exp_extras}。
 
@@ -622,7 +633,7 @@ $F(S)=\log\mathcal R(\sum_{j\in S}G_j)$ 可得
 \toprule
 实验 & 指标 & 点估计 & 95\% CI & SE \\
 \midrule
-E1a (280 对)  & $R^2$                  & 0.9999 & [0.9999, 0.9999] & 0.000013 \\
+E1a (280 对)  & $R^2$                  & 1.0000 & [1.0000, 1.0000] & 0.000000 \\
 E1a                & 超加性 ($\alpha<1$)     & 1.0000 & [1.000, 1.000]  & 0.000000 \\
 E1b (30 对)       & Pearson $r$             & 0.9478 & [0.906, 0.978]  & 0.019 \\
 E1b                & 超加性 \%               & 0.8667 & [0.733, 0.967]  & 0.062 \\
@@ -919,8 +930,8 @@ $\gamma$ ($\Sigma$仅) & $\Sigma$仅 & 0.277 & 0.001 & 0.271 \\
 \centering
 \includegraphics[width=0.9\linewidth]{e1a_heatmap.png}
 \caption{E1a: 降秩模型在合成的$(\alpha,\gamma)$网格上的预测精度.
-左：降秩比例热图。中心：超加性（$\delta_r>0$）区域。
-右：预测值与实际值$\reff$散点图($R^2=0.9999$).}
+左：降秩比例热图。中心：采用数值容差的超加性区域。
+右：预测值与实际值 $\reff$ 散点图（$R^2=1.0000$）。}
 \label{fig:e1a}
 \end{figure}
 
@@ -930,12 +941,13 @@ E1a合成验证结果（表~\ref{tab:e1a}）在正文中呈现；
 $\alpha \in \{0, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0\}$ 和
 $\gamma \in \{0.1, 0.33, 0.5, 1.0, 2.0, 3.0, 10.0\}$，
 $d=512$，$N=1000$，每种设置独立重复5次（共280对）。
+该精确 float64 构造不做行归一化；直接 SVD 与预测器都采用第~\ref{sec:background} 节声明的统一数值秩截断。
 所有35个非超加性案例集中在$\alpha=1$处（相同子空间），确认了推论~\ref{cor:superadd}的退化边界。
 \subsection{E1a-Ind: 独立验证非主角矩阵}
 \label{sec:e1a_ind}
 
 \textbf{动机与设计。}
-关于 E1a 的一个关键问题是循环性：从 \emph{比例谱成对方向模型} 生成的合成数据满足精确的模型假设，使得 $R^2=0.9999$ 成为近乎自明的结果。
+关于 E1a 的一个关键问题是循环性：从 \emph{比例谱成对方向模型} 生成的合成数据满足精确的模型假设，使得 $R^2=1.0000$ 成为近乎自明的结果。
 为了独立测试公式~\eqref{eq:pred} 是否在其推导假设之外仍然具有预测性，我们使用 \emph{四种不使用该成对模型的生成方法} 生成了 120 组合成矩阵：
 (M1) \emph{低秩高斯分布}: $H=U_k\Sigma V_k^\top + \epsilon$，其中基是随机正交的；
 (M2) \emph{共享+私有子空间}: $H=H_{\mathrm{shared}}+H_{\mathrm{private}}$，通过构造部分重叠来实现；

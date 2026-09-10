@@ -68,16 +68,11 @@ def complete_pool_summaries(
 def sketch_statistics(sketch: np.ndarray, top_k: int) -> tuple[float, float, np.ndarray]:
     matrix = sketch.astype(np.float64, copy=False)
     singular, vh = classic.stable_singular_values_and_vh(matrix)
-    tolerance = max(
-        float(singular[0]) * np.finfo(np.float64).eps * max(matrix.shape) * 8.0,
-        np.finfo(np.float64).tiny,
-    ) if singular.size else 0.0
-    positive = singular > tolerance
-    singular = singular[positive]
-    vh = vh[positive]
+    singular, _ = classic.split_numerical_singular_values(singular, matrix.shape)
+    vh = vh[: len(singular)]
     if singular.size == 0:
         return 0.0, 0.0, np.zeros((0, matrix.shape[1]), dtype=np.float64)
-    effective_rank = classic.effective_rank_from_singular_values(singular)
+    effective_rank = classic.effective_rank_from_singular_values(singular, matrix.shape)
     return effective_rank, float(singular.sum()), vh[: min(top_k, len(vh))]
 
 

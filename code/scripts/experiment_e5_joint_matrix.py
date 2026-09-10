@@ -229,7 +229,7 @@ def plot_comprehensive(jm, pred_df, e1b, e3_order, e3_traj, e4_r50, e4_vit, e4_g
     ax10.axhline(0, color="k", linestyle="--", linewidth=0.9, alpha=0.6,
                  label="Δr = 0 (additive)")
     ax10.set_xlabel(r"SA$_k$ (subspace alignment)", fontsize=9)
-    ax10.set_ylabel(r"$\Delta r = r_{\rm merged} - \max(r_A, r_B)$", fontsize=9)
+    ax10.set_ylabel(r"$\Delta r = r_{\rm merged} - r_{\rm dom}$", fontsize=9)
     ax10.set_title("E1b: Merge Gain vs. Alignment\n(above dashed = superadditive)", fontsize=9)
     ax10.legend(fontsize=7.5)
     ax10.grid(True, alpha=0.3)

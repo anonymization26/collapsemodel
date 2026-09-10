@@ -2186,8 +2186,11 @@ $\eta_{\mathrm{search},n}$ 需要穷举或搜索对照；$\xi_T$ 是最关键且
 - 多步状态更新会再次丢失谱质量与方向对应关系；
 - 只保留为理论启发消融，不再作为主算法。
 
-### 9.5 当前代码对应关系（2026-09-08）
+### 9.5 当前代码对应关系（2026-09-10）
 
+- `code/metrics/collapse_core.py` 是 Legacy Four-Summary Collapse 的唯一公式实现，同时定义所有
+  SVD/Gram 路径共享的数值秩截断，以及“相对高核范数来源的有效秩增益”这一超加性口径。
+- `code/metrics/reff.py` 只负责从矩阵测量四摘要并调用上述实现；其他实验脚本不再保留公式副本。
 - `scripts/two_stage_classic_baselines.py::GramSketch` 保存转置约定下的
   $B_j=\Sigma_{j,L}V_{j,L}^{\top}\in\mathbb R^{L\times d}$；因此代码累加的是
   $B_j^{\top}B_j$，与本节使用 $V_{j,L}\Sigma_{j,L}$ 时的 $B_jB_j^{\top}$ 完全等价。

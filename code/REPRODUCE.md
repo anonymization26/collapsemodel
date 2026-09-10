@@ -43,7 +43,7 @@ claims with these four:
 
 | Paper table | Script | Time | What it shows |
 |---|---|---|---|
-| Tab 1 (E1a synthetic) | `experiment_e1_theorem.py` | 2 min | Closed-form formula is exact under derivation assumptions ($R^2{=}0.9994$) |
+| Tab 1 (E1a synthetic) | `experiment_e1_theorem.py --skip-real` | 2 min | Collapse-4S agrees with direct SVD under the exact derivation assumptions ($R^2{=}1.0000$) |
 | Tab 5 (M=43 scale) | `run_e8_scale_m50.py` + `run_e9_fair_lp.py` | 90 min | Compression retains $>112\%$ of full-pool $\reff$ at $14\times$, beats Random $95\%$ CI on LP |
 | Tab 6 (modern baselines) | `run_p1a_modern_baselines.py` | 90 min | Vendi/DomainDiverse/Centroid-FF comparison; two-signal decomposition |
 | Tab p2e_hybrid | `run_p2e_hybrid.py` | 90 min | Cen→Col strictly dominates pure Collapse on both LP and retention at $k{=}10$ |
@@ -147,7 +147,7 @@ against expected values within a 1% tolerance.
 A reviewer should see:
 
 ```
-PASS  E1a synthetic         R² = 0.9994 (expected 0.9994 ± 0.001)
+PASS  E1a synthetic         R² = 1.0000 (max absolute error ≤ 1e-10)
 PASS  E1d 427 pairs         Pearson r = 0.970 (expected 0.97 ± 0.01)
 PASS  M=43 scale k=3        retention = 112.4% (expected 112.4 ± 1.0)
 PASS  M=43 fair LP k=3      Collapse 0.7550 vs Rand 95%CI [0.7446,0.7508]

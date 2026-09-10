@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 import csv
 import itertools
-import math
 from pathlib import Path
 
 import numpy as np
@@ -21,6 +20,13 @@ try:
     import torch_npu  # noqa: F401
 except ImportError:
     pass
+
+from two_stage_classic_baselines import (
+    collapse_4s,
+    is_superadditive,
+    numerical_singular_tolerance,
+    superadditivity_delta,
+)
 
 
 DATASETS = [
@@ -56,31 +62,21 @@ def load_feature(path: Path, device: torch.device) -> torch.Tensor:
 
 def spectral_stats(h: torch.Tensor) -> tuple[float, float, torch.Tensor]:
     _, s, vh = torch.linalg.svd(h, full_matrices=False)
+    tolerance = numerical_singular_tolerance(float(s.max().cpu()), tuple(h.shape))
+    retained = s > tolerance
+    s = s[retained]
+    vh = vh[retained]
     p = s / s.sum()
-    r = torch.exp(-(p * torch.log(p.clamp_min(1e-20))).sum())
+    r = torch.exp(-(p * torch.log(p)).sum())
     return float(r.cpu()), float(s.sum().cpu()), vh[:20]
 
 
 def effective_rank(h: torch.Tensor) -> float:
     s = torch.linalg.svdvals(h)
+    tolerance = numerical_singular_tolerance(float(s.max().cpu()), tuple(h.shape))
+    s = s[s > tolerance]
     p = s / s.sum()
-    return float(torch.exp(-(p * torch.log(p.clamp_min(1e-20))).sum()).cpu())
-
-
-def predict(r_a: float, r_b: float, gamma: float, alpha: float):
-    a = 1.0 + gamma * gamma
-    d = math.sqrt(max((1.0 - gamma * gamma) ** 2 + 4 * gamma * gamma * alpha, 0.0))
-    cp = math.sqrt((a + d) / 2.0)
-    cm = math.sqrt(max((a - d) / 2.0, 1e-30))
-    q = min(max(cp / (cp + cm), 1e-12), 1 - 1e-12)
-    hb = -q * math.log(q) - (1 - q) * math.log(1 - q)
-    if gamma <= 1:
-        r_dom, r_sub = r_a, r_b
-    else:
-        r_dom, r_sub = r_b, r_a
-    r_pred = math.exp(hb + q * math.log(r_dom) + (1 - q) * math.log(r_sub))
-    rho_c = math.exp(hb / (1 - q))
-    return r_pred, r_dom, r_sub, q, rho_c
+    return float(torch.exp(-(p * torch.log(p)).sum()).cpu())
 
 
 def main() -> None:
@@ -118,7 +114,12 @@ def main() -> None:
                 alpha = float((cos.square().mean()).cpu())
                 gamma = nuc_b / nuc_a
                 r_true = effective_rank(torch.cat([features[a], features[b]], dim=0))
-                r_pred, r_dom, r_sub, q, rho_c = predict(r_a, r_b, gamma, alpha)
+                prediction = collapse_4s(r_a, r_b, gamma, alpha)
+                r_pred = prediction.prediction
+                r_dom = prediction.dominant_rank
+                r_sub = prediction.subordinate_rank
+                q = prediction.q
+                rho_c = prediction.rho_c
                 domain_a, domain_b = DOMAINS[a], DOMAINS[b]
                 row = {
                     "probe": encoder, "ds_A": a, "ds_B": b,
@@ -128,9 +129,10 @@ def main() -> None:
                     "r_merged_true": r_true, "r_merged_pred": r_pred,
                     "alpha": alpha, "gamma": gamma, "nuclear_A": nuc_a, "nuclear_B": nuc_b,
                     "r_star": q, "rho_c": rho_c, "ratio": r_dom / r_sub,
-                    "delta_r": r_true - r_dom, "pred_error": abs(r_true - r_pred),
+                    "delta_r": superadditivity_delta(r_true, r_a, r_b, gamma),
+                    "pred_error": abs(r_true - r_pred),
                     "pred_error_pct": 100 * abs(r_true - r_pred) / r_true,
-                    "is_superadditive": r_true > r_dom,
+                    "is_superadditive": is_superadditive(r_true, r_a, r_b, gamma),
                 }
                 writer.writerow(row); f.flush()
                 print(encoder, a, b, r_true, r_pred, flush=True)

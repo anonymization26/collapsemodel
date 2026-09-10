@@ -58,10 +58,13 @@
 
 ## 第二阶段：修正机制与阈值表述
 
-### 6. 重写 superadditivity threshold（进行中）
+### 6. 重写 superadditivity threshold（已完成）
 
 - [x] 将一般数据阈值降级为 model-predicted diagnostic threshold。
 - [x] 将严格结论限定在 proportional-spectrum、uniform-alignment 理想模型中。
+- [x] 统一为相对高核范数来源 $r_{\mathrm{dom}}$ 的增益，并加入 $10^{-10}$ 相对数值容差。
+- [x] 将 Collapse-4S 公式、超加性判定和数值秩截断集中到 `code/metrics/collapse_core.py`。
+- [x] 按统一口径重算 E1a，并提交 280 行原始结果与机器可读摘要。
 - [ ] 审计摘要、图注、正文和附录中的 `if and only if`、`guarantee`、`exact threshold`，逐项补充适用假设。
 
 ### 7. 将 collapse 改为局部谱机制（进行中）
