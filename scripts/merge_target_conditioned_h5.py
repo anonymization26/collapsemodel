@@ -30,18 +30,21 @@ def main() -> int:
     shard_dirs = [path.resolve() for path in args.shards]
     configs = [merge_e1.read_json(path / "config.json") for path in shard_dirs]
     config = merge_e1.merge_configs(configs)
+    manifests = [
+        merge_e1.read_json(path / "manifest.json") for path in shard_dirs
+    ]
+    source_revision = merge_e1.require_common_revision(manifests, "E5/H5")
     rows: list[dict[str, str]] = []
     source_manifests = []
     worker_seconds = []
-    for shard_dir in shard_dirs:
+    for shard_dir, manifest in zip(shard_dirs, manifests):
         manifest_path = shard_dir / "manifest.json"
-        manifest = merge_e1.read_json(manifest_path)
         if manifest.get("status") != "completed":
             raise ValueError(f"incomplete E5/H5 shard: {shard_dir}")
         rows.extend(merge_e1.read_csv(shard_dir / "raw.csv"))
         worker_seconds.append(float(manifest["elapsed_seconds"]))
         source_manifests.append({
-            "directory": str(shard_dir),
+            "directory": shard_dir.name,
             "manifest_sha256": e1.sha256_file(manifest_path),
         })
 
@@ -85,7 +88,7 @@ def main() -> int:
         },
         "summary": summary,
         "provenance": {
-            "git_revision": e1.git_revision(),
+            "git_revision": source_revision,
             "merge_script_sha256": e1.sha256_file(Path(__file__)),
             "source_manifests": source_manifests,
         },

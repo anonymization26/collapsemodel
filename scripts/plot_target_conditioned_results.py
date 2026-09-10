@@ -38,6 +38,15 @@ CONFIGURATION_FIELDS = (
     "target_rank",
 )
 
+METHOD_LABELS = {
+    "bayesian_d": "Bayesian D-opt",
+    "effective_rank": "Effective rank",
+    "isotropic_a": "Isotropic A-opt",
+    "second_moment_mmd": "Second-moment MMD",
+    "target_a_estimated": "Target A-opt",
+    "target_energy": "Target energy",
+}
+
 
 def read_csv(path: Path) -> list[dict[str, str]]:
     with path.open(newline="", encoding="utf-8") as stream:
@@ -58,6 +67,15 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def portable_path(path: Path) -> str:
+    """Prefer repository-relative paths in generated provenance manifests."""
+
+    try:
+        return str(path.resolve().relative_to(Path.cwd().resolve()))
+    except ValueError:
+        return str(path)
 
 
 def mean(values: Iterable[float]) -> float:
@@ -125,7 +143,8 @@ def plot_h2_heatmap(
     )
     axis.set_xlabel("Unlabeled target samples")
     axis.set_ylabel("Target rank / dimension")
-    axis.set_title(f"Target A-opt risk improvement vs {baseline}")
+    baseline_label = METHOD_LABELS.get(baseline, str(baseline))
+    axis.set_title(f"Target A-opt risk improvement vs {baseline_label}")
     for row_index in range(matrix.shape[0]):
         for column_index in range(matrix.shape[1]):
             value = matrix[row_index, column_index]
@@ -194,7 +213,12 @@ def plot_conditional_shift(
     figure, axis = plt.subplots(figsize=(6.4, 4.4), constrained_layout=True)
     for method in sorted(selected_methods):
         values = [mean(grouped[(method, shift)]) for shift in shifts]
-        axis.plot(shifts, values, marker="o", label=method)
+        axis.plot(
+            shifts,
+            values,
+            marker="o",
+            label=METHOD_LABELS.get(method, method),
+        )
     axis.set_xlabel("Conditional-shift magnitude")
     axis.set_ylabel("Mean normalized regret")
     axis.set_title("Failure boundary under conditional shift")
@@ -221,6 +245,11 @@ def plot_h5_tradeoff(summary_report: dict[str, object], output: Path) -> None:
         "adaptive_capped": "x",
         "adaptive_full_fallback": "^",
     }
+    mode_labels = {
+        "fixed_rank": "Fixed rank",
+        "adaptive_capped": "Adaptive capped",
+        "adaptive_full_fallback": "Adaptive + full fallback",
+    }
     figure, axes = plt.subplots(1, 2, figsize=(11.2, 4.4), constrained_layout=True)
     for mode, color in colors.items():
         subset = [point for point in points if point["mode"] == mode]
@@ -228,7 +257,7 @@ def plot_h5_tradeoff(summary_report: dict[str, object], output: Path) -> None:
             [point["mean_byte_ratio_vs_packed"] for point in subset],
             [point["pair_certificate_rate"] for point in subset],
             color=color,
-            label=mode,
+            label=mode_labels[mode],
             s=42,
             marker=markers[mode],
         )
@@ -236,10 +265,12 @@ def plot_h5_tradeoff(summary_report: dict[str, object], output: Path) -> None:
             [point["mean_byte_ratio_vs_packed"] for point in subset],
             [point["selection_match_rate"] for point in subset],
             color=color,
-            label=mode,
+            label=mode_labels[mode],
             s=42,
             marker=markers[mode],
         )
+        if mode != "fixed_rank":
+            continue
         grouped_labels: dict[tuple[float, float], list[object]] = defaultdict(list)
         for point in subset:
             grouped_labels[(
@@ -354,7 +385,7 @@ def main() -> int:
 
     manifest = {
         "sources": [
-            {"path": str(path.resolve()), "sha256": sha256_file(path)}
+            {"path": portable_path(path), "sha256": sha256_file(path)}
             for path in sources
         ],
         "outputs": [

@@ -1,0 +1,263 @@
+{
+  "experiment": "E1 target-conditioned synthetic selection (merged)",
+  "status": "completed",
+  "created_utc": "2026-09-10T08:38:12.624224+00:00",
+  "config": {
+    "seeds": [
+      20260920,
+      20260921,
+      20260922,
+      20260923,
+      20260924,
+      20260925,
+      20260926,
+      20260927,
+      20260928,
+      20260929,
+      20260930,
+      20260931,
+      20260932,
+      20260933,
+      20260934,
+      20260935,
+      20260936,
+      20260937,
+      20260938,
+      20260939
+    ],
+    "dimensions": [
+      16,
+      32,
+      64
+    ],
+    "candidate_counts": [
+      8,
+      12,
+      16
+    ],
+    "budgets": [
+      1,
+      3
+    ],
+    "target_samples": [
+      16,
+      32,
+      128,
+      512
+    ],
+    "target_rank_fractions": [
+      0.125,
+      0.25,
+      0.5
+    ],
+    "source_samples": 64,
+    "target_test_samples": 512,
+    "sketch_ranks": [
+      2,
+      4,
+      8,
+      16
+    ],
+    "baseline_subspace_rank": 8,
+    "shift_levels": [
+      0.0,
+      0.5,
+      1.0
+    ],
+    "random_repeats": 20,
+    "max_combinations": 100000,
+    "mini": false
+  },
+  "counts": {
+    "shards": 20,
+    "configurations": 4320,
+    "shared_model_rows": 168480,
+    "conditional_shift_rows": 155520
+  },
+  "timing": {
+    "sum_worker_seconds": 18206.265212876722,
+    "max_shard_seconds": 996.1577872857451
+  },
+  "audits": {
+    "controlled_target_sample_rng": {
+      "status": "passed",
+      "shared_model": {
+        "status": "passed",
+        "groups": 33480,
+        "methods": [
+          "bayesian_d",
+          "collapse_4s",
+          "dpp_subspace",
+          "effective_rank",
+          "facility_subspace",
+          "isotropic_a",
+          "kcenter_subspace",
+          "oracle_exhaustive",
+          "random",
+          "spectrum_rank_l",
+          "target_a_true_ct_diagnostic",
+          "trace"
+        ],
+        "target_samples": [
+          16,
+          32,
+          128,
+          512
+        ],
+        "incomplete_groups": 0,
+        "value_disagreements": {
+          "selected": 0,
+          "target_risk": 0,
+          "oracle_risk": 0
+        }
+      },
+      "conditional_shift": {
+        "status": "passed",
+        "groups": 29160,
+        "methods": [
+          "bayesian_d",
+          "collapse_4s",
+          "conditional_oracle",
+          "dpp_subspace",
+          "effective_rank",
+          "facility_subspace",
+          "isotropic_a",
+          "kcenter_subspace",
+          "spectrum_rank_l"
+        ],
+        "target_samples": [
+          16,
+          32,
+          128,
+          512
+        ],
+        "incomplete_groups": 0,
+        "value_disagreements": {
+          "selected": 0,
+          "target_mse": 0,
+          "conditional_oracle_mse": 0
+        }
+      }
+    },
+    "target_sample_sensitivity": {
+      "16": {
+        "n": 1080,
+        "selection_match_rate_vs_true_target_moment_greedy": 0.8305555555555556,
+        "mean_normalized_regret": 0.015142767119363102,
+        "mean_combination_rank": 3.862037037037037
+      },
+      "32": {
+        "n": 1080,
+        "selection_match_rate_vs_true_target_moment_greedy": 0.875,
+        "mean_normalized_regret": 0.014268642766205427,
+        "mean_combination_rank": 3.699074074074074
+      },
+      "128": {
+        "n": 1080,
+        "selection_match_rate_vs_true_target_moment_greedy": 0.9435185185185185,
+        "mean_normalized_regret": 0.013140224233683752,
+        "mean_combination_rank": 3.441666666666667
+      },
+      "512": {
+        "n": 1080,
+        "selection_match_rate_vs_true_target_moment_greedy": 0.9731481481481481,
+        "mean_normalized_regret": 0.013431843147275416,
+        "mean_combination_rank": 3.450925925925926
+      }
+    }
+  },
+  "provenance": {
+    "git_revision": "19e0abf6669c21b7d59591cc0e29f436185a6088",
+    "merge_script_sha256": "fa13b988c8d9e657f73de3a9802bdfa49a2ff4af6f3e538d8dce7fce2aaaeb9d",
+    "source_manifests": [
+      {
+        "directory": "seed_20260920",
+        "manifest_sha256": "9e0ce9325fb2c71dd4f3cbd40991864c292efaf22d2482a5c29cd19d7b6b71cd"
+      },
+      {
+        "directory": "seed_20260921",
+        "manifest_sha256": "c561af7a759dd98354d6eb482b4a03ab6492080f81812d5b426149ed87981f26"
+      },
+      {
+        "directory": "seed_20260922",
+        "manifest_sha256": "2c875ce967c59276ec6ce7287a6ab26ba4ee4e397b5e37ad2e501dcd5dbc2429"
+      },
+      {
+        "directory": "seed_20260923",
+        "manifest_sha256": "a00fe7332df0814be786e8e666d8e4330e85c396f9dc8fe14ba5229e317499b1"
+      },
+      {
+        "directory": "seed_20260924",
+        "manifest_sha256": "dc1759dccbb5f7ef3d359b09864b269192be0b3e1e36efeb2807f6ae5ab00948"
+      },
+      {
+        "directory": "seed_20260925",
+        "manifest_sha256": "949f945d48f9e4fb592dc9be9d1c25bf387781427a66eb4c9c552def16c8be75"
+      },
+      {
+        "directory": "seed_20260926",
+        "manifest_sha256": "d429ee78a728d4dbef7f6fdf54594a295b6e7f1b726bd9ef6089cfd78b2c8e75"
+      },
+      {
+        "directory": "seed_20260927",
+        "manifest_sha256": "19ef1e62adce3f4167f96bea09dad73674e9736f157165ee894672fefce3154b"
+      },
+      {
+        "directory": "seed_20260928",
+        "manifest_sha256": "d61fc3364b9fce9ee1aaa86ddbcb79ae1d7be6423655dac468a5521739267da8"
+      },
+      {
+        "directory": "seed_20260929",
+        "manifest_sha256": "8df1395198e187ab20b7367c22019e194643a098b7fca887696a4a5840ebc53c"
+      },
+      {
+        "directory": "seed_20260930",
+        "manifest_sha256": "81f0e314014128b241b6f7ba758a6705b99bcfd30c62251ddc2e11dc5b6a15e5"
+      },
+      {
+        "directory": "seed_20260931",
+        "manifest_sha256": "0dd48829bdf54a94693e5c7c3105153d1199427863c759d89ab13de288c54f92"
+      },
+      {
+        "directory": "seed_20260932",
+        "manifest_sha256": "37d7f56b454e0ad979f9137f25385c798d9092fdd17cc3e53eb172b39dd6db70"
+      },
+      {
+        "directory": "seed_20260933",
+        "manifest_sha256": "6d25e77c6a7db09f7a55ba596c53a5c0a3820dfced5cbdd616b8a5beb660dcba"
+      },
+      {
+        "directory": "seed_20260934",
+        "manifest_sha256": "a4c57fd496ebbb6179f81377c670375995246326e86d190d141ccb36cea0c721"
+      },
+      {
+        "directory": "seed_20260935",
+        "manifest_sha256": "e18e84333c096c70d5540bdb7856faafcc628af510e24da2ff78ec26583e7ab7"
+      },
+      {
+        "directory": "seed_20260936",
+        "manifest_sha256": "975b056a92b5e26a0970ca95011171de6c7d824a809c76a0d9ebfc293871a892"
+      },
+      {
+        "directory": "seed_20260937",
+        "manifest_sha256": "bc0761f056ef994b80330a0df6a033d0bb74a856c268889b0cf54dd73c9d1bf1"
+      },
+      {
+        "directory": "seed_20260938",
+        "manifest_sha256": "4f68dcb3dd5d5d00510cb1eecd1e8616a0a16c5f7cce267b1855a1439b3ceb89"
+      },
+      {
+        "directory": "seed_20260939",
+        "manifest_sha256": "9f942ec83f85271618c98c3f1460d46872930d32efb9f9bd3e2ccea41c4468be"
+      }
+    ]
+  },
+  "outputs": [
+    "conditional_shift_results.csv",
+    "config.json",
+    "manifest.json",
+    "README.md",
+    "shared_model_results.csv",
+    "summary.json"
+  ]
+}
