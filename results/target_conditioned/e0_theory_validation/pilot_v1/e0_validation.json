@@ -1,0 +1,117 @@
+{
+  "experiment": "E0 target-conditioned theory validation",
+  "status": "passed",
+  "created_utc": "2026-09-10T04:48:44.748266+00:00",
+  "seed": 20260910,
+  "thresholds": {
+    "formula_relative_tolerance": 1e-10,
+    "monte_carlo_relative_tolerance": 0.001,
+    "convexity_tolerance": 1e-09,
+    "submodularity_tolerance": 1e-10,
+    "interval_tolerance": 1e-10
+  },
+  "checks": {
+    "bayes_risk_monte_carlo": true,
+    "sample_marginal_identity": true,
+    "block_marginal_identity": true,
+    "a_opt_hessian_psd": true,
+    "a_opt_jensen_convexity": true,
+    "d_opt_monotone": true,
+    "d_opt_diminishing_returns": true,
+    "a_opt_non_submodular_counterexample": true,
+    "sketch_interval_coverage": true,
+    "adaptive_sketch_matches_full_greedy": true,
+    "label_blind_non_identifiability": true
+  },
+  "metrics": {
+    "monte_carlo": {
+      "draws": 1000000,
+      "analytic_total_risk": 1.6699573558048773,
+      "monte_carlo_total_risk": 1.6711136398260586,
+      "relative_error": 0.0006924033222537576,
+      "standard_error": 0.0013446691728530246,
+      "z_score": 0.8599022306193539
+    },
+    "marginal_identities": {
+      "trials": 100,
+      "sample_max_relative_error": 3.7864475922778736e-13,
+      "block_max_relative_error": 4.48074285381486e-15
+    },
+    "convexity": {
+      "trials": 100,
+      "minimum_hessian_eigenvalue": 0.00019742651346542223,
+      "maximum_jensen_violation": -2.1404319127393823e-06
+    },
+    "d_opt": {
+      "comparisons": 405,
+      "minimum_monotone_gain": 0.1941123366469255,
+      "minimum_diminishing_returns_margin": 0.0
+    },
+    "sketches": {
+      "trials": 100,
+      "covered": 100,
+      "coverage": 1.0,
+      "maximum_absolute_violation": 1.6653345369377348e-16,
+      "mean_interval_width": 1.175012320049079,
+      "maximum_interval_width": 6.308032242926134,
+      "adaptive_full_greedy_matches": 100,
+      "adaptive_match_rate": 1.0,
+      "adaptive_certificate_rate": 1.0
+    }
+  },
+  "counterexamples": {
+    "a_opt_non_submodular": {
+      "features": [
+        [
+          -1.379107303258097,
+          13.610895726498347
+        ],
+        [
+          -0.5438133406059672,
+          0.6519343443096093
+        ],
+        [
+          2.008858610711189,
+          11.588225405885595
+        ]
+      ],
+      "target_moment": [
+        [
+          10.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.1
+        ]
+      ],
+      "element": 0,
+      "larger_context": [
+        2
+      ],
+      "gain_from_empty": 0.19953939823790634,
+      "gain_after_context": 8.258899207232822,
+      "increasing_returns_gap": 8.059359808994916,
+      "violates_submodularity": true
+    },
+    "label_blind_non_identifiability": {
+      "candidate_feature_grams_identical": true,
+      "risks": {
+        "positive_source_positive_target": 0.00024507401235185355,
+        "negative_source_positive_target": 9.901235173022252,
+        "positive_source_negative_target": 9.901235173022252,
+        "negative_source_negative_target": 0.00024507401235185355
+      },
+      "best_source_for_positive_target": "positive",
+      "best_source_for_negative_target": "negative"
+    }
+  },
+  "provenance": {
+    "git_revision": "unknown",
+    "script_sha256": "c6693fc060b1035d004e37b9fb72a9458f868d5d96d0dd3ac0ed6251cf462fb1",
+    "python": "3.10.12 (main, Mar  3 2026, 11:56:32) [GCC 11.4.0]",
+    "numpy": "1.26.4",
+    "platform": "Linux-5.15.0-91-generic-aarch64-with-glibc2.35",
+    "mini": false
+  }
+}
