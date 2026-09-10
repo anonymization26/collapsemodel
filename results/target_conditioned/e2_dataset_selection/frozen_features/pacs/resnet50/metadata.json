@@ -1,0 +1,55 @@
+{
+  "assignments_file_sha256": "9ff5bafcadb3ed1123f3aab484f5a9e4c559051b63754450e9664bce6c7df741",
+  "code": {
+    "encoder_loader_sha256": "db834d7268cf302c458172a0d12f555e7ea42a32d760d6006406b74b9888630f",
+    "extractor_sha256": "eea30ccda49d928c62e71b103231bca5d06576e1f1ee482fc602aebdbb0c169d",
+    "git_revision": "1fec645f5adb924e6fb5c452a71bd00439e18ef7"
+  },
+  "data_access": {
+    "extraction_uses_labels": false,
+    "labels_saved_for_evaluation_only": true,
+    "ordering": "samples.csv sample_index",
+    "target_test_access": "feature extraction only; selection code must use assignment views"
+  },
+  "dataset": "pacs",
+  "duplicates_file_sha256": "7aab0a2dfd8e660388d9c3dc2864e2e06e38ffd89ca564ee4d5e90ffcbc3c2bc",
+  "encoder": {
+    "checkpoint_file_sha256": "11ad3fa62ca79e40addfd354a8ec4b7c75143b3038b8d2a807fbc68deab379ca",
+    "checkpoint_id": "torchvision:ResNet50_Weights.IMAGENET1K_V2",
+    "feature_layer": "global-average-pool-before-fc",
+    "model_state_sha256": "da7fcbf478583233248fcefdd6979ed1c0c35cd2751f11e6e5b8550898af7f1a",
+    "name": "resnet50",
+    "preprocess": "ImageClassification(\n    crop_size=[224]\n    resize_size=[232]\n    mean=[0.485, 0.456, 0.406]\n    std=[0.229, 0.224, 0.225]\n    interpolation=InterpolationMode.BILINEAR\n)",
+    "preprocess_sha256": "f4fe89f34af465ce172e3e4665016d58710e1c2f462bf71f23631d2e377562c3"
+  },
+  "feature_dtype": "float32",
+  "feature_file_sha256": "0b55b4dbfca330caba621fad31e7c82c07bf059ceebd42965fd14e59c6aa07f5",
+  "feature_postprocessing": "none_raw_pooled",
+  "feature_shape": [
+    9991,
+    2048
+  ],
+  "label_dtype": "int64",
+  "manifest_file_sha256": "8ff0ab4436213c78d542ab0110712a7ffbede63beb94541bec040daa9fcdd983",
+  "manifest_id": "4113ee4b81f3558c983d0d2a64b90f72d2669663b5644f7fc6aea7a23d3ca79b",
+  "runtime": {
+    "batch_size": 64,
+    "device": "npu:4",
+    "device_name": "Ascend910B4",
+    "finished_utc": "2026-09-10T16:23:16.357338+00:00",
+    "images_per_second": 480.5744146066738,
+    "inference_seconds": 20.78970435447991,
+    "model_load_seconds": 1.5786177199333906,
+    "numpy_version": "1.26.4",
+    "peak_allocated_mb": 845.4775390625,
+    "peak_reserved_mb": 1018.0,
+    "python_version": "3.10.12",
+    "started_utc": "2026-09-10T16:22:53.151152+00:00",
+    "torch_version": "2.6.0+cpu",
+    "workers": 4
+  },
+  "sample_count": 9991,
+  "sample_id_dtype": "<U64",
+  "samples_file_sha256": "93bf257283605b37a326a615c0b22d83ecfcf56f01b5e0a83c077a4db4126d66",
+  "schema_version": "target-conditioned-e2-feature-cache-v1"
+}

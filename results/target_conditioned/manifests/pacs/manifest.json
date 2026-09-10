@@ -1,0 +1,189 @@
+{
+  "assignment_counts": {
+    "by_target_and_candidate": {
+      "art_painting": {
+        "cartoon__block_00": 596,
+        "cartoon__block_01": 569,
+        "cartoon__block_02": 584,
+        "cartoon__block_03": 595,
+        "photo__block_00": 433,
+        "photo__block_01": 415,
+        "photo__block_02": 395,
+        "photo__block_03": 427,
+        "sketch__block_00": 1032,
+        "sketch__block_01": 976,
+        "sketch__block_02": 963,
+        "sketch__block_03": 958
+      },
+      "cartoon": {
+        "art_painting__block_00": 506,
+        "art_painting__block_01": 522,
+        "art_painting__block_02": 501,
+        "art_painting__block_03": 519,
+        "photo__block_00": 433,
+        "photo__block_01": 415,
+        "photo__block_02": 395,
+        "photo__block_03": 427,
+        "sketch__block_00": 1032,
+        "sketch__block_01": 976,
+        "sketch__block_02": 963,
+        "sketch__block_03": 958
+      },
+      "photo": {
+        "art_painting__block_00": 506,
+        "art_painting__block_01": 522,
+        "art_painting__block_02": 501,
+        "art_painting__block_03": 519,
+        "cartoon__block_00": 596,
+        "cartoon__block_01": 569,
+        "cartoon__block_02": 584,
+        "cartoon__block_03": 595,
+        "sketch__block_00": 1032,
+        "sketch__block_01": 976,
+        "sketch__block_02": 963,
+        "sketch__block_03": 958
+      },
+      "sketch": {
+        "art_painting__block_00": 506,
+        "art_painting__block_01": 522,
+        "art_painting__block_02": 501,
+        "art_painting__block_03": 519,
+        "cartoon__block_00": 596,
+        "cartoon__block_01": 569,
+        "cartoon__block_02": 584,
+        "cartoon__block_03": 595,
+        "photo__block_00": 433,
+        "photo__block_01": 415,
+        "photo__block_02": 395,
+        "photo__block_03": 427
+      }
+    },
+    "by_target_and_role": {
+      "art_painting": {
+        "source_candidate": 7943,
+        "target_calibration": 213,
+        "target_selection": 420,
+        "target_test": 1415
+      },
+      "cartoon": {
+        "source_candidate": 7647,
+        "target_calibration": 230,
+        "target_selection": 449,
+        "target_test": 1665
+      },
+      "photo": {
+        "source_candidate": 8321,
+        "target_calibration": 160,
+        "target_selection": 364,
+        "target_test": 1146
+      },
+      "sketch": {
+        "source_candidate": 6062,
+        "target_calibration": 369,
+        "target_selection": 808,
+        "target_test": 2752
+      }
+    }
+  },
+  "assignment_protocol": {
+    "blocks_per_source_domain": 4,
+    "cross_domain_target_duplicate_policy": "exclude-source-copy-when-content-exists-in-target-domain",
+    "duplicate_content_policy": "same-domain-identical-content-shares-assignment",
+    "split_basis_points": {
+      "target_calibration": 1000,
+      "target_selection": 2000,
+      "target_test": 7000
+    },
+    "split_seed": "target-conditioned-e2-v1",
+    "uses_labels": false
+  },
+  "assignments_file_sha256": "9ff5bafcadb3ed1123f3aab484f5a9e4c559051b63754450e9664bce6c7df741",
+  "class_to_id": {
+    "dog": 0,
+    "elephant": 1,
+    "giraffe": 2,
+    "guitar": 3,
+    "horse": 4,
+    "house": 5,
+    "person": 6
+  },
+  "content_duplicate_audit": {
+    "cross_class_duplicate_group_count": 0,
+    "cross_class_duplicate_sample_count": 0,
+    "cross_domain_duplicate_group_count": 0,
+    "cross_domain_duplicate_sample_count": 0,
+    "duplicate_extra_sample_count": 0,
+    "duplicate_group_count": 0,
+    "maximum_duplicate_group_size": 1,
+    "unique_content_count": 9991,
+    "within_domain_duplicate_group_count": 0
+  },
+  "dataset": "pacs",
+  "dataset_tree_sha256": "1aeccb8651f028211b6226b0f1ef66d307dfc4f954af2f80b580824a0cd1e46e",
+  "dataset_version": "official-pacs-zip-2017",
+  "domains": [
+    "art_painting",
+    "cartoon",
+    "photo",
+    "sketch"
+  ],
+  "duplicates_file_sha256": "7aab0a2dfd8e660388d9c3dc2864e2e06e38ffd89ca564ee4d5e90ffcbc3c2bc",
+  "manifest_id": "4113ee4b81f3558c983d0d2a64b90f72d2669663b5644f7fc6aea7a23d3ca79b",
+  "receipt_sha256": "5db2df9df230274eac527f89e71acd52dd6e5543834035ffba32d579653a15fb",
+  "sample_count": 9991,
+  "sample_counts": {
+    "by_domain": {
+      "art_painting": 2048,
+      "cartoon": 2344,
+      "photo": 1670,
+      "sketch": 3929
+    },
+    "by_domain_and_class": {
+      "art_painting": {
+        "dog": 379,
+        "elephant": 255,
+        "giraffe": 285,
+        "guitar": 184,
+        "horse": 201,
+        "house": 295,
+        "person": 449
+      },
+      "cartoon": {
+        "dog": 389,
+        "elephant": 457,
+        "giraffe": 346,
+        "guitar": 135,
+        "horse": 324,
+        "house": 288,
+        "person": 405
+      },
+      "photo": {
+        "dog": 189,
+        "elephant": 202,
+        "giraffe": 182,
+        "guitar": 186,
+        "horse": 199,
+        "house": 280,
+        "person": 432
+      },
+      "sketch": {
+        "dog": 772,
+        "elephant": 740,
+        "giraffe": 753,
+        "guitar": 608,
+        "horse": 816,
+        "house": 80,
+        "person": 160
+      }
+    }
+  },
+  "samples_file_sha256": "93bf257283605b37a326a615c0b22d83ecfcf56f01b5e0a83c077a4db4126d66",
+  "schema_version": "target-conditioned-e2-dataset-v1",
+  "source_artifacts": [
+    {
+      "byte_size": 182623329,
+      "filename": "PACS.zip",
+      "sha256": "9da8b7d3ba3cdd8cde6521a2dc4790c69b8776d6ad8b4e0e69b02c89663a7c32"
+    }
+  ]
+}

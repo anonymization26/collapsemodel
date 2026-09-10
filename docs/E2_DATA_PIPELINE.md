@@ -142,3 +142,14 @@ bash scripts/run_target_conditioned_e2_features_npu.sh \
 3. 两个数据集的 ResNet-50 与 DINOv2 缓存全部通过逐样本校验；
 4. 小体积 manifest 和 metadata 已复制回版本库并复核无身份、主机地址和绝对路径；
 5. 才能开始 E2 方法比较，且不能把数据准备本身写成 H2 的经验结果。
+
+## 完成记录
+
+截至 2026-09-11，上述五项准备条件均已满足：PACS 与 Office-Home 的 manifest 在服务器和
+版本库副本上均验证为 `valid`，四份冻结特征缓存通过了样本顺序、形状、dtype、manifest 绑定
+和文件哈希复核。版本库副本与服务器原件逐文件 SHA-256 一致，且未包含身份、主机地址或绝对路径。
+
+可提交产物位于 `results/target_conditioned/manifests/` 和
+`results/target_conditioned/e2_dataset_selection/frozen_features/`；机器可读汇总见
+`results/target_conditioned/e2_dataset_selection/artifact_index.json`。此记录仅解除方法实验的
+数据门禁，不代表 E2 或 H2 已经通过。

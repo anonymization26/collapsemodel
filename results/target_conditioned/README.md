@@ -1,6 +1,6 @@
 # Target-Conditioned 实验状态
 
-> 当前只有数学验证和合成实验。不得将本目录结果表述为真实数据集上的方法收益。
+> 当前已有数学验证、合成实验和通过验收的 E2 数据输入，但尚无真实数据集上的方法收益。
 
 ## expanded_v3_controlled_rng（当前有效扩展结果）
 
@@ -49,9 +49,9 @@
 ### 旧扩展结果处置
 
 `expanded_v2_fair` 的目标样本量变化同时改变了源候选池，存在随机流混杂，只能视为探索性运行，
-不进入版本库或论文确认性统计。服务器仍保留其原始归档。E2 数据协议与抽取代码已经实现，
-但方法实验尚未启动，因为服务器上还没有通过新协议验收的 Office-Home、PACS、DomainNet
-或 Camelyon17 manifest 与冻结特征缓存。
+不进入版本库或论文确认性统计。服务器仍保留其原始归档。E2 数据协议与抽取代码已经实现；
+PACS 和 Office-Home 的 manifest 及 ResNet-50/DINOv2 冻结特征已通过验收并登记在
+`e2_dataset_selection/artifact_index.json`。方法比较尚未启动，因此仍无真实数据性能结论。
 
 ## pilot_v1
 

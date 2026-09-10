@@ -407,7 +407,7 @@ results/target_conditioned/
 
 ## 12. 实施清单
 
-截至 2026-09-10，`pilot_v1` 已完成 E0 和 E1 先导验证；`expanded_v1_calibration` 已完成单 seed
+截至 2026-09-11，`pilot_v1` 已完成 E0 和 E1 先导验证；`expanded_v1_calibration` 已完成单 seed
 计时。`expanded_v2_fair` 因目标样本量变化同时改变源候选池而作废，只保留为探索性运行。
 
 当前有效扩展运行 `expanded_v3_controlled_rng` 使用 20 个种子，完成 4,320 个 E1 配置和 1,440 个
@@ -415,11 +415,12 @@ E5 配置。H2 与同权限 H2b 均通过；E1 合并器对 33,480 个共享模�
 执行受控随机流不变量检查，未发现不一致。H5 的所有确定性区间均覆盖真值，但在打包对称 Gram
 分母下没有策略达到通信门槛，因此 H5 明确失败。结果和限制见 `results/target_conditioned/README.md`。
 
-真实数据 E2 的数据流水线代码已实现，但方法实验尚未启动。流水线要求官方发布包收据、逐样本
-内容哈希、无标签哈希划分、manifest 绑定和冻结特征逐项校验；协议见
-`docs/E2_DATA_PIPELINE.md`。服务器当前仍缺少通过该协议验收的 Office-Home、PACS、
-DomainNet 或 Camelyon17 manifest 与冻结表示缓存。在数据来源、用途说明、版本和划分未冻结前，
-不以临时下载或旧版单域特征替代确认性 E2 数据。
+真实数据 E2 的首轮输入准备已经完成，但方法实验尚未启动。PACS 和 Office-Home 的官方发布包
+收据、逐样本内容哈希、无标签哈希划分、manifest 绑定以及 ResNet-50/DINOv2 四份冻结表示
+均已通过校验；小体积 manifest 和 metadata 已复制回版本库。权威索引见
+`results/target_conditioned/e2_dataset_selection/artifact_index.json`，协议见
+`docs/E2_DATA_PIPELINE.md`。DomainNet 和 Camelyon17 仍未按本协议准备，不进入首轮门控实验；
+旧版单域特征不替代确认性 E2 数据。
 
 ### P0：冻结数学规格
 
@@ -439,9 +440,9 @@ DomainNet 或 Camelyon17 manifest 与冻结表示缓存。在数据来源、用�
 ### P2：真实数据流水线
 
 - [x] 实现官方发布包收据、逐样本 manifest、无标签哈希分片及篡改校验。
-- [ ] 生成 PACS 和 Office-Home 的真实数据 manifest。
+- [x] 生成并校验 PACS 和 Office-Home 的真实数据 manifest。
 - [x] 实现 ResNet-50/DINOv2 统一 NPU 特征抽取和逐样本缓存校验。
-- [ ] 完成 PACS 和 Office-Home 的四份冻结特征缓存并复制回小体积 metadata。
+- [x] 完成 PACS 和 Office-Home 的四份冻结特征缓存并复制回小体积 metadata。
 - [ ] 复核 Collapse-4S 与所有经典基线接口。
 - [ ] 完成 Office-Home、PACS 两编码器门控实验。
 - [ ] 检查 H2；通过后扩展数据集和编码器。

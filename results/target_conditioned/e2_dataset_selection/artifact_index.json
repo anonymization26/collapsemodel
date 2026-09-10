@@ -1,0 +1,94 @@
+{
+  "schema_version": "target-conditioned-e2-artifact-index-v1",
+  "status": "data-preparation-complete-method-comparison-not-run",
+  "source_revision": "1fec645f5adb924e6fb5c452a71bd00439e18ef7",
+  "source_deployment_archive_sha256": "cdc7117c5edf7766224d4bd59a0e3140e81dd9944f602e9eabd96e23e3d4e705",
+  "raw_data_tracked_in_git": false,
+  "feature_files_tracked_in_git": false,
+  "validation": {
+    "manifest_repository_copy": "valid",
+    "manifest_server_copy": "valid",
+    "feature_cache_server_copy": "valid",
+    "repository_copy_matches_server_sha256": true,
+    "anonymity_scan": "passed"
+  },
+  "datasets": {
+    "pacs": {
+      "sample_count": 9991,
+      "manifest_id": "4113ee4b81f3558c983d0d2a64b90f72d2669663b5644f7fc6aea7a23d3ca79b",
+      "manifest_path": "results/target_conditioned/manifests/pacs/manifest.json",
+      "manifest_file_sha256": "8ff0ab4436213c78d542ab0110712a7ffbede63beb94541bec040daa9fcdd983",
+      "receipt_path": "results/target_conditioned/manifests/pacs/receipt.json",
+      "receipt_file_sha256": "5db2df9df230274eac527f89e71acd52dd6e5543834035ffba32d579653a15fb",
+      "source_artifact": {
+        "filename": "PACS.zip",
+        "byte_size": 182623329,
+        "sha256": "9da8b7d3ba3cdd8cde6521a2dc4790c69b8776d6ad8b4e0e69b02c89663a7c32"
+      },
+      "content_duplicate_audit": {
+        "unique_content_count": 9991,
+        "duplicate_group_count": 0,
+        "cross_domain_duplicate_group_count": 0,
+        "cross_class_duplicate_group_count": 0
+      },
+      "feature_caches": {
+        "resnet50": {
+          "metadata_path": "results/target_conditioned/e2_dataset_selection/frozen_features/pacs/resnet50/metadata.json",
+          "metadata_file_sha256": "e340cc4d7d5d25695020db94a99c38a6255223e8f75d42cace728495a1c1fc3a",
+          "feature_file_sha256": "0b55b4dbfca330caba621fad31e7c82c07bf059ceebd42965fd14e59c6aa07f5",
+          "feature_shape": [9991, 2048],
+          "inference_seconds": 20.78970435447991,
+          "images_per_second": 480.5744146066738
+        },
+        "dinov2_b14": {
+          "metadata_path": "results/target_conditioned/e2_dataset_selection/frozen_features/pacs/dinov2_b14/metadata.json",
+          "metadata_file_sha256": "1e38bb3f301eac84d06e5602942392331fbbcb8bcce5068dd1ae2d7711a017a6",
+          "feature_file_sha256": "e97510016dbe3fefb4a1026153b70322d76a387d5cc26d30ccb5a2b896e71106",
+          "feature_shape": [9991, 768],
+          "inference_seconds": 19.092680590227246,
+          "images_per_second": 523.2895377254664
+        }
+      }
+    },
+    "office_home": {
+      "sample_count": 15588,
+      "manifest_id": "78c3ddd0f2743b74e377d3f15e46d781648a9480acd536461d984e4bdb6a55fd",
+      "manifest_path": "results/target_conditioned/manifests/office_home/manifest.json",
+      "manifest_file_sha256": "2733d5132bcab59ba7178e2611e437a0359ce31501a21b92682266e93e65c73a",
+      "receipt_path": "results/target_conditioned/manifests/office_home/receipt.json",
+      "receipt_file_sha256": "3d7d931565db15d95a7e27c624866a132c693fd1964bfe7158a5975cad56466d",
+      "source_artifact": {
+        "filename": "OfficeHomeDataset_10072016.zip",
+        "byte_size": 1132166928,
+        "sha256": "4b3ee939c181e508109064c484d59bcff0386bdf15960e8d11305ee5c4bb81ff"
+      },
+      "content_duplicate_audit": {
+        "unique_content_count": 15176,
+        "duplicate_group_count": 398,
+        "duplicate_extra_sample_count": 412,
+        "cross_domain_duplicate_group_count": 9,
+        "cross_domain_duplicate_sample_count": 21,
+        "cross_class_duplicate_group_count": 87,
+        "cross_class_duplicate_sample_count": 178
+      },
+      "feature_caches": {
+        "resnet50": {
+          "metadata_path": "results/target_conditioned/e2_dataset_selection/frozen_features/office_home/resnet50/metadata.json",
+          "metadata_file_sha256": "2e36cf26af22edd0a192c03bffde5ce6ef10b7667c573e8d77ed93a64971a14b",
+          "feature_file_sha256": "f09234c53a7123f1d029eca1dc5b5b689e50b07639aaa688fb1d7e7e7327db7a",
+          "feature_shape": [15588, 2048],
+          "inference_seconds": 81.66418889164925,
+          "images_per_second": 190.87926068404244
+        },
+        "dinov2_b14": {
+          "metadata_path": "results/target_conditioned/e2_dataset_selection/frozen_features/office_home/dinov2_b14/metadata.json",
+          "metadata_file_sha256": "4fb08e194baf6776d52e0795d6ef356982932c019d5bd9da9c0fcfbbfb0776c5",
+          "feature_file_sha256": "98383017bb7c3af6c697bce8bb4799803e64dd708634202acdc3090573125446",
+          "feature_shape": [15588, 768],
+          "inference_seconds": 90.47548344358802,
+          "images_per_second": 172.28976742322916
+        }
+      }
+    }
+  }
+}

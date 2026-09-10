@@ -1,0 +1,55 @@
+{
+  "assignments_file_sha256": "250a4d09d42e74c3af50aa5601a9518fe0d2d1b5a3a2437912da042f4a008a73",
+  "code": {
+    "encoder_loader_sha256": "db834d7268cf302c458172a0d12f555e7ea42a32d760d6006406b74b9888630f",
+    "extractor_sha256": "eea30ccda49d928c62e71b103231bca5d06576e1f1ee482fc602aebdbb0c169d",
+    "git_revision": "1fec645f5adb924e6fb5c452a71bd00439e18ef7"
+  },
+  "data_access": {
+    "extraction_uses_labels": false,
+    "labels_saved_for_evaluation_only": true,
+    "ordering": "samples.csv sample_index",
+    "target_test_access": "feature extraction only; selection code must use assignment views"
+  },
+  "dataset": "office_home",
+  "duplicates_file_sha256": "c628c7695b40cacb8fb6d599d396b4a2c5a82a5dee571fd26193a8564fcff528",
+  "encoder": {
+    "checkpoint_file_sha256": "0b8b82f85de91b424aded121c7e1dcc2b7bc6d0adeea651bf73a13307fad8c73",
+    "checkpoint_id": "dinov2_vitb14_pretrain.pth",
+    "feature_layer": "final-cls-token",
+    "model_state_sha256": "fe64abe930063edc1e857fc3c0ea8162f7de6a056b4f903730cc0410a90e60a4",
+    "name": "dinov2_b14",
+    "preprocess": "Compose(\n    Resize(size=256, interpolation=bicubic, max_size=None, antialias=True)\n    CenterCrop(size=(224, 224))\n    ToTensor()\n    Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))\n)",
+    "preprocess_sha256": "26184559c02d24bb9e3bfc740fea07c88c8f7f2fb942b67cfa4ad9fc5a6577b8"
+  },
+  "feature_dtype": "float32",
+  "feature_file_sha256": "98383017bb7c3af6c697bce8bb4799803e64dd708634202acdc3090573125446",
+  "feature_postprocessing": "none_raw_pooled",
+  "feature_shape": [
+    15588,
+    768
+  ],
+  "label_dtype": "int64",
+  "manifest_file_sha256": "2733d5132bcab59ba7178e2611e437a0359ce31501a21b92682266e93e65c73a",
+  "manifest_id": "78c3ddd0f2743b74e377d3f15e46d781648a9480acd536461d984e4bdb6a55fd",
+  "runtime": {
+    "batch_size": 64,
+    "device": "npu:4",
+    "device_name": "Ascend910B4",
+    "finished_utc": "2026-09-10T16:28:47.607014+00:00",
+    "images_per_second": 172.28976742322916,
+    "inference_seconds": 90.47548344358802,
+    "model_load_seconds": 4.954046374186873,
+    "numpy_version": "1.26.4",
+    "peak_allocated_mb": 945.642578125,
+    "peak_reserved_mb": 1122.0,
+    "python_version": "3.10.12",
+    "started_utc": "2026-09-10T16:27:11.507727+00:00",
+    "torch_version": "2.6.0+cpu",
+    "workers": 4
+  },
+  "sample_count": 15588,
+  "sample_id_dtype": "<U64",
+  "samples_file_sha256": "04f9832b6fd3ea81f3c70eca15c3bc70eeba9855ca5f346b69b632ebc96ef0c9",
+  "schema_version": "target-conditioned-e2-feature-cache-v1"
+}
