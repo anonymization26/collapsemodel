@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 import time
@@ -92,15 +93,30 @@ def _checkpoint_identity(
 
 
 def _git_revision() -> str:
+    revision_pattern = re.compile(r"[0-9a-f]{40}")
+    environment_revision = os.environ.get("SOURCE_GIT_REVISION", "")
+    if revision_pattern.fullmatch(environment_revision):
+        return environment_revision
     try:
-        return subprocess.check_output(
+        revision = subprocess.check_output(
             ["git", "rev-parse", "HEAD"],
             cwd=ROOT,
             text=True,
             stderr=subprocess.DEVNULL,
         ).strip()
     except (OSError, subprocess.CalledProcessError):
-        return "unavailable"
+        revision_file = ROOT / "SOURCE_REVISION"
+        if revision_file.is_file():
+            revision = revision_file.read_text(
+                encoding="ascii"
+            ).strip()
+        else:
+            revision = ""
+    if not revision_pattern.fullmatch(revision):
+        raise RuntimeError(
+            "cannot establish a 40-character source Git revision"
+        )
+    return revision
 
 
 def _device_name(device_index: int) -> str:
