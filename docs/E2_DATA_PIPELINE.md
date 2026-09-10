@@ -74,7 +74,10 @@ python3 scripts/create_target_conditioned_e2_receipt.py \
 数据树必须是 `domain/class/image`。构建器逐图验证可解码性，记录相对路径、字节数、
 内容 SHA-256、稳定样本 ID、域和审计用类别。任何绝对路径都禁止进入产物。
 
-目标域按内容哈希分为：
+构建器另生成并绑定 `content_duplicates.csv`，明确报告域内、跨域和跨类别的完全相同内容。
+为防止直接泄漏，当某域作为目标时，其他源域中与该目标域字节完全相同的样本统一标为
+`excluded_target_duplicate`，不得进入候选块；目标域内重复内容仍共享同一目标划分。
+跨类别重复保留原始标注并单独报告，不能任意保留一个标签后声称仍是官方任务。目标域按内容哈希分为：
 
 - `target_selection`：20%，U0 可见，只估计无标签目标二阶矩；
 - `target_calibration`：10%，只供 U2；

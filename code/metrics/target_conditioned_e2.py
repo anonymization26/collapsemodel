@@ -41,6 +41,13 @@ SAMPLE_FIELDS = (
     "byte_size",
 )
 ASSIGNMENT_FIELDS = ("target_domain", "sample_id", "role", "candidate_id")
+DUPLICATE_FIELDS = (
+    "content_sha256",
+    "sample_id",
+    "domain",
+    "class_name",
+    "relative_path",
+)
 _SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 
 
@@ -473,6 +480,11 @@ def build_assignments(
 ) -> List[Dict[str, str]]:
     assignments = []
     for target_domain in target_domains:
+        target_content = {
+            str(row["content_sha256"])
+            for row in samples
+            if str(row["domain"]) == target_domain
+        }
         for row in samples:
             domain = str(row["domain"])
             content_hash = str(row["content_sha256"])
@@ -484,6 +496,9 @@ def build_assignments(
                     split_seed,
                     split_basis_points,
                 )
+                candidate_id = ""
+            elif content_hash in target_content:
+                role = "excluded_target_duplicate"
                 candidate_id = ""
             else:
                 role = "source_candidate"
@@ -514,6 +529,69 @@ def _tree_sha256(samples: Sequence[Mapping[str, object]]) -> str:
         )
         digest.update(record.encode("utf-8"))
     return digest.hexdigest()
+
+
+def _duplicate_records(
+    samples: Sequence[Mapping[str, object]],
+) -> Tuple[List[Dict[str, object]], Dict[str, int]]:
+    grouped: Dict[str, List[Mapping[str, object]]] = {}
+    for row in samples:
+        grouped.setdefault(str(row["content_sha256"]), []).append(row)
+    duplicate_groups = {
+        digest: rows
+        for digest, rows in grouped.items()
+        if len(rows) > 1
+    }
+    records = []
+    for digest, rows in sorted(duplicate_groups.items()):
+        for row in rows:
+            records.append(
+                {
+                    "content_sha256": digest,
+                    "sample_id": row["sample_id"],
+                    "domain": row["domain"],
+                    "class_name": row["class_name"],
+                    "relative_path": row["relative_path"],
+                }
+            )
+    cross_domain_groups = [
+        rows
+        for rows in duplicate_groups.values()
+        if len({str(row["domain"]) for row in rows}) > 1
+    ]
+    cross_class_groups = [
+        rows
+        for rows in duplicate_groups.values()
+        if len({str(row["class_name"]) for row in rows}) > 1
+    ]
+    audit = {
+        "unique_content_count": len(grouped),
+        "duplicate_group_count": len(duplicate_groups),
+        "duplicate_extra_sample_count": sum(
+            len(rows) - 1
+            for rows in duplicate_groups.values()
+        ),
+        "within_domain_duplicate_group_count": (
+            len(duplicate_groups) - len(cross_domain_groups)
+        ),
+        "cross_domain_duplicate_group_count": len(
+            cross_domain_groups
+        ),
+        "cross_domain_duplicate_sample_count": sum(
+            len(rows) for rows in cross_domain_groups
+        ),
+        "cross_class_duplicate_group_count": len(
+            cross_class_groups
+        ),
+        "cross_class_duplicate_sample_count": sum(
+            len(rows) for rows in cross_class_groups
+        ),
+        "maximum_duplicate_group_size": max(
+            (len(rows) for rows in duplicate_groups.values()),
+            default=1,
+        ),
+    }
+    return records, audit
 
 
 def _write_csv(
@@ -612,9 +690,16 @@ def build_manifest_bundle(
     receipt_output = output_dir / "receipt.json"
     samples_output = output_dir / "samples.csv"
     assignments_output = output_dir / "assignments.csv"
+    duplicates_output = output_dir / "content_duplicates.csv"
+    duplicate_records, duplicate_audit = _duplicate_records(samples)
     write_json_atomic(receipt_output, receipt)
     _write_csv(samples_output, SAMPLE_FIELDS, samples)
     _write_csv(assignments_output, ASSIGNMENT_FIELDS, assignments)
+    _write_csv(
+        duplicates_output,
+        DUPLICATE_FIELDS,
+        duplicate_records,
+    )
 
     core = {
         "schema_version": MANIFEST_SCHEMA,
@@ -625,6 +710,7 @@ def build_manifest_bundle(
         "dataset_tree_sha256": _tree_sha256(samples),
         "samples_file_sha256": sha256_file(samples_output),
         "assignments_file_sha256": sha256_file(assignments_output),
+        "duplicates_file_sha256": sha256_file(duplicates_output),
         "sample_count": len(samples),
         "domains": target_domains,
         "class_to_id": class_to_id,
@@ -635,6 +721,9 @@ def build_manifest_bundle(
             "uses_labels": False,
             "duplicate_content_policy": (
                 "same-domain-identical-content-shares-assignment"
+            ),
+            "cross_domain_target_duplicate_policy": (
+                "exclude-source-copy-when-content-exists-in-target-domain"
             ),
         },
         "sample_counts": {
@@ -658,6 +747,7 @@ def build_manifest_bundle(
                 ("target_domain", "candidate_id"),
             ),
         },
+        "content_duplicate_audit": duplicate_audit,
     }
     manifest = {
         **core,
@@ -794,6 +884,7 @@ def validate_manifest_bundle(
 
     samples_path = bundle_dir / "samples.csv"
     assignments_path = bundle_dir / "assignments.csv"
+    duplicates_path = bundle_dir / "content_duplicates.csv"
     samples = read_manifest_samples(bundle_dir)
     if not samples:
         raise E2ArtifactError("samples.csv is empty")
@@ -803,6 +894,12 @@ def validate_manifest_bundle(
         assignments_path
     ):
         raise E2ArtifactError("assignments.csv hash mismatch")
+    if manifest.get("duplicates_file_sha256") != sha256_file(
+        duplicates_path
+    ):
+        raise E2ArtifactError(
+            "content_duplicates.csv hash mismatch"
+        )
     if [
         row["sample_index"] for row in samples
     ] != list(range(len(samples))):
@@ -928,6 +1025,26 @@ def validate_manifest_bundle(
         raise E2ArtifactError(
             "manifest assignment counts are incorrect"
         )
+    expected_duplicates, duplicate_audit = _duplicate_records(samples)
+    duplicates = _read_csv(
+        duplicates_path,
+        DUPLICATE_FIELDS,
+    )
+    expected_duplicate_strings = [
+        {
+            key: str(row[key])
+            for key in DUPLICATE_FIELDS
+        }
+        for row in expected_duplicates
+    ]
+    if duplicates != expected_duplicate_strings:
+        raise E2ArtifactError(
+            "content_duplicates.csv is incorrect"
+        )
+    if manifest.get("content_duplicate_audit") != duplicate_audit:
+        raise E2ArtifactError(
+            "manifest content duplicate audit is incorrect"
+        )
 
     core = {
         key: value
@@ -957,6 +1074,7 @@ def validate_manifest_bundle(
         "target_role_counts": expected_assignment_counts[
             "by_target_and_role"
         ],
+        "content_duplicate_audit": duplicate_audit,
     }
 
 
@@ -1012,6 +1130,12 @@ def validate_feature_cache(
     ):
         raise E2ArtifactError(
             "cache assignments.csv hash mismatch"
+        )
+    if metadata.get("duplicates_file_sha256") != manifest.get(
+        "duplicates_file_sha256"
+    ):
+        raise E2ArtifactError(
+            "cache content_duplicates.csv hash mismatch"
         )
     if metadata.get("feature_file_sha256") != sha256_file(feature_path):
         raise E2ArtifactError("feature file hash mismatch")

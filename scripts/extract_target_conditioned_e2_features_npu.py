@@ -324,6 +324,9 @@ def main() -> None:
         "assignments_file_sha256": (
             manifest["assignments_file_sha256"]
         ),
+        "duplicates_file_sha256": manifest[
+            "duplicates_file_sha256"
+        ],
         "feature_file_sha256": sha256_file(feature_path),
         "sample_count": len(samples),
         "feature_shape": list(features.shape),

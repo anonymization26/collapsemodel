@@ -128,6 +128,9 @@ class TargetConditionedE2Tests(unittest.TestCase):
             "assignments_file_sha256": manifest[
                 "assignments_file_sha256"
             ],
+            "duplicates_file_sha256": manifest[
+                "duplicates_file_sha256"
+            ],
             "feature_file_sha256": sha256_file(feature_path),
             "sample_count": len(features),
             "feature_shape": list(features.shape),
@@ -208,6 +211,13 @@ class TargetConditionedE2Tests(unittest.TestCase):
             (self.bundle / "assignments.csv").read_bytes(),
             (copied_bundle / "assignments.csv").read_bytes(),
         )
+        self.assertEqual(
+            (self.bundle / "content_duplicates.csv").read_bytes(),
+            (
+                copied_bundle
+                / "content_duplicates.csv"
+            ).read_bytes(),
+        )
         serialized = json.dumps(original_manifest)
         self.assertNotIn(str(self.root), serialized)
         report = validate_manifest_bundle(
@@ -218,6 +228,12 @@ class TargetConditionedE2Tests(unittest.TestCase):
         )
         self.assertEqual(report["sample_count"], 40)
         self.assertEqual(report["assignment_count"], 80)
+        self.assertEqual(
+            report["content_duplicate_audit"][
+                "duplicate_group_count"
+            ],
+            0,
+        )
 
     def test_assignments_ignore_class_labels_and_keep_duplicates_together(self):
         content_hash = "a" * 64
@@ -256,6 +272,38 @@ class TargetConditionedE2Tests(unittest.TestCase):
             source_rows[0]["candidate_id"],
             source_rows[1]["candidate_id"],
         )
+
+    def test_source_copy_of_target_content_is_excluded(self):
+        content_hash = "b" * 64
+        samples = [
+            {
+                "sample_id": "target-copy",
+                "domain": "domain_a",
+                "class_name": "class_a",
+                "class_id": 0,
+                "content_sha256": content_hash,
+            },
+            {
+                "sample_id": "source-copy",
+                "domain": "domain_b",
+                "class_name": "renamed_class",
+                "class_id": 99,
+                "content_sha256": content_hash,
+            },
+        ]
+        rows = build_assignments(
+            samples,
+            "fixture",
+            ["domain_a"],
+            "seed",
+            4,
+        )
+        self.assertTrue(rows[0]["role"].startswith("target_"))
+        self.assertEqual(
+            rows[1]["role"],
+            "excluded_target_duplicate",
+        )
+        self.assertEqual(rows[1]["candidate_id"], "")
 
     def test_changed_dataset_or_source_artifact_is_rejected(self):
         changed_image = (
