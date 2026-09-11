@@ -133,6 +133,38 @@ bash scripts/run_target_conditioned_e2_features_npu.sh \
 后续 E2 选择与评价代码需把实际访问过的 sample ID 哈希写入运行 manifest，以便证明
 `target_test` 未参与选择。
 
+## 方法运行与评价冻结
+
+确认性配置固定在 `code/configs/target_conditioned_e2/experiment_v1.json`。主分析采用预算
+`K=3` 和多类 Brier score；`K=1/5` 为敏感性分析。特征按样本做 L2 归一化，不中心化、
+不加截距；A-opt 先验精度、噪声方差与 ridge 正则均固定为 `1.0`。这些值在真实
+`target_test` 评价前提交，不能依据结果修改主配置。
+
+运行器强制分成两个子命令。`select` 只向方法传入源候选特征和 `target_selection` 特征，
+写出带 `selection_id`、样本 ID 哈希和访问记录的 `selection.json`，并拒绝覆盖已有选择。
+`evaluate` 重新按当前 manifest 计算候选视图，核对选择前缀、样本数量、样本 ID 哈希、配置和
+代码版本后，才使用选中源标签拟合 ridge 并打开 `target_test`。评价产物同样拒绝覆盖。
+
+```bash
+bash scripts/run_target_conditioned_e2_server.sh \
+  DATASET ENCODER MANIFEST_ROOT FEATURE_ROOT OUTPUT_ROOT
+```
+
+四个数据集-编码器任务完成后统一汇总：
+
+```bash
+python3 scripts/summarize_target_conditioned_e2.py \
+  --run-dir OUTPUT_ROOT/pacs/resnet50 \
+  --run-dir OUTPUT_ROOT/pacs/dinov2_b14 \
+  --run-dir OUTPUT_ROOT/office_home/resnet50 \
+  --run-dir OUTPUT_ROOT/office_home/dinov2_b14 \
+  --out-dir OUTPUT_ROOT/summary
+```
+
+汇总器把数据集-目标域作为统计单位，先在单位内平均两个编码器，不把编码器伪装成独立重复。
+Random 的 20 次重复也先在单任务内平均。H2 与最强目标无关基线比较，H2b 与 Target-Energy、
+二阶 MMD 中较强者比较；两者都使用预注册的同一门槛。
+
 ## 当前完成条件
 
 “E2 数据准备完成”必须同时满足：
