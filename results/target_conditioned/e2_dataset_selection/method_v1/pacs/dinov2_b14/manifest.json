@@ -1,0 +1,53 @@
+{
+  "dataset": "pacs",
+  "encoder": "dinov2_b14",
+  "evaluation_access": {
+    "source_labels": "selected-source-samples-only",
+    "storage_integrity_validation_reads_full_cache": true,
+    "target_calibration_used_by_metrics": false,
+    "target_labels": "target_test-only",
+    "target_test_access": [
+      {
+        "target_domain": "art_painting",
+        "target_test_count": 1415,
+        "target_test_ids_sha256": "25e00c7600fce30a0c6de9d54caad702162c82ef1b1f69e53de53887e7e0934e"
+      },
+      {
+        "target_domain": "cartoon",
+        "target_test_count": 1665,
+        "target_test_ids_sha256": "bd675e5363d98701949dcf3283d3d365f5b7586a61821e28fd153dbe09388d89"
+      },
+      {
+        "target_domain": "photo",
+        "target_test_count": 1146,
+        "target_test_ids_sha256": "303d8b1923e325599fa4309ca5875683da3fce9c80482c899257f0c7b66ac57b"
+      },
+      {
+        "target_domain": "sketch",
+        "target_test_count": 2752,
+        "target_test_ids_sha256": "6189f2150d22f275c3bc3de414d6e6fd2b4c68aef8033332c9c417b150216011"
+      }
+    ]
+  },
+  "evaluation_id": "497af925ea86bd137c8273ee9c8d577dcef27fd849468e3d84a3430414715bfe",
+  "experiment_config_file_sha256": "ef298301aa52a68750fb2e10f60f3e782e1e1f234befa7977dca27ba9f409003",
+  "feature_file_sha256": "e97510016dbe3fefb4a1026153b70322d76a387d5cc26d30ccb5a2b896e71106",
+  "feature_revision": "1fec645f5adb924e6fb5c452a71bd00439e18ef7",
+  "manifest_id": "4113ee4b81f3558c983d0d2a64b90f72d2669663b5644f7fc6aea7a23d3ca79b",
+  "raw_file_sha256": "a64243ae17205e6a8a390af33262b5d7e8bddc33f26802bc11c4d0d61ab0e0d2",
+  "row_count": 384,
+  "runner_revision": "1d3ce3885c6f7da2e165f6c7635adb654e54be78",
+  "runtime": {
+    "device": "cpu",
+    "elapsed_seconds": 39.74254555813968,
+    "finished_utc": "2026-09-11T00:33:15.475326+00:00",
+    "numpy_version": "1.26.4",
+    "python_version": "3.10.12",
+    "started_utc": "2026-09-11T00:32:35.732812+00:00"
+  },
+  "schema_version": "target-conditioned-e2-evaluation-v1",
+  "selection_file_sha256": "685a3ff89f9491122b5b90d97646b90bbea400c2c962aab0e157637cf1f0940b",
+  "selection_frozen_before_target_test": true,
+  "selection_id": "6bf423dccf778b997af00a7b4c71543e4795e8380e5c1872d6ec9f1c85d1cb31",
+  "unique_fits": 275
+}

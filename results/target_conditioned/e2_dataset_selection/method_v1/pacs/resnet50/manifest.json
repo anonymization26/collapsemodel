@@ -1,0 +1,53 @@
+{
+  "dataset": "pacs",
+  "encoder": "resnet50",
+  "evaluation_access": {
+    "source_labels": "selected-source-samples-only",
+    "storage_integrity_validation_reads_full_cache": true,
+    "target_calibration_used_by_metrics": false,
+    "target_labels": "target_test-only",
+    "target_test_access": [
+      {
+        "target_domain": "art_painting",
+        "target_test_count": 1415,
+        "target_test_ids_sha256": "25e00c7600fce30a0c6de9d54caad702162c82ef1b1f69e53de53887e7e0934e"
+      },
+      {
+        "target_domain": "cartoon",
+        "target_test_count": 1665,
+        "target_test_ids_sha256": "bd675e5363d98701949dcf3283d3d365f5b7586a61821e28fd153dbe09388d89"
+      },
+      {
+        "target_domain": "photo",
+        "target_test_count": 1146,
+        "target_test_ids_sha256": "303d8b1923e325599fa4309ca5875683da3fce9c80482c899257f0c7b66ac57b"
+      },
+      {
+        "target_domain": "sketch",
+        "target_test_count": 2752,
+        "target_test_ids_sha256": "6189f2150d22f275c3bc3de414d6e6fd2b4c68aef8033332c9c417b150216011"
+      }
+    ]
+  },
+  "evaluation_id": "b571dc9c7cbaf5463ef2ab9d903eaac9c07b5b8e1e05ba9f078a41ee1632ac25",
+  "experiment_config_file_sha256": "ef298301aa52a68750fb2e10f60f3e782e1e1f234befa7977dca27ba9f409003",
+  "feature_file_sha256": "0b55b4dbfca330caba621fad31e7c82c07bf059ceebd42965fd14e59c6aa07f5",
+  "feature_revision": "1fec645f5adb924e6fb5c452a71bd00439e18ef7",
+  "manifest_id": "4113ee4b81f3558c983d0d2a64b90f72d2669663b5644f7fc6aea7a23d3ca79b",
+  "raw_file_sha256": "73feaee6895c7434f97b7064fa698cd1e676f617e8a6f966f5704f1202cb90ac",
+  "row_count": 384,
+  "runner_revision": "1d3ce3885c6f7da2e165f6c7635adb654e54be78",
+  "runtime": {
+    "device": "cpu",
+    "elapsed_seconds": 139.2436718661338,
+    "finished_utc": "2026-09-11T00:46:42.910072+00:00",
+    "numpy_version": "1.26.4",
+    "python_version": "3.10.12",
+    "started_utc": "2026-09-11T00:44:23.666420+00:00"
+  },
+  "schema_version": "target-conditioned-e2-evaluation-v1",
+  "selection_file_sha256": "53befbb64b120dd1b04d0f6fcf2e8a5dbc1ae4f857fc3da8dbdd958c20f00a4e",
+  "selection_frozen_before_target_test": true,
+  "selection_id": "1c9f2f3870ead402b51b52058ef4e1c30361221334dd1237015b3d08bea8f5e6",
+  "unique_fits": 269
+}

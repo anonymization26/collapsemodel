@@ -1,6 +1,6 @@
 # E2 真实冻结表示实验
 
-> 状态：真实数据与冻结特征准备已完成，预注册运行器已实现；真实方法比较尚未运行。
+> 状态：真实数据、冻结特征和首轮预注册方法比较均已完成；H2 与 H2b 均未通过。
 
 ## 已验收产物
 
@@ -24,12 +24,23 @@ PACS 的 9,991 个样本内容均唯一。Office-Home 有 398 个重复内容组
 `excluded_target_duplicate`：Art 目标任务排除 9 个，Real World 目标任务排除 12 个。
 同域重复内容共享划分；跨类别重复保留官方标签并在 manifest 中报告。
 
+## 方法比较结果
+
+确认性配置冻结在 `code/configs/target_conditioned_e2/experiment_v1.json`，运行器版本为
+`1d3ce3885c6f7da2e165f6c7635adb654e54be78`。PACS 和 Office-Home 的两个编码器、全部目标域、
+`K in {1, 3, 5}` 以及 Random 的 20 次重复均已完成，共产生 1,536 行原始指标和 8 个主统计单位。
+
+主预算 `K=3` 下，Target A-opt 相对最强目标无关基线 DPP Subspace 的平均相对 Brier 改善为
+0.351%，`delta` 的 95% 置信区间跨过零；相对同信息基线 Second-moment MMD 的平均相对改善为
+0.273%，区间虽排除零，但未达到 2% 的实质改善门槛。两项门控均失败。完整结果、运行时间和
+结论边界见 [`method_v1/README.md`](method_v1/README.md)，机器可读结论见
+[`method_v1/summary/summary.json`](method_v1/summary/summary.json)。
+
 ## 结论边界
 
-这些产物只证明 E2 输入可追溯、划分可复算、特征可核验。它们不构成 H2 通过，也不产生
-任何真实数据性能主张。确认性配置已冻结在
-`code/configs/target_conditioned_e2/experiment_v1.json`；下一步在完全相同的候选集合、预算、
-特征和信息权限下运行 Target A-opt、目标匹配方法、Collapse-4S 与经典覆盖基线。
+数据准备产物证明 E2 输入可追溯、划分可复算、特征可核验；`method_v1` 进一步给出真实冻结
+表示上的确认性负结果。当前只能声称 Target A-opt 在该网格上基本不劣并呈现很小的 Brier
+方向性收益，不能声称其相对经典覆盖或简单目标匹配具有实质优势。
 
 旧版单域 DomainNet 特征缺少完整多域任务、统一预处理和逐样本 ID，不计入 E2 证据。
 协议与复核命令见 `docs/E2_DATA_PIPELINE.md`。

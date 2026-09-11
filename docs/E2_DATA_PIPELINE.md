@@ -7,8 +7,8 @@ DomainNet 特征不满足本协议：它不包含完整多域任务、逐样本 
 因此只能作为格式探索，不能作为 E2 证据。
 
 首轮门控数据集为 PACS 和 Office-Home，编码器为 ImageNet 监督预训练 ResNet-50
-与 DINOv2 ViT-B/14。所有原始数据、发布包和大体积特征只能写入服务器的
-`/data` 分区，不得写入根分区或提交到 Git。
+与 DINOv2 ViT-B/14。所有原始数据、发布包和大体积特征只能写入服务器的数据分区
+`E2_ROOT`，不得写入根分区或提交到 Git。
 
 ## 权威来源
 
@@ -25,7 +25,7 @@ DomainNet 特征不满足本协议：它不包含完整多域任务、逐样本 
 ## 目录
 
 ```text
-/data/Paper06/e2/
+<E2_ROOT>/
   downloads/                 # 未修改的官方发布包
   datasets/                  # 解压后的 domain/class/image 树
   receipts/                  # 来源、用途、引用和发布包哈希
@@ -52,12 +52,13 @@ DomainNet 特征不满足本协议：它不包含完整多域任务、逐样本 
 示例调用中的值必须由实际发布包和官方页面填写：
 
 ```bash
+E2_ROOT=/path/to/e2
 python3 scripts/create_target_conditioned_e2_receipt.py \
   --dataset DATASET \
   --dataset-version OFFICIAL_RELEASE \
   --official-page-url HTTPS_URL \
   --download-url HTTPS_DOWNLOAD_URL \
-  --source-artifact /data/Paper06/e2/downloads/ARCHIVE \
+  --source-artifact "$E2_ROOT/downloads/ARCHIVE" \
   --expected-domain DOMAIN_A \
   --expected-domain DOMAIN_B \
   --expected-class-count CLASS_COUNT \
@@ -65,8 +66,8 @@ python3 scripts/create_target_conditioned_e2_receipt.py \
   --usage-summary "VERBATIMLY_CHECKED_SUMMARY" \
   --usage-terms-url HTTPS_TERMS_URL \
   --citation-key CITATION_KEY \
-  --citation-bibtex-file /data/Paper06/e2/receipts/citation.bib \
-  --output /data/Paper06/e2/receipts/DATASET.json
+  --citation-bibtex-file "$E2_ROOT/receipts/citation.bib" \
+  --output "$E2_ROOT/receipts/DATASET.json"
 ```
 
 ## Manifest 与无标签划分
@@ -87,11 +88,12 @@ python3 scripts/create_target_conditioned_e2_receipt.py \
 预测或特征；同一域内内容完全相同的文件共享划分，避免重复内容跨目标子集泄漏。
 
 ```bash
+E2_ROOT=/path/to/e2
 bash scripts/run_target_conditioned_e2_manifest_server.sh \
-  /data/Paper06/e2/datasets/DATASET \
-  /data/Paper06/e2/receipts/DATASET.json \
-  /data/Paper06/e2/manifests/DATASET \
-  /data/Paper06/e2/downloads/ARCHIVE
+  "$E2_ROOT/datasets/DATASET" \
+  "$E2_ROOT/receipts/DATASET.json" \
+  "$E2_ROOT/manifests/DATASET" \
+  "$E2_ROOT/downloads/ARCHIVE"
 ```
 
 输出中的 `manifest_id` 同时绑定数据树、收据、样本表、划分表和协议参数。修改 CSV
@@ -102,11 +104,12 @@ bash scripts/run_target_conditioned_e2_manifest_server.sh \
 每个编码器只按 `samples.csv` 顺序抽取一次原始池化表示：
 
 ```bash
+E2_ROOT=/path/to/e2
 bash scripts/run_target_conditioned_e2_features_npu.sh \
   NPU_ID \
-  /data/Paper06/e2/datasets/DATASET \
-  /data/Paper06/e2/manifests/DATASET \
-  /data/Paper06/e2/features/DATASET \
+  "$E2_ROOT/datasets/DATASET" \
+  "$E2_ROOT/manifests/DATASET" \
+  "$E2_ROOT/features/DATASET" \
   resnet50 dinov2_b14
 ```
 
@@ -165,7 +168,7 @@ python3 scripts/summarize_target_conditioned_e2.py \
 Random 的 20 次重复也先在单任务内平均。H2 与最强目标无关基线比较，H2b 与 Target-Energy、
 二阶 MMD 中较强者比较；两者都使用预注册的同一门槛。
 
-## 当前完成条件
+## 数据准备完成条件
 
 “E2 数据准备完成”必须同时满足：
 
@@ -183,5 +186,26 @@ Random 的 20 次重复也先在单任务内平均。H2 与最强目标无关基
 
 可提交产物位于 `results/target_conditioned/manifests/` 和
 `results/target_conditioned/e2_dataset_selection/frozen_features/`；机器可读汇总见
-`results/target_conditioned/e2_dataset_selection/artifact_index.json`。此记录仅解除方法实验的
-数据门禁，不代表 E2 或 H2 已经通过。
+`results/target_conditioned/e2_dataset_selection/artifact_index.json`。此记录解除方法实验的
+数据门禁，本身不代表 E2 或 H2 通过。
+
+## 方法运行完成记录
+
+截至 2026-09-11，预注册运行器版本
+`1d3ce3885c6f7da2e165f6c7635adb654e54be78` 已完成 PACS、Office-Home、ResNet-50 和
+DINOv2 ViT-B/14 的四个组合。四份运行产物均包含冻结的 `selection.json`、无损 `raw.csv` 和
+访问审计 `manifest.json`，合计 1,536 行原始指标；汇总器确认 4 个运行、8 个数据集-目标域统计
+单位、全部方法、预算和 Random 重复均完整。
+
+主预算 `K=3` 的预注册结论如下：
+
+| 门控 | 对照 | 平均相对 Brier 改善 | `delta` 95% CI | 不劣比例 | 结论 |
+| --- | --- | ---: | ---: | ---: | --- |
+| H2 | DPP Subspace | 0.351% | [-0.007449, 0.000731] | 100% | 未通过 |
+| H2b | Second-moment MMD | 0.273% | [-0.003392, -0.000712] | 100% | 未通过 |
+
+H2 的区间跨过零且效应量不足 2%；H2b 的区间排除零，但效应量仍不足 2%。因此本轮真实数据结果
+只能支持“Target A-opt 基本不劣并有很小的 Brier 方向性收益”，不能支持相对目标无关基线或简单
+二阶矩匹配存在预注册意义上的实质优势。权威机器可读结果位于
+`results/target_conditioned/e2_dataset_selection/method_v1/summary/summary.json`，详细解释位于同目录
+的 `README.md`。

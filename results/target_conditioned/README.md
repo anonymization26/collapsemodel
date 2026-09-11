@@ -1,6 +1,6 @@
 # Target-Conditioned 实验状态
 
-> 当前已有数学验证、合成实验和通过验收的 E2 数据输入，但尚无真实数据集上的方法收益。
+> 当前已有数学验证、合成实验和完整的首轮 E2 真实冻结表示结果。合成 H2/H2b 通过，但真实 E2 的 H2/H2b 均未通过。
 
 ## expanded_v3_controlled_rng（当前有效扩展结果）
 
@@ -46,18 +46,28 @@
 因此，低秩区间在当前实现中数学上可靠，但没有实际通信压缩价值。不得使用稠密 `d x d` Gram 分母
 或只挑选低维子网格来宣称 H5 通过。
 
+### E2：真实冻结表示选择
+
+- PACS、Office-Home、ResNet-50 和 DINOv2 ViT-B/14 四个运行全部完成；
+- 覆盖 8 个数据集-目标域统计单位、`K in {1, 3, 5}` 和 Random 的 20 次重复，共 1,536 行原始指标；
+- H2 未通过：Target A-opt 相对 DPP Subspace 的平均相对 Brier 改善为 `0.351%`，`delta` 的
+  95% 区间为 `[-0.007449, 0.000731]`；
+- H2b 未通过：相对 Second-moment MMD 的平均相对改善为 `0.273%`，`delta` 区间为
+  `[-0.003392, -0.000712]`，但未达到预注册的 `2%` 实质改善门槛；
+- 两项比较在 `0.5%` 容差下的不劣比例均为 `100%`。
+
+真实结果说明当前目标条件二阶几何只有很小的方向性收益，不能支撑相对经典或同信息基线的实质
+优势主张。权威结果见 `e2_dataset_selection/method_v1/summary/summary.json`，完整解释见
+`e2_dataset_selection/method_v1/README.md`。确认性流程按预注册停止规则不再扩展到 E4 或 E7。
+
 ### 旧扩展结果处置
 
 `expanded_v2_fair` 的目标样本量变化同时改变了源候选池，存在随机流混杂，只能视为探索性运行，
-不进入版本库或论文确认性统计。服务器仍保留其原始归档。E2 数据协议与抽取代码已经实现；
-PACS 和 Office-Home 的 manifest 及 ResNet-50/DINOv2 冻结特征已通过验收并登记在
-`e2_dataset_selection/artifact_index.json`。方法比较尚未启动，因此仍无真实数据性能结论。
+不进入版本库或论文确认性统计。服务器仍保留其原始归档。
 
 ## pilot_v1
 
 - 运行日期：2026-09-10
-- 服务器代码目录：`/home/67/collapsemodel-target-conditioned`
-- 服务器结果目录：`/data/Paper06/results/target_conditioned`
 - 部署归档 SHA-256：`8c13d80883f16bc85a916161dd8c9d5e1a9a31e140e3ce53d3fe2aa7bebfcfc2`
 - 驱动开始：2026-09-10 04:48:35 UTC
 - 驱动结束：2026-09-10 04:50:18 UTC
@@ -92,4 +102,5 @@ E1 包含 5 个种子、80 个配置、2,480 行共享模型结果和 1,200 行�
 条件偏移从 `0.0` 增至 `1.0` 时，Target A-opt 的平均目标 MSE 从 `0.00335` 增至 `0.23151`；
 这验证了共享条件模型的适用边界，不能据此宣称无标签几何可处理任意条件偏移。
 
-权威汇总位于 `e1_synthetic/pilot_v1/summary.json`。下一步需要生成完整失效区域图，并在真实冻结表示上执行 E2，才能判断 H2 是否具有真实数据价值。
+权威汇总位于 `e1_synthetic/pilot_v1/summary.json`。该先导结果已由 `expanded_v3_controlled_rng` 和
+E2 真实冻结表示实验接续；不能再单独用先导 H2 作为真实数据价值证据。

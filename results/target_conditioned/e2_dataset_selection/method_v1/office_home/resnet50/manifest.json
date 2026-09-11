@@ -1,0 +1,53 @@
+{
+  "dataset": "office_home",
+  "encoder": "resnet50",
+  "evaluation_access": {
+    "source_labels": "selected-source-samples-only",
+    "storage_integrity_validation_reads_full_cache": true,
+    "target_calibration_used_by_metrics": false,
+    "target_labels": "target_test-only",
+    "target_test_access": [
+      {
+        "target_domain": "Art",
+        "target_test_count": 1686,
+        "target_test_ids_sha256": "5498227e4559ced8b299046d308d319aaa8b5a73d9f618f2d99d272e4e863960"
+      },
+      {
+        "target_domain": "Clipart",
+        "target_test_count": 3037,
+        "target_test_ids_sha256": "c7d3aac290d7fb80a736293481f25e3a36e8850a9e86e9c4fa7462b31af05466"
+      },
+      {
+        "target_domain": "Product",
+        "target_test_count": 3131,
+        "target_test_ids_sha256": "dc65fb8d5e5382c1b7793a5c58162ba1036c97351b42f9904ac08ca62f5c6d35"
+      },
+      {
+        "target_domain": "Real World",
+        "target_test_count": 3098,
+        "target_test_ids_sha256": "b7b106fe80dcd383eb490e2d7c1628fd5e06da6b50d6acd5d1e55e11ff972c39"
+      }
+    ]
+  },
+  "evaluation_id": "3768b2d3f828eca426801c1d330af38f8057d700d69eff07a111911a06d48005",
+  "experiment_config_file_sha256": "ef298301aa52a68750fb2e10f60f3e782e1e1f234befa7977dca27ba9f409003",
+  "feature_file_sha256": "f09234c53a7123f1d029eca1dc5b5b689e50b07639aaa688fb1d7e7e7327db7a",
+  "feature_revision": "1fec645f5adb924e6fb5c452a71bd00439e18ef7",
+  "manifest_id": "78c3ddd0f2743b74e377d3f15e46d781648a9480acd536461d984e4bdb6a55fd",
+  "raw_file_sha256": "01a5a6029423de37667a1b0437b308b4090bc7ef2cf80a27e11a0774d226ea9d",
+  "row_count": 384,
+  "runner_revision": "1d3ce3885c6f7da2e165f6c7635adb654e54be78",
+  "runtime": {
+    "device": "cpu",
+    "elapsed_seconds": 187.6195469200611,
+    "finished_utc": "2026-09-11T01:06:18.872304+00:00",
+    "numpy_version": "1.26.4",
+    "python_version": "3.10.12",
+    "started_utc": "2026-09-11T01:03:11.252744+00:00"
+  },
+  "schema_version": "target-conditioned-e2-evaluation-v1",
+  "selection_file_sha256": "953c5b5ed243aeb6c9ba1ef311d7123f81cf9ce19e6c010677b1db54ae8b47c6",
+  "selection_frozen_before_target_test": true,
+  "selection_id": "9eb759cff760c7d6e135e36cbdf77f8232a1786f17d8567a1c6025547815bc1e",
+  "unique_fits": 277
+}

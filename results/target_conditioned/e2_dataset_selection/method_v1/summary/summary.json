@@ -1,0 +1,95 @@
+{
+  "claim_boundary": "H2/H2b are evaluated only for the pre-registered PACS and Office-Home frozen-representation tasks.",
+  "experiment_config_file_sha256": "ef298301aa52a68750fb2e10f60f3e782e1e1f234befa7977dca27ba9f409003",
+  "gates": {
+    "H2": {
+      "baseline": "dpp_subspace",
+      "baseline_mean": 0.8291622482685062,
+      "budget": 3,
+      "gate": "H2-target-blind",
+      "mean_delta": -0.002393506310294155,
+      "mean_delta_confidence_interval": [
+        -0.007448590843759535,
+        0.0007314036929694373
+      ],
+      "mean_relative_improvement": 0.003513138948824825,
+      "mean_relative_improvement_confidence_interval": [
+        -0.0011670649588448518,
+        0.011204646509566245
+      ],
+      "metric": "brier_score",
+      "noninferior_fraction": 1.0,
+      "passed": false,
+      "target_a_mean": 0.8267687419582119,
+      "task_units": 8,
+      "thresholds": {
+        "delta_confidence_interval_upper_below_zero": true,
+        "minimum_mean_relative_improvement": 0.02,
+        "minimum_noninferior_unit_fraction": 0.7,
+        "noninferiority_relative_tolerance": 0.005
+      }
+    },
+    "H2b": {
+      "baseline": "second_moment_mmd",
+      "baseline_mean": 0.828719207562557,
+      "budget": 3,
+      "gate": "H2b-same-information",
+      "mean_delta": -0.0019504656043449475,
+      "mean_delta_confidence_interval": [
+        -0.0033915618359649574,
+        -0.0007123976777461405
+      ],
+      "mean_relative_improvement": 0.002732366086802135,
+      "mean_relative_improvement_confidence_interval": [
+        0.0009335918027125636,
+        0.004779083319006032
+      ],
+      "metric": "brier_score",
+      "noninferior_fraction": 1.0,
+      "passed": false,
+      "target_a_mean": 0.8267687419582119,
+      "task_units": 8,
+      "thresholds": {
+        "delta_confidence_interval_upper_below_zero": true,
+        "minimum_mean_relative_improvement": 0.02,
+        "minimum_noninferior_unit_fraction": 0.7,
+        "noninferiority_relative_tolerance": 0.005
+      }
+    }
+  },
+  "inputs": [
+    {
+      "dataset": "office_home",
+      "encoder": "dinov2_b14",
+      "evaluation_id": "45e75f196d4cd98ea1e0d29adfd49d3dc9ac2e613ba7b9463877dacce521c88d",
+      "manifest_id": "78c3ddd0f2743b74e377d3f15e46d781648a9480acd536461d984e4bdb6a55fd"
+    },
+    {
+      "dataset": "office_home",
+      "encoder": "resnet50",
+      "evaluation_id": "3768b2d3f828eca426801c1d330af38f8057d700d69eff07a111911a06d48005",
+      "manifest_id": "78c3ddd0f2743b74e377d3f15e46d781648a9480acd536461d984e4bdb6a55fd"
+    },
+    {
+      "dataset": "pacs",
+      "encoder": "dinov2_b14",
+      "evaluation_id": "497af925ea86bd137c8273ee9c8d577dcef27fd849468e3d84a3430414715bfe",
+      "manifest_id": "4113ee4b81f3558c983d0d2a64b90f72d2669663b5644f7fc6aea7a23d3ca79b"
+    },
+    {
+      "dataset": "pacs",
+      "encoder": "resnet50",
+      "evaluation_id": "b571dc9c7cbaf5463ef2ab9d903eaac9c07b5b8e1e05ba9f078a41ee1632ac25",
+      "manifest_id": "4113ee4b81f3558c983d0d2a64b90f72d2669663b5644f7fc6aea7a23d3ca79b"
+    }
+  ],
+  "method_summary_file_sha256": "c57e3ca1102233b6b6a375267a51f015a74fd03ac8ea29f3ab98725fb001620a",
+  "paired_gates_file_sha256": "0aa358f052fe079bad8cd08a43a41b65d03837524034e0996b75d10577ad364f",
+  "raw_row_count": 1536,
+  "run_count": 4,
+  "runner_revision": "1d3ce3885c6f7da2e165f6c7635adb654e54be78",
+  "schema_version": "target-conditioned-e2-summary-v1",
+  "status": "completed",
+  "summary_id": "a88744119dcc1deedc82f0fd6c41265acbc0baf71b20bfd38ec21dbe7c4c8ebd",
+  "task_unit_count": 8
+}
