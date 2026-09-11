@@ -428,6 +428,13 @@ E5 配置。合成 E1 上的 H2 与同权限 H2b 门槛均通过；E1 合并器�
 `results/target_conditioned/e2_dataset_selection/method_v1/summary/summary.json`。按照第 13 节规则，
 不将 DomainNet、Camelyon17、E4 或 E7 作为证明当前主张的确认性扩展；新的探索必须重新预注册。
 
+第一项事后诊断已经完成：对 12 个候选块和 `K in {1, 3, 5}` 穷举 16,384 个唯一组合。主预算
+`K=3` 下，真实 oracle 相对 DPP Subspace 的平均 Brier headroom 为 0.781%，95% bootstrap 区间
+为 `[0.162%, 1.617%]`，未达到 2% 门槛。Target A-opt 的平均归一化 oracle 遗憾为 0.436%，
+top-10 组合命中率为 62.5%，代理与真实 Brier 的组合级 Spearman 为 0.826。该实验使用
+`target-test` 定义 oracle，只能诊断候选池 headroom 和选择器遗憾，不更新 H2/H2b。结果见
+`results/target_conditioned/e2_dataset_selection/oracle_headroom_v1/README.md`。
+
 ### P0：冻结数学规格
 
 - [x] 将 IDEA 中所有矩阵定义、维度和假设转成代码接口文档。
@@ -456,7 +463,7 @@ E5 配置。合成 E1 上的 H2 与同权限 H2b 门槛均通过；E1 合并器�
 ### P3：数据集级和少标签实验
 
 - [x] 完成 E2 所有目标域、预算和预注册 Random 重复。
-- [ ] 完成穷举或搜索遗憾计算。
+- [x] 完成 12 候选块在 `K=1/3/5` 下的事后穷举 oracle、搜索遗憾和排序相关诊断。
 - [ ] 完成 E3 的 U2 少标签实验；因 H2 失败，当前暂停。
 - [ ] 对 U0、U1、U2 分表报告，检查权限公平性。
 

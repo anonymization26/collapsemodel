@@ -1,6 +1,6 @@
 {
   "schema_version": "target-conditioned-e2-artifact-index-v1",
-  "status": "data-preparation-complete-method-comparison-not-run",
+  "status": "data-preparation-method-comparison-and-posthoc-oracle-complete",
   "source_revision": "1fec645f5adb924e6fb5c452a71bd00439e18ef7",
   "source_deployment_archive_sha256": "cdc7117c5edf7766224d4bd59a0e3140e81dd9944f602e9eabd96e23e3d4e705",
   "raw_data_tracked_in_git": false,
@@ -11,6 +11,16 @@
     "feature_cache_server_copy": "valid",
     "repository_copy_matches_server_sha256": true,
     "anonymity_scan": "passed"
+  },
+  "posthoc_oracle_headroom": {
+    "status": "completed-posthoc-exploratory",
+    "runner_revision": "35a3222863a38c81bf632da63f906673b9f50290",
+    "config_path": "code/configs/target_conditioned_e2/oracle_headroom_v1.json",
+    "summary_path": "results/target_conditioned/e2_dataset_selection/oracle_headroom_v1/summary/summary.json",
+    "summary_id": "d929e69f284bea337a952492c1dca5a0af36587a514a28372bd17a9679725e77",
+    "combination_row_count": 16384,
+    "selection_diagnostic_row_count": 1536,
+    "changes_confirmatory_gates": false
   },
   "datasets": {
     "pacs": {

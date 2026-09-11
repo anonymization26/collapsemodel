@@ -1,0 +1,218 @@
+{
+  "claim_boundary": "This post-hoc exhaustive analysis diagnoses oracle headroom and selector regret after target-test access. It cannot update, replace, or rescue the frozen H2/H2b decisions.",
+  "combination_row_count": 4096,
+  "combinations_file_sha256": "ad47fd69e28ebb823fac25f7be3753674389f55ac579209ed7b3fad78917adb3",
+  "dataset": "pacs",
+  "encoder": "dinov2_b14",
+  "evaluation_access": {
+    "algorithmic_source_labels": "all-enumerated-source-combinations",
+    "algorithmic_target_labels": "target_test-only-for-posthoc-oracle",
+    "changes_parent_confirmatory_gates": false,
+    "storage_payload_loaded_full": true,
+    "target_calibration_used": false,
+    "target_selection_labels_used": false,
+    "target_test_access": [
+      {
+        "target_domain": "art_painting",
+        "target_test_count": 1415,
+        "target_test_ids_sha256": "25e00c7600fce30a0c6de9d54caad702162c82ef1b1f69e53de53887e7e0934e"
+      },
+      {
+        "target_domain": "cartoon",
+        "target_test_count": 1665,
+        "target_test_ids_sha256": "bd675e5363d98701949dcf3283d3d365f5b7586a61821e28fd153dbe09388d89"
+      },
+      {
+        "target_domain": "photo",
+        "target_test_count": 1146,
+        "target_test_ids_sha256": "303d8b1923e325599fa4309ca5875683da3fce9c80482c899257f0c7b66ac57b"
+      },
+      {
+        "target_domain": "sketch",
+        "target_test_count": 2752,
+        "target_test_ids_sha256": "6189f2150d22f275c3bc3de414d6e6fd2b4c68aef8033332c9c417b150216011"
+      }
+    ]
+  },
+  "feature_file_sha256": "e97510016dbe3fefb4a1026153b70322d76a387d5cc26d30ccb5a2b896e71106",
+  "feature_revision": "1fec645f5adb924e6fb5c452a71bd00439e18ef7",
+  "manifest_id": "4113ee4b81f3558c983d0d2a64b90f72d2669663b5644f7fc6aea7a23d3ca79b",
+  "oracle_config": {
+    "access": {
+      "changes_parent_confirmatory_gates": false,
+      "parent_selection_remains_immutable": true,
+      "target_test_used_to_define_oracle": true
+    },
+    "analysis": {
+      "budgets": [
+        1,
+        3,
+        5
+      ],
+      "combination_tie_break": "metric-then-lexicographic",
+      "expected_candidate_count_per_task": 12,
+      "hutchinson_probes": 64,
+      "hutchinson_seed": 20260912,
+      "normalized_regret_denominator": "absolute-oracle-risk",
+      "primary_budget": 3,
+      "primary_metric": "brier_score",
+      "probe_halves_reported": true,
+      "target_a_proxy": "common-rademacher-hutchinson",
+      "top_q": 10
+    },
+    "claim_boundary": "This post-hoc exhaustive analysis diagnoses oracle headroom and selector regret after target-test access. It cannot update, replace, or rescue the frozen H2/H2b decisions.",
+    "datasets": [
+      "pacs",
+      "office_home"
+    ],
+    "encoders": [
+      "resnet50",
+      "dinov2_b14"
+    ],
+    "parent_evaluation_runner_revision": "1d3ce3885c6f7da2e165f6c7635adb654e54be78",
+    "parent_experiment_config_file_sha256": "ef298301aa52a68750fb2e10f60f3e782e1e1f234befa7977dca27ba9f409003",
+    "schema_version": "target-conditioned-e2-oracle-config-v1",
+    "status": "frozen-before-exploratory-oracle-evaluation"
+  },
+  "oracle_config_file_sha256": "a33c686cff83c7063742202319d202a3fdf48798ae14d4cd2b9d91e6740a1f17",
+  "oracle_definition": {
+    "metric": "brier_score",
+    "normalized_regret_denominator": "absolute-oracle-risk",
+    "scope": "all-candidate-combinations-within-each-task-and-budget",
+    "tie_break": "metric-then-lexicographic",
+    "uses_target_test_labels": true
+  },
+  "oracle_run_id": "2087b9a80809ac8c19d5cacb0b32e9355f65cba9d83d1b5ea8617e6b668abdfc",
+  "parent_evaluation_id": "497af925ea86bd137c8273ee9c8d577dcef27fd849468e3d84a3430414715bfe",
+  "parent_evaluation_manifest_sha256": "6a69e63775a507cf005f9ab9db0adaa8668eb77d08d2b21fe431d645a42c24c6",
+  "parent_experiment_config": {
+    "claim_boundary": "Data preparation and selection proxies do not constitute H2; only frozen target-test evaluation after selection freeze can test H2.",
+    "datasets": [
+      "pacs",
+      "office_home"
+    ],
+    "encoders": [
+      "resnet50",
+      "dinov2_b14"
+    ],
+    "evaluation": {
+      "ece_bins": 15,
+      "primary_metric": "brier_score",
+      "ridge_regularization": 1.0,
+      "supporting_metrics": [
+        "squared_loss",
+        "nll",
+        "accuracy",
+        "macro_f1",
+        "ece"
+      ],
+      "target_test_opened_after_selection_freeze": true
+    },
+    "feature_transform": {
+      "centering": "none",
+      "epsilon": 1e-08,
+      "intercept": false,
+      "name": "row-l2-normalize"
+    },
+    "method_groups": {
+      "target_blind": [
+        "bayesian_d",
+        "collapse_4s",
+        "domain_balance",
+        "dpp_subspace",
+        "effective_rank",
+        "facility_subspace",
+        "kcenter_subspace",
+        "random",
+        "size",
+        "spectrum_rank_l"
+      ],
+      "target_conditioned": [
+        "target_a",
+        "target_energy",
+        "second_moment_mmd"
+      ]
+    },
+    "primary_analysis": {
+      "bootstrap_repeats": 10000,
+      "confidence_level": 0.95,
+      "encoder_handling": "average-within-unit",
+      "minimum_mean_relative_improvement": 0.02,
+      "minimum_noninferior_unit_fraction": 0.7,
+      "noninferiority_relative_tolerance": 0.005,
+      "unit": "dataset-target-domain"
+    },
+    "schema_version": "target-conditioned-e2-experiment-config-v1",
+    "selection": {
+      "budgets": [
+        1,
+        3,
+        5
+      ],
+      "candidate_cost": "one-per-manifest-block",
+      "noise_variance": 1.0,
+      "primary_budget": 3,
+      "prior_precision": 1.0,
+      "random_repeats": 20,
+      "random_seed": 20260911,
+      "rank_l": 32,
+      "subspace_rank": 32,
+      "uses_source_labels": false,
+      "uses_target_calibration": false,
+      "uses_target_labels": false,
+      "uses_target_test": false
+    },
+    "status": "frozen-before-method-evaluation"
+  },
+  "parent_experiment_config_file_sha256": "ef298301aa52a68750fb2e10f60f3e782e1e1f234befa7977dca27ba9f409003",
+  "parent_raw_file_sha256": "a64243ae17205e6a8a390af33262b5d7e8bddc33f26802bc11c4d0d61ab0e0d2",
+  "parent_runner_revision": "1d3ce3885c6f7da2e165f6c7635adb654e54be78",
+  "parent_selection_file_sha256": "685a3ff89f9491122b5b90d97646b90bbea400c2c962aab0e157637cf1f0940b",
+  "parent_selection_id": "6bf423dccf778b997af00a7b4c71543e4795e8380e5c1872d6ec9f1c85d1cb31",
+  "runner_revision": "35a3222863a38c81bf632da63f906673b9f50290",
+  "runtime": {
+    "device": "cpu",
+    "elapsed_seconds": 346.6750395447016,
+    "finished_utc": "2026-09-11T09:28:38.708380+00:00",
+    "numpy_version": "1.26.4",
+    "python_version": "3.10.12",
+    "started_utc": "2026-09-11T09:22:52.033343+00:00"
+  },
+  "schema_version": "target-conditioned-e2-oracle-run-v1",
+  "selection_diagnostic_row_count": 384,
+  "selection_diagnostics_file_sha256": "0eec3fbfa326c69f0f6a72b8a29c566f992b401327801f814c0512a18ec94fcd",
+  "status": "completed-posthoc-exploratory",
+  "target_a_proxy": {
+    "estimator": "common-rademacher-hutchinson",
+    "probe_count": 64,
+    "probe_records": [
+      {
+        "probe_count": 64,
+        "probe_sha256": "a07c6cad31dea953cff5fc8941620841a39c77fa4ffe16fdb97739a9f179ee0f",
+        "target_domain": "art_painting",
+        "target_selection_count": 420
+      },
+      {
+        "probe_count": 64,
+        "probe_sha256": "e66fe7f6c19a27ce5b1508d711f8fb8c76668e14391698f55c951a3d2a33004c",
+        "target_domain": "cartoon",
+        "target_selection_count": 449
+      },
+      {
+        "probe_count": 64,
+        "probe_sha256": "0ac1883ac1f58eb086d26e885fd86bcfe55d556fa502a194226ddf79d1a6a679",
+        "target_domain": "photo",
+        "target_selection_count": 364
+      },
+      {
+        "probe_count": 64,
+        "probe_sha256": "6e102c1a6de0a923afa9d41375a914ffb34a8bc4e928a0a2987e52056e9ee08a",
+        "target_domain": "sketch",
+        "target_selection_count": 808
+      }
+    ],
+    "probe_seed": 20260912
+  },
+  "task_summary_file_sha256": "07375c3aa84237dba3a67e641c610fde75485d2c4b8a9553f1948b28dd099ca8",
+  "task_summary_row_count": 12
+}

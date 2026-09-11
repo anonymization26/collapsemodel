@@ -1,6 +1,6 @@
 # E2 真实冻结表示实验
 
-> 状态：真实数据、冻结特征和首轮预注册方法比较均已完成；H2 与 H2b 均未通过。
+> 状态：真实数据、冻结特征、首轮预注册方法比较和事后 oracle headroom 诊断均已完成；H2 与 H2b 均未通过。
 
 ## 已验收产物
 
@@ -36,11 +36,26 @@ PACS 的 9,991 个样本内容均唯一。Office-Home 有 398 个重复内容组
 结论边界见 [`method_v1/README.md`](method_v1/README.md)，机器可读结论见
 [`method_v1/summary/summary.json`](method_v1/summary/summary.json)。
 
+## 事后 Oracle 诊断
+
+在不改变父选择和确认性门控的前提下，后续对每个任务的 12 个候选块在 `K in {1, 3, 5}` 下
+穷举了全部 16,384 个组合。主预算 `K=3` 中，真实 oracle 相对最强目标无关基线 DPP Subspace
+的平均 Brier headroom 为 0.781%，95% bootstrap 区间为 `[0.162%, 1.617%]`，仍低于 2% 实质
+门槛。Target A-opt 相对 oracle 的归一化遗憾为 0.436%，真实 top-10 组合命中率为 62.5%，代理
+与真实 Brier 的组合级 Spearman 为 0.826。
+
+该结果表明当前候选池整体可利用 headroom 有限；同时，Target A-opt 只捕获平均 31.6% 的 oracle
+改善，且在 PACS 各目标域上存在明显异质性。完整结果和限制见
+[`oracle_headroom_v1/README.md`](oracle_headroom_v1/README.md)。这是使用 `target-test` 定义 oracle
+的事后探索，不更新 H2/H2b，也不等同于 H3 的 shortlist 召回实验。
+
 ## 结论边界
 
 数据准备产物证明 E2 输入可追溯、划分可复算、特征可核验；`method_v1` 进一步给出真实冻结
-表示上的确认性负结果。当前只能声称 Target A-opt 在该网格上基本不劣并呈现很小的 Brier
-方向性收益，不能声称其相对经典覆盖或简单目标匹配具有实质优势。
+表示上的确认性负结果；事后穷举进一步表明整体 oracle headroom 未达到 2% 门槛。当前只能声称
+无标签目标二阶几何含有一定组合排序信号，且 Target A-opt 在该网格上基本不劣并呈现很小的 Brier
+方向性收益，不能声称其相对经典覆盖或简单目标匹配具有实质优势，也不能声称已实现有效 shortlist
+预筛选。
 
 旧版单域 DomainNet 特征缺少完整多域任务、统一预处理和逐样本 ID，不计入 E2 证据。
 协议与复核命令见 `docs/E2_DATA_PIPELINE.md`。

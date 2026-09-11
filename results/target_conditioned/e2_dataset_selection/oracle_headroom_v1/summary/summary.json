@@ -1,0 +1,71 @@
+{
+  "claim_boundary": "This post-hoc exhaustive analysis diagnoses oracle headroom and selector regret after target-test access. It cannot update, replace, or rescue the frozen H2/H2b decisions.",
+  "combination_row_count": 16384,
+  "correlations_file_sha256": "670662abfb4a6d72e83d72b2f7fb33999700da27e074744ea9b3879e33925279",
+  "inputs": [
+    {
+      "dataset": "office_home",
+      "encoder": "dinov2_b14",
+      "oracle_run_id": "6b0c02690c5cbece315e33746337a648aabbaafc0e8dd8065e6d6f54640c7860",
+      "parent_evaluation_id": "45e75f196d4cd98ea1e0d29adfd49d3dc9ac2e613ba7b9463877dacce521c88d"
+    },
+    {
+      "dataset": "office_home",
+      "encoder": "resnet50",
+      "oracle_run_id": "b33d93887495cb761c1bc7211a472bc52fd7530478f95f32d1813ce7f0815b83",
+      "parent_evaluation_id": "3768b2d3f828eca426801c1d330af38f8057d700d69eff07a111911a06d48005"
+    },
+    {
+      "dataset": "pacs",
+      "encoder": "dinov2_b14",
+      "oracle_run_id": "2087b9a80809ac8c19d5cacb0b32e9355f65cba9d83d1b5ea8617e6b668abdfc",
+      "parent_evaluation_id": "497af925ea86bd137c8273ee9c8d577dcef27fd849468e3d84a3430414715bfe"
+    },
+    {
+      "dataset": "pacs",
+      "encoder": "resnet50",
+      "oracle_run_id": "4837713b5990ca22f4023132760d9aa3be274df0456bb37cd7c2c1198c157c2c",
+      "parent_evaluation_id": "b571dc9c7cbaf5463ef2ab9d903eaac9c07b5b8e1e05ba9f078a41ee1632ac25"
+    }
+  ],
+  "method_oracle_summary_file_sha256": "cd0a0e02c4380fabe7c6659bfb6a6e0d9b61bbc7d6ab36463323ed96f66dfaff",
+  "oracle_config_file_sha256": "a33c686cff83c7063742202319d202a3fdf48798ae14d4cd2b9d91e6740a1f17",
+  "parent_runner_revision": "1d3ce3885c6f7da2e165f6c7635adb654e54be78",
+  "primary": {
+    "baseline_brier_mean": 0.8291622482685062,
+    "budget": 3,
+    "cross_encoder_brier_spearman_mean": 0.8027122555124167,
+    "metric": "brier_score",
+    "oracle_brier_mean": 0.8237941795165599,
+    "oracle_headroom_exceeds_parent_2pct_threshold": false,
+    "oracle_relative_headroom_from_baseline_confidence_interval": [
+      0.0016180786959546372,
+      0.016174808603582336
+    ],
+    "oracle_relative_headroom_from_baseline_mean": 0.007811796575104926,
+    "oracle_relative_headroom_from_parent_envelope_mean": 0.0008689943659752882,
+    "probe_half_relative_difference_max": 0.2499922534415032,
+    "probe_half_relative_difference_mean": 0.038209351566204516,
+    "strongest_parent_target_blind": "dpp_subspace",
+    "target_a_brier_mean": 0.8267687419582119,
+    "target_a_combination_rank_mean": 32.5625,
+    "target_a_fraction_of_oracle_gain_captured_mean": 0.3157972111890852,
+    "target_a_normalized_regret_confidence_interval": [
+      0.0009975645909767999,
+      0.00878194316979339
+    ],
+    "target_a_normalized_regret_mean": 0.004359387999258336,
+    "target_a_top_q_recall": 0.625,
+    "task_units": 8,
+    "within_encoder_proxy_brier_spearman_mean": 0.8260412733922
+  },
+  "primary_headroom_units_file_sha256": "957972b53f0fa39d3ba7ccbab6b697f7b2e38dfcc432081c604ae8fe5c08be10",
+  "run_count": 4,
+  "runner_revision": "35a3222863a38c81bf632da63f906673b9f50290",
+  "schema_version": "target-conditioned-e2-oracle-summary-v1",
+  "selection_diagnostic_row_count": 1536,
+  "status": "completed-posthoc-exploratory",
+  "summary_id": "d929e69f284bea337a952492c1dca5a0af36587a514a28372bd17a9679725e77",
+  "task_unit_count": 8,
+  "task_units_file_sha256": "7d3abebee5b84c0b3eeb8124bfbd128770f0d590ec30b7769339d843bc126379"
+}
