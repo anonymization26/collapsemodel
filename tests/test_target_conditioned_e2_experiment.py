@@ -22,7 +22,9 @@ from metrics.target_conditioned_e2 import (  # noqa: E402
     sha256_file,
 )
 import run_target_conditioned_e2 as experiment  # noqa: E402
+import run_target_conditioned_e2_oracle as oracle  # noqa: E402
 import summarize_target_conditioned_e2 as summary  # noqa: E402
+import summarize_target_conditioned_e2_oracle as oracle_summary  # noqa: E402
 
 
 class TargetConditionedE2ExperimentTests(unittest.TestCase):
@@ -225,6 +227,46 @@ class TargetConditionedE2ExperimentTests(unittest.TestCase):
         actual = experiment.target_a_value(prior + gram / 1.3, target)
         self.assertAlmostEqual(actual, expected, places=11)
 
+    def test_joint_ridge_and_hutchinson_solve_is_exact_for_hadamard_probes(self):
+        rng = np.random.default_rng(41)
+        train = rng.normal(size=(9, 5))
+        labels = np.asarray([0, 1, 0, 1, 0, 1, 1, 0, 1], dtype=np.int64)
+        test = rng.normal(size=(6, 5))
+        target = rng.normal(size=(4, 5))
+        hadamard = np.asarray(
+            [
+                [1.0, 1.0, 1.0, 1.0],
+                [1.0, -1.0, 1.0, -1.0],
+                [1.0, 1.0, -1.0, -1.0],
+                [1.0, -1.0, -1.0, 1.0],
+            ]
+        )
+        probe_rhs = target.T @ hadamard
+        expected_scores, expected_solver = experiment.fit_ridge_scores(
+            train, labels, test, 2, 1.0
+        )
+        scores, solver, estimate, first, second, half_difference = (
+            oracle.fit_ridge_scores_and_target_a_proxy(
+                train,
+                labels,
+                test,
+                2,
+                1.0,
+                probe_rhs,
+                len(target),
+                1.0,
+            )
+        )
+        exact = experiment.target_a_value(
+            np.eye(train.shape[1]) + train.T @ train,
+            target,
+        )
+        np.testing.assert_allclose(scores, expected_scores, rtol=1e-12, atol=1e-12)
+        self.assertEqual(solver, expected_solver)
+        self.assertAlmostEqual(estimate, exact, places=11)
+        self.assertAlmostEqual((first + second) / 2.0, estimate, places=13)
+        self.assertGreaterEqual(half_difference, 0.0)
+
     def test_selection_evaluation_and_summary_are_auditable(self):
         output_dir = self.root / "evaluation"
         selection_path = output_dir / "selection.json"
@@ -301,6 +343,107 @@ class TargetConditionedE2ExperimentTests(unittest.TestCase):
                 selection_path,
                 self.root / "tampered_evaluation",
             )
+
+    def test_exhaustive_oracle_reproduces_parent_and_summarizes(self):
+        parent_dir = self.root / "parent"
+        selection_path = parent_dir / "selection.json"
+        experiment.run_selection(
+            self.bundle,
+            self.feature_path,
+            self.metadata_path,
+            self.config_path,
+            selection_path,
+        )
+        parent_manifest = experiment.run_evaluation(
+            self.bundle,
+            self.feature_path,
+            self.metadata_path,
+            self.config_path,
+            selection_path,
+            parent_dir,
+        )
+        oracle_config = {
+            "schema_version": oracle.CONFIG_SCHEMA,
+            "status": "frozen-before-exploratory-oracle-evaluation",
+            "parent_experiment_config_file_sha256": sha256_file(self.config_path),
+            "parent_evaluation_runner_revision": parent_manifest["runner_revision"],
+            "datasets": ["fixture_domains"],
+            "encoders": ["fixture_encoder"],
+            "analysis": {
+                "budgets": [1, 2],
+                "primary_budget": 1,
+                "primary_metric": "brier_score",
+                "top_q": 3,
+                "normalized_regret_denominator": "absolute-oracle-risk",
+                "combination_tie_break": "metric-then-lexicographic",
+                "target_a_proxy": "common-rademacher-hutchinson",
+                "hutchinson_probes": 4,
+                "hutchinson_seed": 101,
+                "probe_halves_reported": True,
+                "expected_candidate_count_per_task": 4,
+            },
+            "access": {
+                "target_test_used_to_define_oracle": True,
+                "parent_selection_remains_immutable": True,
+                "changes_parent_confirmatory_gates": False,
+            },
+            "claim_boundary": "post-hoc fixture diagnostic only",
+        }
+        oracle_config_path = self.root / "oracle.json"
+        oracle_config_path.write_text(json.dumps(oracle_config), encoding="utf-8")
+        oracle_dir = self.root / "oracle"
+        oracle_manifest = oracle.run_oracle(
+            self.bundle,
+            self.feature_path,
+            self.metadata_path,
+            self.config_path,
+            oracle_config_path,
+            parent_dir,
+            oracle_dir,
+        )
+        self.assertEqual(oracle_manifest["combination_row_count"], 20)
+        self.assertEqual(oracle_manifest["selection_diagnostic_row_count"], 60)
+        self.assertEqual(oracle_manifest["task_summary_row_count"], 4)
+        self.assertFalse(
+            oracle_manifest["evaluation_access"]["changes_parent_confirmatory_gates"]
+        )
+        with self.assertRaisesRegex(E2ArtifactError, "refusing to overwrite"):
+            oracle.run_oracle(
+                self.bundle,
+                self.feature_path,
+                self.metadata_path,
+                self.config_path,
+                oracle_config_path,
+                parent_dir,
+                oracle_dir,
+            )
+
+        aggregate = oracle_summary.summarize(
+            [oracle_dir], self.root / "oracle_summary"
+        )
+        self.assertEqual(aggregate["run_count"], 1)
+        self.assertEqual(aggregate["combination_row_count"], 20)
+        self.assertEqual(aggregate["task_unit_count"], 2)
+        self.assertEqual(aggregate["primary"]["budget"], 1)
+        self.assertIn(
+            aggregate["primary"]["strongest_parent_target_blind"],
+            {
+                "bayesian_d",
+                "collapse_4s",
+                "domain_balance",
+                "dpp_subspace",
+                "effective_rank",
+                "facility_subspace",
+                "kcenter_subspace",
+                "random",
+                "size",
+                "spectrum_rank_l",
+            },
+        )
+        with (oracle_dir / "combinations.csv").open("a", encoding="utf-8") as stream:
+            stream.write("\n")
+        with self.assertRaisesRegex(E2ArtifactError, "hash mismatch"):
+            oracle_summary.validate_run(oracle_dir)
 
 
 if __name__ == "__main__":
