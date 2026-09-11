@@ -863,6 +863,8 @@ def validate_selection_artifact(
     config: Mapping[str, object],
     config_sha256: str,
     cache: SelectionCache,
+    *,
+    expected_runner_revision: str | None = None,
 ) -> None:
     if artifact.get("schema_version") != SELECTION_SCHEMA:
         raise E2ArtifactError(f"selection schema must be {SELECTION_SCHEMA}")
@@ -875,7 +877,12 @@ def validate_selection_artifact(
         raise E2ArtifactError("selection embeds a different experiment config")
     if artifact.get("selection_frozen_before_target_test") is not True:
         raise E2ArtifactError("selection was not frozen before target-test access")
-    if artifact.get("runner_revision") != git_revision():
+    runner_revision = (
+        git_revision()
+        if expected_runner_revision is None
+        else expected_runner_revision
+    )
+    if artifact.get("runner_revision") != runner_revision:
         raise E2ArtifactError("selection and evaluator runner revisions differ")
     inputs = _required_mapping(artifact.get("input"), "selection input")
     expected_input = {

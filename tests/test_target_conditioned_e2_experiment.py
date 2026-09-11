@@ -3,6 +3,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 from PIL import Image
@@ -392,15 +393,19 @@ class TargetConditionedE2ExperimentTests(unittest.TestCase):
         oracle_config_path = self.root / "oracle.json"
         oracle_config_path.write_text(json.dumps(oracle_config), encoding="utf-8")
         oracle_dir = self.root / "oracle"
-        oracle_manifest = oracle.run_oracle(
-            self.bundle,
-            self.feature_path,
-            self.metadata_path,
-            self.config_path,
-            oracle_config_path,
-            parent_dir,
-            oracle_dir,
-        )
+        with mock.patch.object(
+            experiment, "git_revision", return_value="new-oracle-revision"
+        ):
+            oracle_manifest = oracle.run_oracle(
+                self.bundle,
+                self.feature_path,
+                self.metadata_path,
+                self.config_path,
+                oracle_config_path,
+                parent_dir,
+                oracle_dir,
+            )
+        self.assertEqual(oracle_manifest["runner_revision"], "new-oracle-revision")
         self.assertEqual(oracle_manifest["combination_row_count"], 20)
         self.assertEqual(oracle_manifest["selection_diagnostic_row_count"], 60)
         self.assertEqual(oracle_manifest["task_summary_row_count"], 4)

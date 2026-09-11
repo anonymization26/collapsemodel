@@ -378,6 +378,9 @@ def run_oracle(
         != oracle_config.get("parent_evaluation_runner_revision")
     ):
         raise E2ArtifactError("oracle run does not bind the parent runner revision")
+    parent_runner_revision = str(parent_manifest["runner_revision"])
+    if parent_selection.get("runner_revision") != parent_runner_revision:
+        raise E2ArtifactError("parent selection and evaluation revisions differ")
 
     cache = experiment.load_selection_cache(manifest_dir, feature_path, metadata_path)
     if parent_manifest.get("dataset") != cache.dataset:
@@ -389,6 +392,7 @@ def run_oracle(
         parent_config,
         parent_config_hash,
         cache,
+        expected_runner_revision=parent_runner_revision,
     )
     validate_feature_cache(feature_path, metadata_path, manifest_dir, cache.encoder)
 
