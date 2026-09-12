@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
+
+ASCEND_ENV="${ASCEND_ENV:-/usr/local/Ascend/ascend-toolkit/set_env.sh}"
+if [[ ! -r "$ASCEND_ENV" ]]; then
+  printf 'Ascend environment file is not readable: %s\n' "$ASCEND_ENV" >&2
+  exit 2
+fi
+LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}"
+PYTHONPATH="${PYTHONPATH:-}"
+source "$ASCEND_ENV"
+set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK_ROOT="${E2B_WORK_ROOT:?set E2B_WORK_ROOT on a large filesystem}"

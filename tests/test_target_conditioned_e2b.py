@@ -178,6 +178,19 @@ class TargetConditionedE2BTests(unittest.TestCase):
         self.assertTrue(np.array_equal(first, second))
         self.assertTrue(np.allclose(np.linalg.norm(first, axis=1), 1.0))
 
+    def test_server_wrapper_explicitly_loads_ascend_environment(self):
+        wrapper = (ROOT / "scripts/run_target_conditioned_e2b_server.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "source \"$ASCEND_ENV\"",
+            wrapper,
+        )
+        self.assertLess(
+            wrapper.index("source \"$ASCEND_ENV\""),
+            wrapper.index('WORK_ROOT="${E2B_WORK_ROOT'),
+        )
+
     def test_unlabeled_validation_does_not_read_label_payload(self):
         report = validate_feature_cache_unlabeled(
             self.anchor_dir / "features.npz",
