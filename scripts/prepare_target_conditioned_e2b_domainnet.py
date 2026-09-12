@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import zipfile
@@ -35,6 +36,26 @@ from metrics.target_conditioned_e2b import (  # noqa: E402
     write_csv_atomic,
     write_json_atomic,
 )
+
+
+def _git_revision() -> str:
+    pattern = re.compile(r"[0-9a-f]{40}")
+    injected = os.environ.get("SOURCE_GIT_REVISION", "")
+    if pattern.fullmatch(injected):
+        return injected
+    try:
+        revision = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        revision_path = ROOT / "SOURCE_REVISION"
+        revision = revision_path.read_text(encoding="ascii").strip()
+    if not pattern.fullmatch(revision):
+        raise E2BArtifactError("cannot establish the manifest builder Git revision")
+    return revision
 
 
 def _md5_file(path: Path) -> str:
@@ -436,6 +457,10 @@ def build_manifest(
         "dataset": dataset["name"],
         "dataset_version": dataset["version"],
         "config_file_sha256": sha256_file(config_path),
+        "builder": {
+            "git_revision": _git_revision(),
+            "script_sha256": sha256_file(Path(__file__)),
+        },
         "source_artifacts": source_artifacts,
         "selected_classes": selected_classes,
         "selected_classes_sha256": canonical_json_sha256(selected_classes),

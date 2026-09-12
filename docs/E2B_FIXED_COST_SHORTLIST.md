@@ -89,4 +89,4 @@ results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/
   logs/
 ```
 
-所有阶段记录配置、样本 ID、输入文件 SHA-256、源代码 Git revision、运行时间和拒绝覆盖已有冻结产物的检查。
+所有阶段记录配置、样本 ID、输入文件 SHA-256、manifest 构建脚本哈希、源代码 Git revision、运行时间和拒绝覆盖已有冻结产物的检查。
