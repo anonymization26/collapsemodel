@@ -435,6 +435,12 @@ top-10 组合命中率为 62.5%，代理与真实 Brier 的组合级 Spearman �
 `target-test` 定义 oracle，只能诊断候选池 headroom 和选择器遗憾，不更新 H2/H2b。结果见
 `results/target_conditioned/e2_dataset_selection/oracle_headroom_v1/README.md`。
 
+E2b 已作为新的探索性假设预注册，完整协议见 `docs/E2B_FIXED_COST_SHORTLIST.md`，机器配置见
+`code/configs/target_conditioned_e2b/domainnet_v1.json`。它使用独立的 DomainNet 官方 test、每组合固定
+1,536 个源样本、CLIP 锚点构造的 15 个异质等长块和全部 455 个三块组合。流程被拆成先冻结 U0
+shortlist、再用官方 train 内验证集选一个组合、最后打开官方 test 做穷举审计三个阶段；主指标改为
+集合意义下的真实 top-10 recall，而不是 E2a 的单选择命中率。
+
 ### P0：冻结数学规格
 
 - [x] 将 IDEA 中所有矩阵定义、维度和假设转成代码接口文档。
@@ -464,6 +470,9 @@ top-10 组合命中率为 62.5%，代理与真实 Brier 的组合级 Spearman �
 
 - [x] 完成 E2 所有目标域、预算和预注册 Random 重复。
 - [x] 完成 12 候选块在 `K=1/3/5` 下的事后穷举 oracle、搜索遗憾和排序相关诊断。
+- [x] 冻结 E2b 的等成本、异质候选、独立 test 与真正 shortlist 协议。
+- [ ] 完成 E2b DomainNet 六域数据 manifest、锚特征和候选块冻结。
+- [ ] 完成 E2b 的 screen、validation、test-audit 与 H3 判定。
 - [ ] 完成 E3 的 U2 少标签实验；因 H2 失败，当前暂停。
 - [ ] 对 U0、U1、U2 分表报告，检查权限公平性。
 
