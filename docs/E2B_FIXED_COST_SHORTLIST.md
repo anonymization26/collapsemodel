@@ -51,7 +51,7 @@ shortlist 大小固定为 `10/25/50/100/227`。`227` 是主设置，刚好排除
 
 ### Validate：U2
 
-验证阶段先校验 screen 文件及配置哈希，然后才读取源标签和 `target-validation` 标签。对每个 shortlist 内的组合使用同一个正则强度 `lambda=1` 拟合闭式 ridge，并按目标验证 Brier score 选择一个组合。验证阶段不得加载官方 test 特征或标签。
+验证阶段先校验 screen 文件及配置哈希，然后才读取源标签和 `target-validation` 标签。每个方法（以及每个随机重复）独立评估自己排序中的 top-227，较小的 `10/25/50/100` shortlist 只复用该排序内已经计算的嵌套前缀；不同方法之间不共享验证结果。对每个 shortlist 内的组合使用同一个正则强度 `lambda=1` 拟合闭式 ridge，并按目标验证 Brier score 选择一个组合。因此主方法 Target A 在每个目标域物理上恰评估 227 个而非接近全部 455 个组合。验证阶段不得加载官方 test 特征或标签。
 
 ### Test-audit：冻结后审计
 

@@ -221,6 +221,15 @@ class TargetConditionedE2BTests(unittest.TestCase):
         self.assertFalse(screen["access"]["source_labels"])
         validation = run_validation(*common, screen_dir, validation_dir)
         self.assertTrue(validation["selection_frozen_before_target_test"])
+        for task in validation["tasks"]:
+            self.assertFalse(task["cross_method_result_cache"])
+            self.assertEqual(task["physical_primary_combination_evaluations"], 227)
+            self.assertTrue(
+                all(
+                    row["physical_combination_evaluations"] == 227
+                    for row in task["evaluations_by_method_repeat"]
+                )
+            )
         run_test_audit(*common, screen_dir, validation_dir, audit_dir)
 
         with (audit_dir / "shortlist_audit.csv").open(

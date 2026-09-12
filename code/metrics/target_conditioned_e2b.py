@@ -19,7 +19,7 @@ MANIFEST_SCHEMA = "target-conditioned-e2b-domainnet-manifest-v1"
 CACHE_SCHEMA = "target-conditioned-e2b-feature-cache-v1"
 CANDIDATE_SCHEMA = "target-conditioned-e2b-candidates-v1"
 SCREEN_SCHEMA = "target-conditioned-e2b-screen-v1"
-VALIDATION_SCHEMA = "target-conditioned-e2b-validation-v1"
+VALIDATION_SCHEMA = "target-conditioned-e2b-validation-v2"
 TEST_AUDIT_SCHEMA = "target-conditioned-e2b-test-audit-v1"
 
 SAMPLE_FIELDS = (

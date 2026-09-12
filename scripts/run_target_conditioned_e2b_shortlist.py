@@ -72,6 +72,12 @@ METRIC_FIELDS = (
     "ece",
     "evaluation_seconds",
 )
+VALIDATION_METRIC_FIELDS = (
+    "encoder",
+    "target_domain",
+    "method",
+    "repeat",
+) + METRIC_FIELDS[2:]
 SELECTION_FIELDS = (
     "encoder",
     "target_domain",
@@ -656,45 +662,56 @@ def run_validation(
     ece_bins = int(audit_config["ece_bins"])
     class_count = int(manifest_report["class_count"])
     shortlist_sizes = [int(value) for value in config["screen"]["shortlist_sizes"]]
+    largest_shortlist = max(shortlist_sizes)
+    primary_size = int(config["screen"]["primary_shortlist_size"])
+    registered_physical_count = int(
+        validation_config["physical_primary_combination_evaluations_per_target"]
+    )
+    if validation_config.get("cross_method_result_cache") is not False:
+        raise E2BArtifactError("validation must disable cross-method result caching")
+    if registered_physical_count != primary_size or primary_size != largest_shortlist:
+        raise E2BArtifactError(
+            "physical primary validation count must equal the largest shortlist"
+        )
     metric_rows = []
     selection_rows = []
     tasks = []
     for target_domain in config["dataset"]["domains"]:
         groups = _screen_groups(screen_rows, str(target_domain))
-        union = sorted(
-            {
-                combination
-                for ranking in groups.values()
-                for combination in ranking[: max(shortlist_sizes)]
-            }
-        )
         names = sorted(
             name for name, domain in candidate_domains.items() if domain != target_domain
         )
         block_features = {name: projected[block_indices[name]] for name in names}
         block_labels = {name: labels[block_indices[name]] for name in names}
         target_indices = role_indices[(str(target_domain), "target_validation")]
-        evaluated = _evaluate_combinations(
-            union,
-            block_features,
-            block_labels,
-            projected[target_indices],
-            labels[target_indices],
-            class_count,
-            regularization,
-            ece_bins,
-            progress_label=f"validate encoder={encoder} target={target_domain}",
-        )
-        by_name = {str(row["combination"]): row for row in evaluated}
-        for row in evaluated:
-            metric_rows.append(
-                {
-                    "encoder": encoder,
-                    "target_domain": target_domain,
-                    **row,
-                }
-            )
+        evaluations_by_group = []
         for (method, repeat), ranking in sorted(groups.items()):
+            method_shortlist = ranking[:largest_shortlist]
+            evaluated = _evaluate_combinations(
+                method_shortlist,
+                block_features,
+                block_labels,
+                projected[target_indices],
+                labels[target_indices],
+                class_count,
+                regularization,
+                ece_bins,
+                progress_label=(
+                    f"validate encoder={encoder} target={target_domain} "
+                    f"method={method} repeat={repeat}"
+                ),
+            )
+            by_name = {str(row["combination"]): row for row in evaluated}
+            for row in evaluated:
+                metric_rows.append(
+                    {
+                        "encoder": encoder,
+                        "target_domain": target_domain,
+                        "method": method,
+                        "repeat": repeat,
+                        **row,
+                    }
+                )
             for size in shortlist_sizes:
                 shortlist = ranking[:size]
                 selected = min(
@@ -714,11 +731,20 @@ def run_validation(
                         "validation_rank_within_shortlist": 1,
                     }
                 )
+            evaluations_by_group.append(
+                {
+                    "method": method,
+                    "repeat": repeat,
+                    "physical_combination_evaluations": len(evaluated),
+                }
+            )
         tasks.append(
             {
                 "target_domain": target_domain,
                 "logical_evaluations_per_method_and_size": shortlist_sizes,
-                "physical_unique_validation_evaluations": len(union),
+                "cross_method_result_cache": False,
+                "evaluations_by_method_repeat": evaluations_by_group,
+                "physical_primary_combination_evaluations": largest_shortlist,
                 "target_validation_count": len(target_indices),
                 "target_validation_ids_sha256": hash_ids(sample_ids[target_indices]),
             }
@@ -726,7 +752,7 @@ def run_validation(
     output_dir.mkdir(parents=True, exist_ok=True)
     metrics_path = output_dir / "metrics.csv"
     selections_path = output_dir / "selections.csv"
-    write_csv_atomic(metrics_path, METRIC_FIELDS, metric_rows)
+    write_csv_atomic(metrics_path, VALIDATION_METRIC_FIELDS, metric_rows)
     write_csv_atomic(selections_path, SELECTION_FIELDS, selection_rows)
     core: dict[str, object] = {
         "schema_version": VALIDATION_SCHEMA,
@@ -745,6 +771,14 @@ def run_validation(
         "selection_row_count": len(selection_rows),
         "runner_revision": git_revision(),
         "selection_frozen_before_target_test": True,
+        "execution": {
+            "rule": validation_config["execution_rule"],
+            "cross_method_result_cache": False,
+            "largest_nested_shortlist": largest_shortlist,
+            "physical_primary_combination_evaluations_per_target": (
+                registered_physical_count
+            ),
+        },
         "access": {
             "source_labels": True,
             "target_validation_labels": True,
@@ -789,6 +823,13 @@ def _validate_validation(
         raise E2BArtifactError("validation encoder mismatch")
     if artifact.get("selection_frozen_before_target_test") is not True:
         raise E2BArtifactError("validation selection is not frozen")
+    execution = artifact.get("execution")
+    if not isinstance(execution, dict) or execution.get("cross_method_result_cache") is not False:
+        raise E2BArtifactError("validation did not execute separate method shortlists")
+    config = load_config(config_path)
+    sizes = [int(value) for value in config["screen"]["shortlist_sizes"]]
+    if int(execution.get("largest_nested_shortlist", -1)) != max(sizes):
+        raise E2BArtifactError("validation largest shortlist mismatch")
     access = artifact.get("access")
     if not isinstance(access, dict) or any(
         access.get(key) is not False
@@ -801,12 +842,29 @@ def _validate_validation(
         raise E2BArtifactError("validation metrics hash mismatch")
     if artifact.get("selections_file_sha256") != sha256_file(selections_path):
         raise E2BArtifactError("validation selections hash mismatch")
-    metrics = _read_csv(metrics_path, METRIC_FIELDS)
+    metrics = _read_csv(metrics_path, VALIDATION_METRIC_FIELDS)
     selections = _read_csv(selections_path, SELECTION_FIELDS)
     if int(artifact.get("metric_row_count", -1)) != len(metrics):
         raise E2BArtifactError("validation metric row count mismatch")
     if int(artifact.get("selection_row_count", -1)) != len(selections):
         raise E2BArtifactError("validation selection row count mismatch")
+    deterministic_methods = sum(
+        method != "random" for method in config["screen"]["methods"]
+    )
+    group_count = deterministic_methods + int(config["screen"]["random_repeats"])
+    target_count = len(config["dataset"]["domains"])
+    if len(metrics) != target_count * group_count * max(sizes):
+        raise E2BArtifactError("validation method-level metric coverage is incomplete")
+    if len(selections) != target_count * group_count * len(sizes):
+        raise E2BArtifactError("validation method-level selection coverage is incomplete")
+    metric_groups: dict[tuple[str, str, int], set[str]] = {}
+    for row in metrics:
+        key = (row["target_domain"], row["method"], int(row["repeat"]))
+        metric_groups.setdefault(key, set()).add(row["combination"])
+    if len(metric_groups) != target_count * group_count or any(
+        len(values) != max(sizes) for values in metric_groups.values()
+    ):
+        raise E2BArtifactError("validation shortlist metric groups are incomplete")
     return artifact, metrics, selections
 
 
