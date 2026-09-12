@@ -40,7 +40,14 @@ def build_candidates(
     output_path: Path,
 ) -> dict[str, object]:
     if output_path.exists():
-        raise E2BArtifactError("refusing to overwrite frozen candidates")
+        validate_candidates(
+            output_path,
+            manifest_dir,
+            config_path,
+            anchor_feature_path,
+            anchor_metadata_path,
+        )
+        return json.loads(output_path.read_text(encoding="utf-8"))
     config = load_config(config_path)
     manifest_report = validate_manifest(manifest_dir, config_path)
     construction = config["candidate_construction"]

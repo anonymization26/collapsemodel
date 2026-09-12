@@ -506,7 +506,7 @@ def effective_rank_from_scatter(scatter: np.ndarray, sample_count: int) -> float
     matrix = np.asarray(scatter, dtype=np.float64)
     eigenvalues = np.linalg.eigvalsh((matrix + matrix.T) / 2.0)
     singular = np.sqrt(np.maximum(eigenvalues, 0.0))
-    if singular.size == 0 or singular.max(initial=0.0) == 0.0:
+    if singular.size == 0 or float(singular.max()) == 0.0:
         return 0.0
     tolerance = singular.max() * math.sqrt(
         np.finfo(np.float64).eps

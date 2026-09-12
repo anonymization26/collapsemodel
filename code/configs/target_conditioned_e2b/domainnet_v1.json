@@ -21,7 +21,8 @@
       "count": 100,
       "rule": "smallest-sha256-by-class-name",
       "seed": "domainnet-e2b-class-v1",
-      "uses_labels_or_model_outputs": false
+      "uses_class_taxonomy": true,
+      "uses_sample_outcomes_or_model_outputs": false
     }
   },
   "sampling": {
@@ -38,14 +39,15 @@
     },
     "train_roles_are_disjoint_within_domain": true,
     "invalid_image_policy": "skip-in-hash-order-and-replenish-before-freeze",
-    "duplicate_content_policy": "retain-smallest-role-order-key-and-replenish-before-freeze",
+    "duplicate_content_policy": "retain-first-in-frozen-domain-role-hash-traversal-and-replenish-before-freeze",
     "role_order": [
       "target_selection",
       "target_validation",
       "anchor_pool",
       "target_test"
     ],
-    "uses_labels_or_model_outputs": false
+    "uses_labels_for_within_subset_assignment": false,
+    "uses_model_outputs": false
   },
   "candidate_construction": {
     "anchor_encoder": "clip_b32",

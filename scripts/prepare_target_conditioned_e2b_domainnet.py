@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import json
 import os
@@ -126,7 +127,14 @@ def _valid_image_bytes(archive: zipfile.ZipFile, member: str) -> bytes | None:
         with Image.open(io.BytesIO(payload)) as image:
             image.verify()
         return payload
-    except (KeyError, OSError, Image.DecompressionBombError):
+    except (
+        KeyError,
+        OSError,
+        ValueError,
+        RuntimeError,
+        zipfile.BadZipFile,
+        Image.DecompressionBombError,
+    ):
         return None
 
 
@@ -175,7 +183,7 @@ def _select_role(
             rejected["invalid_or_missing_image"] += 1
             used_members.add(member)
             continue
-        content_hash = __import__("hashlib").sha256(payload).hexdigest()
+        content_hash = hashlib.sha256(payload).hexdigest()
         if content_hash in seen_content:
             rejected["duplicate_content"] += 1
             used_members.add(member)
@@ -189,8 +197,12 @@ def _select_role(
         )
         output = extracted_root / relative
         if output.exists():
-            raise E2BArtifactError(f"refusing to overwrite extracted sample {relative}")
-        _write_bytes_atomic(output, payload)
+            if output.read_bytes() != payload:
+                raise E2BArtifactError(
+                    f"existing extracted sample has different content: {relative}"
+                )
+        else:
+            _write_bytes_atomic(output, payload)
         used_members.add(member)
         seen_content.add(content_hash)
         selected.append(
@@ -230,10 +242,13 @@ def build_manifest(
     extracted_root: Path,
     output_dir: Path,
 ) -> dict[str, object]:
-    if output_dir.exists() and any(output_dir.iterdir()):
-        raise E2BArtifactError("refusing to overwrite a nonempty manifest directory")
-    if extracted_root.exists() and any(extracted_root.iterdir()):
-        raise E2BArtifactError("refusing to overwrite a nonempty extracted dataset")
+    if (output_dir / "manifest.json").is_file():
+        validate_manifest(output_dir, config_path)
+        return json.loads(
+            (output_dir / "manifest.json").read_text(encoding="utf-8")
+        )
+    if (output_dir / "samples.csv").exists():
+        raise E2BArtifactError("partial manifest table exists without manifest.json")
     config = load_config(config_path)
     dataset = config["dataset"]
     sampling = config["sampling"]
