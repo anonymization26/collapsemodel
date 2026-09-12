@@ -1,6 +1,7 @@
 import copy
 import csv
 import json
+import shutil
 import sys
 import tempfile
 import unittest
@@ -35,6 +36,7 @@ from run_target_conditioned_e2b_shortlist import (  # noqa: E402
     run_test_audit,
     run_validation,
 )
+from summarize_target_conditioned_e2b import summarize  # noqa: E402
 
 
 class TargetConditionedE2BTests(unittest.TestCase):
@@ -240,6 +242,34 @@ class TargetConditionedE2BTests(unittest.TestCase):
         self.assertAlmostEqual(
             float(primary["shortlist_reduction"]), (455 - 10) / 455
         )
+
+        dino_dir = self.root / "audit_dino"
+        shutil.copytree(audit_dir, dino_dir)
+        audit_path = dino_dir / "shortlist_audit.csv"
+        with audit_path.open("r", encoding="utf-8", newline="") as stream:
+            dino_rows = list(csv.DictReader(stream))
+        for row in dino_rows:
+            row["encoder"] = "dinov2_b14"
+        write_csv_atomic(audit_path, AUDIT_FIELDS, dino_rows)
+        dino_manifest = json.loads(
+            (dino_dir / "manifest.json").read_text(encoding="utf-8")
+        )
+        dino_manifest["encoder"] = "dinov2_b14"
+        dino_manifest["audit_file_sha256"] = sha256_file(audit_path)
+        dino_core = {
+            key: value
+            for key, value in dino_manifest.items()
+            if key != "test_audit_id"
+        }
+        dino_manifest["test_audit_id"] = canonical_json_sha256(dino_core)
+        write_json_atomic(dino_dir / "manifest.json", dino_manifest)
+        summary = summarize(
+            self.config_path,
+            [audit_dir, dino_dir],
+            self.root / "summary",
+        )
+        self.assertEqual(summary["primary_result"]["unit_count"], 6)
+        self.assertIsInstance(summary["h3_passed"], bool)
 
 
 if __name__ == "__main__":

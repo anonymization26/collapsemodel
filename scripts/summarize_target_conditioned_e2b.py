@@ -83,7 +83,10 @@ def _validate_audit(directory: Path, config_path: Path) -> tuple[str, list[dict[
     rows = _read_audit(audit_path)
     if int(manifest.get("audit_row_count", -1)) != len(rows):
         raise E2BArtifactError("test audit row count mismatch")
-    return str(manifest["encoder"]), rows
+    encoder = str(manifest["encoder"])
+    if any(row["encoder"] != encoder for row in rows):
+        raise E2BArtifactError("test audit rows and manifest encoder differ")
+    return encoder, rows
 
 
 def _mean_rows(rows: Sequence[Mapping[str, str]]) -> dict[str, float]:
