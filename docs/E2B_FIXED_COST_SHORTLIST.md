@@ -12,7 +12,7 @@ E2a 的 12 个哈希块只形成较弱的候选差异，而且所谓 top-10 指�
 
 ## 2. 独立数据与固定成本
 
-- 数据集：DomainNet 2019，六个域 `clipart/infograph/painting/quickdraw/real/sketch`。
+- 数据集：DomainNet 2019 官方推荐的 cleaned 版本，六个域 `clipart/infograph/painting/quickdraw/real/sketch`。Clipart/Painting 使用 `groundtruth` 归档，六域 train/test 划分均固定为 `domainnet/txt`；这一来源修正在特征提取及任何结果读取前完成，不改变样本配额、候选构造或成功门槛。
 - E2a 的 PACS 和 Office-Home 只视为开发数据，不参与 E2b 调参或统计。
 - 从 345 类中按类名的固定 SHA-256 顺序取 100 类；规则不读取样本数量、特征或结果。
 - 每个域从官方 train 划分中固定抽取 1,536 个 `target-selection`、1,024 个 `target-validation` 和 3,072 个 `anchor-pool` 样本，三者不重叠。

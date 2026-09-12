@@ -62,10 +62,15 @@ def download_inputs(config_path: Path, download_dir: Path) -> None:
     config = load_config(config_path)
     dataset = config["dataset"]
     domains = [str(value) for value in dataset["domains"]]
-    archive_base = str(dataset["archive_base_url"]).rstrip("/")
+    archive_urls = {
+        str(domain): str(url) for domain, url in dataset["archive_urls"].items()
+    }
+    archive_suffix = str(dataset["archive_local_suffix"])
+    if set(archive_urls) != set(domains):
+        raise E2BArtifactError("archive_urls must contain exactly the configured domains")
     split_base = str(dataset["split_base_url"]).rstrip("/")
     for domain in domains:
-        _download(f"{archive_base}/{domain}.zip", download_dir / f"{domain}.zip")
+        _download(archive_urls[domain], download_dir / f"{domain}{archive_suffix}")
         for split in ("train", "test"):
             filename = f"{domain}_{split}.txt"
             _download(f"{split_base}/{filename}", download_dir / filename)
@@ -279,11 +284,16 @@ def build_manifest(
         ]
 
     source_artifacts = []
-    archive_base = str(dataset["archive_base_url"]).rstrip("/")
+    archive_urls = {
+        str(domain): str(url) for domain, url in dataset["archive_urls"].items()
+    }
+    archive_suffix = str(dataset["archive_local_suffix"])
+    if set(archive_urls) != set(domains):
+        raise E2BArtifactError("archive_urls must contain exactly the configured domains")
     split_base = str(dataset["split_base_url"]).rstrip("/")
     for domain in domains:
         for filename, url in (
-            (f"{domain}.zip", f"{archive_base}/{domain}.zip"),
+            (f"{domain}{archive_suffix}", archive_urls[domain]),
             (f"{domain}_train.txt", f"{split_base}/{domain}_train.txt"),
             (f"{domain}_test.txt", f"{split_base}/{domain}_test.txt"),
         ):
@@ -308,7 +318,7 @@ def build_manifest(
         ("anchor_pool", int(sampling["anchor_pool_per_domain"])),
     )
     for domain in domains:
-        archive_path = download_dir / f"{domain}.zip"
+        archive_path = download_dir / f"{domain}{archive_suffix}"
         with zipfile.ZipFile(archive_path) as archive:
             members = set(archive.namelist())
             required = {
