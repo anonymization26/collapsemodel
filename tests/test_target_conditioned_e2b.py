@@ -334,6 +334,19 @@ class TargetConditionedE2BTests(unittest.TestCase):
         )
         self.assertEqual(summary["primary_result"]["unit_count"], 6)
         self.assertIsInstance(summary["h3_passed"], bool)
+        self.assertEqual(
+            summary["same_information_baseline_result"]["method"],
+            "second_moment_mmd",
+        )
+        comparison = summary["same_information_selection_comparison"]
+        self.assertEqual(comparison["comparison_count"], 12)
+        self.assertGreaterEqual(
+            comparison["matching_validation_selected_combinations"], 0
+        )
+        self.assertIn(
+            "不支持 Target A 的独特优势",
+            (self.root / "summary" / "README.md").read_text(encoding="utf-8"),
+        )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,47 @@
+{
+  "access": {
+    "feature_extraction_uses_labels": false,
+    "labels_saved_for_later_role_gated_stages": true,
+    "ordering": "samples.csv sample_index"
+  },
+  "code": {
+    "extractor_sha256": "c67338391eaf9857ae5476a6e761c59bbd1a1608906c1ab84229d39f620bbd9e",
+    "git_revision": "6b8cd5bd35a37dd3e2bdacd156aa24d1888d0a62"
+  },
+  "config_file_sha256": "5d405f4e3d9036d056f9c0f32d693c019e93f949f1c885fa3dcac694ffee1ed5",
+  "encoder": {
+    "checkpoint_file_sha256": "0b8b82f85de91b424aded121c7e1dcc2b7bc6d0adeea651bf73a13307fad8c73",
+    "checkpoint_id": "dinov2_vitb14_pretrain.pth",
+    "feature_layer": "final-cls-token",
+    "model_state_sha256": "fe64abe930063edc1e857fc3c0ea8162f7de6a056b4f903730cc0410a90e60a4",
+    "name": "dinov2_b14",
+    "preprocess": "Compose(\n    Resize(size=256, interpolation=bicubic, max_size=None, antialias=True)\n    CenterCrop(size=(224, 224))\n    ToTensor()\n    Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))\n)",
+    "preprocess_sha256": "26184559c02d24bb9e3bfc740fea07c88c8f7f2fb942b67cfa4ad9fc5a6577b8"
+  },
+  "feature_dtype": "float32",
+  "feature_file_sha256": "3358a8c3aac17c4e8a8bd17c3938fb0fff5dc79e1baea259cad7d1cbbaac3910",
+  "feature_shape": [
+    46080,
+    768
+  ],
+  "label_dtype": "int64",
+  "manifest_id": "1ba25059df70be4d9d22ec1c3c25bdd03e6a83795fbb44a45b3a8e0bb6b20839",
+  "runtime": {
+    "batch_size": 64,
+    "device": "npu:6",
+    "device_name": "Ascend910B4",
+    "finished_utc": "2026-09-12T19:12:07.419404+00:00",
+    "images_per_second": 505.7531726399702,
+    "inference_seconds": 91.11163803376257,
+    "model_load_seconds": 4.405291298404336,
+    "numpy_version": "1.26.4",
+    "peak_allocated_mb": 945.642578125,
+    "peak_reserved_mb": 1122.0,
+    "python_version": "3.10.12",
+    "started_utc": "2026-09-12T19:10:30.307630+00:00",
+    "torch_version": "2.6.0+cpu",
+    "workers": 8
+  },
+  "sample_id_dtype": "<U64",
+  "schema_version": "target-conditioned-e2b-feature-cache-v1"
+}

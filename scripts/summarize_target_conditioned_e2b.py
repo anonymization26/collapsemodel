@@ -232,6 +232,32 @@ def summarize(
         for row in method_summary
         if row["method"] == primary_method and row["shortlist_size"] == primary_size
     )
+    same_information_method = "second_moment_mmd"
+    same_information = next(
+        row
+        for row in method_summary
+        if row["method"] == same_information_method
+        and row["shortlist_size"] == primary_size
+    )
+    primary_selections = {
+        (row["encoder"], row["target_domain"]): row["selected_combination"]
+        for row in all_rows
+        if row["method"] == primary_method
+        and int(row["shortlist_size"]) == primary_size
+    }
+    same_information_selections = {
+        (row["encoder"], row["target_domain"]): row["selected_combination"]
+        for row in all_rows
+        if row["method"] == same_information_method
+        and int(row["shortlist_size"]) == primary_size
+    }
+    if primary_selections.keys() != same_information_selections.keys():
+        raise E2BArtifactError("same-information comparison coverage is incomplete")
+    selection_comparison_count = len(primary_selections)
+    selection_match_count = sum(
+        primary_selections[key] == same_information_selections[key]
+        for key in primary_selections
+    )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     per_encoder_path = output_dir / "per_encoder.csv"
@@ -251,6 +277,11 @@ def summarize(
             "random_repeats_are_not_independent_units": True,
         },
         "primary_result": primary,
+        "same_information_baseline_result": same_information,
+        "same_information_selection_comparison": {
+            "comparison_count": selection_comparison_count,
+            "matching_validation_selected_combinations": selection_match_count,
+        },
         "h3_passed": bool(primary["passes_all_gates"]),
         "claim_boundary": config["claim_boundary"],
         "per_encoder_file_sha256": sha256_file(per_encoder_path),
@@ -267,8 +298,18 @@ def summarize(
         f"- 平均验证选择测试遗憾：`{float(primary['mean_selected_normalized_regret']):.3%}`\n"
         f"- 平均组合缩减：`{float(primary['mean_shortlist_reduction']):.3%}`\n"
         f"- H3：`{'PASS' if summary['h3_passed'] else 'FAIL'}`\n\n"
+        "## 同信息基线核查\n\n"
+        f"- Second-moment MMD 的平均真实 top-10 recall："
+        f"`{float(same_information['mean_true_top_q_recall']):.3f}`\n"
+        f"- Second-moment MMD 的平均验证选择测试遗憾："
+        f"`{float(same_information['mean_selected_normalized_regret']):.3%}`\n"
+        f"- 两者验证选中组合相同：`{selection_match_count}/{selection_comparison_count}` 个编码器-目标域任务\n"
+        f"- Second-moment MMD 的 H3："
+        f"`{'PASS' if same_information['passes_all_gates'] else 'FAIL'}`\n\n"
         "该结果以六个目标域为统计单位并在域内平均两个评价编码器。它是独立 DomainNet 上的"
-        "探索性 E2b，不改变 PACS/Office-Home E2 的 H2/H2b 失败结论。\n"
+        "探索性 E2b，不改变 PACS/Office-Home E2 的 H2/H2b 失败结论。H3 是主方法的绝对"
+        "可用性门槛，不是相对优势检验；同信息 MMD 得到相同的主指标和最终选择，因此当前结果"
+        "支持目标条件二阶几何预筛选这一方法类别，不支持 Target A 的独特优势。\n"
     )
     (output_dir / "README.md").write_text(readme, encoding="utf-8")
     return summary

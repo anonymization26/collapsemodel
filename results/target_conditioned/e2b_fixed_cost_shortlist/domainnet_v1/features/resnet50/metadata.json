@@ -1,0 +1,47 @@
+{
+  "access": {
+    "feature_extraction_uses_labels": false,
+    "labels_saved_for_later_role_gated_stages": true,
+    "ordering": "samples.csv sample_index"
+  },
+  "code": {
+    "extractor_sha256": "c67338391eaf9857ae5476a6e761c59bbd1a1608906c1ab84229d39f620bbd9e",
+    "git_revision": "6b8cd5bd35a37dd3e2bdacd156aa24d1888d0a62"
+  },
+  "config_file_sha256": "5d405f4e3d9036d056f9c0f32d693c019e93f949f1c885fa3dcac694ffee1ed5",
+  "encoder": {
+    "checkpoint_file_sha256": "11ad3fa62ca79e40addfd354a8ec4b7c75143b3038b8d2a807fbc68deab379ca",
+    "checkpoint_id": "torchvision:ResNet50_Weights.IMAGENET1K_V2",
+    "feature_layer": "global-average-pool-before-fc",
+    "model_state_sha256": "da7fcbf478583233248fcefdd6979ed1c0c35cd2751f11e6e5b8550898af7f1a",
+    "name": "resnet50",
+    "preprocess": "ImageClassification(\n    crop_size=[224]\n    resize_size=[232]\n    mean=[0.485, 0.456, 0.406]\n    std=[0.229, 0.224, 0.225]\n    interpolation=InterpolationMode.BILINEAR\n)",
+    "preprocess_sha256": "f4fe89f34af465ce172e3e4665016d58710e1c2f462bf71f23631d2e377562c3"
+  },
+  "feature_dtype": "float32",
+  "feature_file_sha256": "f1a382dd1fd88e2fec653bfe28e4ece7db7d680752dd176b38a47b581e4ee409",
+  "feature_shape": [
+    46080,
+    2048
+  ],
+  "label_dtype": "int64",
+  "manifest_id": "1ba25059df70be4d9d22ec1c3c25bdd03e6a83795fbb44a45b3a8e0bb6b20839",
+  "runtime": {
+    "batch_size": 64,
+    "device": "npu:5",
+    "device_name": "Ascend910B4",
+    "finished_utc": "2026-09-12T19:11:46.108744+00:00",
+    "images_per_second": 655.0742104280953,
+    "inference_seconds": 70.34317527152598,
+    "model_load_seconds": 1.4551473129540682,
+    "numpy_version": "1.26.4",
+    "peak_allocated_mb": 845.4775390625,
+    "peak_reserved_mb": 1016.0,
+    "python_version": "3.10.12",
+    "started_utc": "2026-09-12T19:10:30.351882+00:00",
+    "torch_version": "2.6.0+cpu",
+    "workers": 8
+  },
+  "sample_id_dtype": "<U64",
+  "schema_version": "target-conditioned-e2b-feature-cache-v1"
+}

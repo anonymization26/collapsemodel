@@ -1,6 +1,22 @@
 # Target-Conditioned 实验状态
 
-> 当前已有数学验证、合成实验和完整的首轮 E2 真实冻结表示结果。合成 H2/H2b 通过，但真实 E2 的 H2/H2b 均未通过。
+> 当前已有数学验证、合成实验、首轮 E2 真实冻结表示结果和独立 DomainNet E2b shortlist 结果。合成 H2/H2b 通过，真实 E2 的 H2/H2b 均未通过；探索性 E2b 的绝对 H3 门槛通过，但未显示 Target A 相对同信息 MMD 的独特优势。
+
+## e2b_fixed_cost_shortlist/domainnet_v1
+
+- 运行日期：2026-09-12；
+- 数据：DomainNet cleaned 六域，100 个哈希冻结类，共 46,080 个互斥角色样本；
+- 候选：每个目标域 15 个异质等长块、455 个三块组合，每个组合固定 1,536 个训练样本；
+- 评价表示：ResNet-50 与 DINOv2-B/14；CLIP ViT-B/32 只用于无标签候选分层；
+- 访问顺序：U0 screen 冻结后读取 train 内 validation 标签，验证选择冻结后才打开官方 test；
+- 主 shortlist：`227/455`，物理上按方法和重复独立评估，不使用跨方法验证缓存。
+
+Target A-opt 的平均真实 top-10 recall 为 `98.333%`，平均组合缩减为 `50.110%`，验证选中组合的
+平均测试归一化 Brier 遗憾为 `0.001311%`，故预注册 H3 判定为 `PASS`。但 Second-moment MMD 的
+三项主结果完全相同，并在 12/12 个编码器-目标域任务中选出同一最终组合；更小 shortlist 下 MMD
+的 recall 还更高。完整组合间的相对 Brier 跨度仅为 `0.0280%` 至 `0.4242%`，说明 5% 遗憾门槛
+过宽。当前证据支持二阶几何预筛选这一方法类别，不支持 Target A 的独特优势，也不改变 E2 的
+H2/H2b 失败结论。权威产物和逐方法结果见 `e2b_fixed_cost_shortlist/domainnet_v1/README.md`。
 
 ## expanded_v3_controlled_rng（当前有效扩展结果）
 

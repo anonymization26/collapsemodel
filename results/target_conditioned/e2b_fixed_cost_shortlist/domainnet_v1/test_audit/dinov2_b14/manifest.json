@@ -1,0 +1,83 @@
+{
+  "access": {
+    "screen_and_validation_hashes_verified_first": true,
+    "target_test_features": true,
+    "target_test_labels": true,
+    "test_outcomes_change_screen_or_validation_selection": false
+  },
+  "audit_file_sha256": "7a09b6f61bd3beffb748b1ec5e2a318e27d472e6221b6f580ab77c2cee02841d",
+  "audit_row_count": 810,
+  "candidate_set_id": "545fe86c8c9e830448f14f0ce0a300a33389f3eb9787e118572e7e78da87e9a8",
+  "combination_row_count": 2730,
+  "combinations_file_sha256": "1350564a180e714f7a04fd8386bf837f9cecda0f55bf1b807ac17270a5614bfe",
+  "config_file_sha256": "5d405f4e3d9036d056f9c0f32d693c019e93f949f1c885fa3dcac694ffee1ed5",
+  "created_utc": "2026-09-12T19:30:45.529351+00:00",
+  "encoder": "dinov2_b14",
+  "feature_file_sha256": "3358a8c3aac17c4e8a8bd17c3938fb0fff5dc79e1baea259cad7d1cbbaac3910",
+  "manifest_id": "1ba25059df70be4d9d22ec1c3c25bdd03e6a83795fbb44a45b3a8e0bb6b20839",
+  "runner_revision": "6b8cd5bd35a37dd3e2bdacd156aa24d1888d0a62",
+  "runtime": {
+    "device": "cpu",
+    "elapsed_seconds": 66.91110293380916,
+    "finished_utc": "2026-09-12T19:30:45.531296+00:00",
+    "numpy_version": "1.26.4",
+    "python_version": "3.10.12",
+    "started_utc": "2026-09-12T19:29:38.620211+00:00"
+  },
+  "schema_version": "target-conditioned-e2b-test-audit-v1",
+  "screen_id": "9f7bda91ff5aa080fc14cc440dfa8b2bc9562acfe17071a1bc0e871a4595a7b7",
+  "tasks": [
+    {
+      "combination_count": 455,
+      "target_domain": "clipart",
+      "target_test_count": 2048,
+      "target_test_ids_sha256": "b8f1203b7c259adc5e6364fd0eabd9407b6ff7211c589d72d41d5622f3a57464",
+      "test_oracle_brier_score": 0.9845728352452137,
+      "test_oracle_combination": "real__clip_pc1_low|sketch__clip_pc1_low|sketch__clip_pc1_middle"
+    },
+    {
+      "combination_count": 455,
+      "target_domain": "infograph",
+      "target_test_count": 2048,
+      "target_test_ids_sha256": "e3a147c01c481f42161052f352d565f56e664ca04eab2efaeb24fbf4b2ebbee1",
+      "test_oracle_brier_score": 0.9866679408186171,
+      "test_oracle_combination": "clipart__clip_pc1_low|clipart__clip_pc1_middle|sketch__clip_pc1_low"
+    },
+    {
+      "combination_count": 455,
+      "target_domain": "painting",
+      "target_test_count": 2048,
+      "target_test_ids_sha256": "265374b7d770acf1c5e803b4ffd5aedc00d519ecd8aab991d125cbbad69e9b1e",
+      "test_oracle_brier_score": 0.9844675389611673,
+      "test_oracle_combination": "real__clip_pc1_high|sketch__clip_pc1_high|sketch__clip_pc1_low"
+    },
+    {
+      "combination_count": 455,
+      "target_domain": "quickdraw",
+      "target_test_count": 2048,
+      "target_test_ids_sha256": "cf39b0ddd35ef35d2f485408daf852126347bc4e806a1808ba683d4a5777370a",
+      "test_oracle_brier_score": 0.9887831365595756,
+      "test_oracle_combination": "clipart__clip_pc1_low|clipart__clip_pc1_middle|sketch__clip_pc1_low"
+    },
+    {
+      "combination_count": 455,
+      "target_domain": "real",
+      "target_test_count": 2048,
+      "target_test_ids_sha256": "60384adbcc168b7512a6047eeb05a4074989921af1e14502c7091c9f3932eccb",
+      "test_oracle_brier_score": 0.9843438521338278,
+      "test_oracle_combination": "clipart__clip_pc1_low|painting__clip_pc1_low|painting__clip_pc1_middle"
+    },
+    {
+      "combination_count": 455,
+      "target_domain": "sketch",
+      "target_test_count": 2048,
+      "target_test_ids_sha256": "2746bec4ac2a6080a149c3b49ffb10fc50ac4c34f85395c3792675ff0aa9fb9f",
+      "test_oracle_brier_score": 0.9848255404841,
+      "test_oracle_combination": "clipart__clip_pc1_low|clipart__clip_pc1_middle|painting__clip_pc1_middle"
+    }
+  ],
+  "test_audit_id": "676ebd1446886c50893c0eb59e2490304dbd8130a646dc00224935249c1f7777",
+  "validation_id": "5a7cf448b0bdedc308587d0eb898b1dad8cb2cf31b1c5abc5f04ea9cbaadad5e",
+  "validation_manifest_file_sha256": "48bf8a23276c7f80d2883ce29855954ee6464e1de42f7902887f6e8ff6a61fc2",
+  "validation_selections_file_sha256": "79de24fc710980819b13e5865fde8f4dadc4c8afe251a78dd93c4beb6134f1e1"
+}

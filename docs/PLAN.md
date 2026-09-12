@@ -441,6 +441,12 @@ E2b 已作为新的探索性假设预注册，完整协议见 `docs/E2B_FIXED_CO
 shortlist、再用官方 train 内验证集选一个组合、最后打开官方 test 做穷举审计三个阶段；主指标改为
 集合意义下的真实 top-10 recall，而不是 E2a 的单选择命中率。
 
+E2b 已完成。主设置 `S=227` 下，Target A-opt 排除 `50.110%` 的组合并达到 `98.333%` 的真实
+top-10 recall，验证选中组合的测试归一化 Brier 遗憾为 `0.001311%`，三项 H3 门槛均通过。不过，
+Second-moment MMD 达到完全相同的主 recall 和遗憾，且在全部 12 个编码器-目标域任务上得到相同的
+验证选择；更小 shortlist 下 MMD 的 recall 还更高。事后检查也表明 5% 遗憾门槛相对实际 Brier
+跨度过宽。因此 E2b 只支持“目标条件二阶几何可作固定成本预筛选”，不支持 Target A-opt 的独特优势。
+
 ### P0：冻结数学规格
 
 - [x] 将 IDEA 中所有矩阵定义、维度和假设转成代码接口文档。
@@ -471,8 +477,8 @@ shortlist、再用官方 train 内验证集选一个组合、最后打开官方 
 - [x] 完成 E2 所有目标域、预算和预注册 Random 重复。
 - [x] 完成 12 候选块在 `K=1/3/5` 下的事后穷举 oracle、搜索遗憾和排序相关诊断。
 - [x] 冻结 E2b 的等成本、异质候选、独立 test 与真正 shortlist 协议。
-- [ ] 完成 E2b DomainNet 六域数据 manifest、锚特征和候选块冻结。
-- [ ] 完成 E2b 的 screen、validation、test-audit 与 H3 判定。
+- [x] 完成 E2b DomainNet 六域数据 manifest、锚特征和候选块冻结。
+- [x] 完成 E2b 的 screen、validation、test-audit 与 H3 判定。
 - [ ] 完成 E3 的 U2 少标签实验；因 H2 失败，当前暂停。
 - [ ] 对 U0、U1、U2 分表报告，检查权限公平性。
 
