@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import os
 import platform
@@ -62,8 +63,14 @@ class ManifestDataset(Dataset):
         return len(self.samples)
 
     def __getitem__(self, index: int) -> tuple[torch.Tensor, int]:
-        path = self.root / str(self.samples[index]["relative_path"])
-        with Image.open(path) as image:
+        row = self.samples[index]
+        path = self.root / str(row["relative_path"])
+        payload = path.read_bytes()
+        if len(payload) != int(row["byte_size"]):
+            raise RuntimeError(f"sample size differs from manifest: {row['sample_id']}")
+        if hashlib.sha256(payload).hexdigest() != row["content_sha256"]:
+            raise RuntimeError(f"sample hash differs from manifest: {row['sample_id']}")
+        with Image.open(io.BytesIO(payload)) as image:
             tensor = self.transform(image.convert("RGB"))
         return tensor, index
 
