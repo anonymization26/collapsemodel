@@ -37,7 +37,15 @@ from metrics.target_conditioned_e2b import (  # noqa: E402
 )
 
 
-def _download(url: str, destination: Path) -> None:
+def _md5_file(path: Path) -> str:
+    digest = hashlib.md5(usedforsecurity=False)
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _download(url: str, destination: Path, expected_md5: str) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(
         [
@@ -56,6 +64,12 @@ def _download(url: str, destination: Path) -> None:
         ],
         check=True,
     )
+    observed_md5 = _md5_file(destination)
+    if observed_md5 != expected_md5:
+        raise E2BArtifactError(
+            f"MD5 mismatch for {destination.name}: "
+            f"expected={expected_md5}, observed={observed_md5}"
+        )
 
 
 def download_inputs(config_path: Path, download_dir: Path) -> None:
@@ -65,15 +79,29 @@ def download_inputs(config_path: Path, download_dir: Path) -> None:
     archive_urls = {
         str(domain): str(url) for domain, url in dataset["archive_urls"].items()
     }
+    archive_md5 = {
+        str(domain): str(value) for domain, value in dataset["archive_md5"].items()
+    }
+    split_md5 = dataset["split_md5"]
     archive_suffix = str(dataset["archive_local_suffix"])
-    if set(archive_urls) != set(domains):
-        raise E2BArtifactError("archive_urls must contain exactly the configured domains")
+    if set(archive_urls) != set(domains) or set(archive_md5) != set(domains):
+        raise E2BArtifactError(
+            "archive URLs and checksums must contain exactly the configured domains"
+        )
     split_base = str(dataset["split_base_url"]).rstrip("/")
     for domain in domains:
-        _download(archive_urls[domain], download_dir / f"{domain}{archive_suffix}")
+        _download(
+            archive_urls[domain],
+            download_dir / f"{domain}{archive_suffix}",
+            archive_md5[domain],
+        )
         for split in ("train", "test"):
             filename = f"{domain}_{split}.txt"
-            _download(f"{split_base}/{filename}", download_dir / filename)
+            _download(
+                f"{split_base}/{filename}",
+                download_dir / filename,
+                str(split_md5[domain][split]),
+            )
 
 
 def _parse_split(path: Path, domain: str, split: str) -> list[dict[str, object]]:
@@ -287,24 +315,49 @@ def build_manifest(
     archive_urls = {
         str(domain): str(url) for domain, url in dataset["archive_urls"].items()
     }
+    archive_md5 = {
+        str(domain): str(value) for domain, value in dataset["archive_md5"].items()
+    }
+    split_md5 = dataset["split_md5"]
     archive_suffix = str(dataset["archive_local_suffix"])
-    if set(archive_urls) != set(domains):
-        raise E2BArtifactError("archive_urls must contain exactly the configured domains")
+    if set(archive_urls) != set(domains) or set(archive_md5) != set(domains):
+        raise E2BArtifactError(
+            "archive URLs and checksums must contain exactly the configured domains"
+        )
     split_base = str(dataset["split_base_url"]).rstrip("/")
     for domain in domains:
-        for filename, url in (
-            (f"{domain}{archive_suffix}", archive_urls[domain]),
-            (f"{domain}_train.txt", f"{split_base}/{domain}_train.txt"),
-            (f"{domain}_test.txt", f"{split_base}/{domain}_test.txt"),
+        for filename, url, expected_md5 in (
+            (
+                f"{domain}{archive_suffix}",
+                archive_urls[domain],
+                archive_md5[domain],
+            ),
+            (
+                f"{domain}_train.txt",
+                f"{split_base}/{domain}_train.txt",
+                str(split_md5[domain]["train"]),
+            ),
+            (
+                f"{domain}_test.txt",
+                f"{split_base}/{domain}_test.txt",
+                str(split_md5[domain]["test"]),
+            ),
         ):
             path = download_dir / filename
             if not path.is_file():
                 raise E2BArtifactError(f"missing source artifact {filename}")
+            observed_md5 = _md5_file(path)
+            if observed_md5 != expected_md5:
+                raise E2BArtifactError(
+                    f"official MD5 mismatch for {filename}: "
+                    f"expected={expected_md5}, observed={observed_md5}"
+                )
             source_artifacts.append(
                 {
                     "filename": filename,
                     "url": url,
                     "byte_size": path.stat().st_size,
+                    "official_md5": expected_md5,
                     "sha256": sha256_file(path),
                 }
             )
