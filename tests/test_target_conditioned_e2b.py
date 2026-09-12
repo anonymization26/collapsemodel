@@ -30,6 +30,12 @@ from metrics.target_conditioned_e2b import (  # noqa: E402
     write_json_atomic,
 )
 from build_target_conditioned_e2b_candidates import build_candidates  # noqa: E402
+from materialize_target_conditioned_e2b_parquet import (  # noqa: E402
+    _merge_ranges,
+    _runs,
+    _source_url,
+    _split_ranges,
+)
 from run_target_conditioned_e2b_shortlist import (  # noqa: E402
     AUDIT_FIELDS,
     run_screen,
@@ -189,6 +195,39 @@ class TargetConditionedE2BTests(unittest.TestCase):
         self.assertLess(
             wrapper.index("source \"$ASCEND_ENV\""),
             wrapper.index('WORK_ROOT="${E2B_WORK_ROOT'),
+        )
+
+    def test_parquet_source_is_revision_and_content_pinned(self):
+        source = json.loads(
+            (
+                ROOT
+                / "code/configs/target_conditioned_e2b/domainnet_hf_parquet_v1.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertRegex(source["revision"], r"^[0-9a-f]{40}$")
+        self.assertEqual(len(source["files"]), 4)
+        for item in source["files"]:
+            self.assertGreater(item["byte_size"], 0)
+            self.assertRegex(item["sha256"], r"^[0-9a-f]{64}$")
+        self.assertIn(
+            source["revision"],
+            _source_url(
+                "https://example.invalid",
+                source["repository"],
+                source["revision"],
+                source["files"][0]["path"],
+            ),
+        )
+
+    def test_sparse_parquet_range_planning_is_deterministic(self):
+        self.assertEqual(_runs([7, 4, 5, 10, 4]), [(4, 5), (7, 7), (10, 10)])
+        self.assertEqual(
+            _merge_ranges([(20, 29), (0, 9), (10, 19), (40, 49)]),
+            [(0, 29), (40, 49)],
+        )
+        self.assertEqual(
+            _split_ranges([(0, 9), (20, 24)], 4),
+            [(0, 3), (4, 7), (8, 9), (20, 23), (24, 24)],
         )
 
     def test_unlabeled_validation_does_not_read_label_payload(self):
