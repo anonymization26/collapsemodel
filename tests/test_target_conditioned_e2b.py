@@ -196,6 +196,9 @@ class TargetConditionedE2BTests(unittest.TestCase):
             wrapper.index("source \"$ASCEND_ENV\""),
             wrapper.index('WORK_ROOT="${E2B_WORK_ROOT'),
         )
+        self.assertIn('NPU_RESNET="${NPU_RESNET:-5}"', wrapper)
+        self.assertIn("clip_pid=$!", wrapper)
+        self.assertIn("wait \"$clip_pid\" || clip_status=$?", wrapper)
 
     def test_parquet_source_is_revision_and_content_pinned(self):
         source = json.loads(

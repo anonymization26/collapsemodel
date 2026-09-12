@@ -14,7 +14,7 @@ set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK_ROOT="${E2B_WORK_ROOT:?set E2B_WORK_ROOT on a large filesystem}"
 NPU_CLIP="${NPU_CLIP:-4}"
-NPU_RESNET="${NPU_RESNET:-4}"
+NPU_RESNET="${NPU_RESNET:-5}"
 NPU_DINO="${NPU_DINO:-6}"
 BATCH_SIZE="${BATCH_SIZE:-64}"
 WORKERS="${WORKERS:-8}"
@@ -48,13 +48,8 @@ if [[ "$stage" == "features" || "$stage" == "all" ]]; then
     "$ROOT/scripts/extract_target_conditioned_e2b_features_npu.py" \
     --variant clip_b32 --dataset-root "$DATASET" --manifest-dir "$MANIFEST" \
     --config "$CONFIG" --output-dir "$ANCHOR" --npu "$NPU_CLIP" \
-    --batch-size "$BATCH_SIZE" --workers "$WORKERS"
-
-  mkdir -p "$(dirname "$CANDIDATES")"
-  python3 "$ROOT/scripts/build_target_conditioned_e2b_candidates.py" \
-    --manifest-dir "$MANIFEST" --config "$CONFIG" \
-    --anchor-features "$ANCHOR/features.npz" \
-    --anchor-metadata "$ANCHOR/metadata.json" --output "$CANDIDATES"
+    --batch-size "$BATCH_SIZE" --workers "$WORKERS" &
+  clip_pid=$!
 
   SOURCE_GIT_REVISION="$REVISION" python3 \
     "$ROOT/scripts/extract_target_conditioned_e2b_features_npu.py" \
@@ -68,8 +63,25 @@ if [[ "$stage" == "features" || "$stage" == "all" ]]; then
     --config "$CONFIG" --output-dir "$RESULTS/features/dinov2_b14" \
     --npu "$NPU_DINO" --batch-size "$BATCH_SIZE" --workers "$WORKERS" &
   dino_pid=$!
-  wait "$resnet_pid"
-  wait "$dino_pid"
+
+  clip_status=0
+  resnet_status=0
+  dino_status=0
+  wait "$clip_pid" || clip_status=$?
+  if [[ "$clip_status" -eq 0 ]]; then
+    mkdir -p "$(dirname "$CANDIDATES")"
+    python3 "$ROOT/scripts/build_target_conditioned_e2b_candidates.py" \
+      --manifest-dir "$MANIFEST" --config "$CONFIG" \
+      --anchor-features "$ANCHOR/features.npz" \
+      --anchor-metadata "$ANCHOR/metadata.json" --output "$CANDIDATES"
+  fi
+  wait "$resnet_pid" || resnet_status=$?
+  wait "$dino_pid" || dino_status=$?
+  if [[ "$clip_status" -ne 0 || "$resnet_status" -ne 0 || "$dino_status" -ne 0 ]]; then
+    printf 'feature extraction failed: clip=%s resnet=%s dino=%s\n' \
+      "$clip_status" "$resnet_status" "$dino_status" >&2
+    exit 1
+  fi
 fi
 
 run_stage() {
