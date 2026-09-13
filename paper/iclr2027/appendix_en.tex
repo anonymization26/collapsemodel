@@ -1,0 +1,86 @@
+\section{Proofs and Scope of the Mathematical Claims}
+\label{app:proofs}
+\paragraph{Local two-direction calculation.}
+Let $u,v$ be unit directions with $u^\top v=c\in[0,1]$. In the orthonormal basis $u,z$, where $v=cu+\sqrt{1-c^2}z$, the operator $a^2uu^\top+b^2vv^\top$ is
+\begin{equation}
+ \begin{pmatrix}
+ a^2+b^2c^2 & b^2c\sqrt{1-c^2}\\
+ b^2c\sqrt{1-c^2} & b^2(1-c^2)
+ \end{pmatrix}.
+\end{equation}
+Its trace is $a^2+b^2$ and determinant $a^2b^2(1-c^2)$, yielding Equation~\eqref{eq:local}. At $c=1$, interpret the second direction as a zero branch. A collection of these eigenvalue pairs gives a full spectrum only when the associated blocks are mutually orthogonal and invariant for both source Grams; unpaired directions contribute their own eigenvalues. Principal vectors alone need not be singular vectors. The row-normalized counterexample in the main text already violates the inference that marginal spectra and principal-angle lists suffice, without any complication from different sample counts.
+
+\paragraph{Posterior risk identity.}
+For fixed $H_S$ and Gaussian likelihood, completing the square in the prior times likelihood gives posterior precision $P_0^{-1}+\sigma^{-2}H_S^\top H_S$ and mean $\mu_S=P_S\sigma^{-2}H_S^\top y_S$. For an independent target observation $y=h^\top\theta+\epsilon$, conditional on the training data and $h$,
+\begin{equation}
+ \E[(y-h^\top\mu_S)^2\mid H_S,y_S,h]=\sigma^2+h^\top P_Sh.
+\end{equation}
+Integrating $h$ gives Equation~\eqref{eq:risk}. We assume the target covariate distribution does not reveal additional information about $\theta$ beyond this model. If a source has a different regression function, or labels are multiclass with softmax readout, this derivation no longer identifies the evaluated loss. The proof does not bound this misspecification error. Replacing $C_T$ by a finite-sample estimate adds another discrepancy not removed by the identity.
+
+\paragraph{Monotonicity and a deterministic sketch interval.}
+If $G\succeq\widetilde G\succeq0$, inverse order implies $(P_0^{-1}+\sigma^{-2}G)^{-1}\preceq(P_0^{-1}+\sigma^{-2}\widetilde G)^{-1}$. Taking a trace against a PSD target moment preserves this order. More generally, suppose the sum of omitted sketch tails satisfies $0\preceq G-\widetilde G\preceq\delta I$. Define $B=P_0^{-1}+\sigma^{-2}\widetilde G$. Then
+\begin{equation}
+ \tr\!\left(\widehat C_T(B+\sigma^{-2}\delta I)^{-1}\right)
+ \leq f_A(G)\leq\tr(\widehat C_TB^{-1}).
+ \label{eq:interval}
+\end{equation}
+One admissible $\delta$ is the sum of valid spectral-norm bounds on each PSD tail. This elementary interval illustrates how a valid score bound can be too broad to determine an ordering. Certifying one candidate requires its upper bound to be below every competing lower bound. It certifies only that comparison of the stated proxy, not a global optimum, label privacy, or true classification risk. The archived sketch sweep uses its documented implementation and byte accounting; Equation~\eqref{eq:interval} is not a claim that all possible tighter bounds were evaluated.
+
+\paragraph{Validation decomposition.}
+Let $S_Q$ minimize $\ell$ over $\cQ_s$. Uniform deviation on that shortlist gives
+\begin{equation}
+ \ell(\widehat S)\leq v(\widehat S)+\varepsilon
+ \leq v(S_Q)+\varepsilon\leq\ell(S_Q)+2\varepsilon.
+\end{equation}
+Subtracting $\min_{S\in\cC}\ell(S)$ proves Equation~\eqref{eq:decomposition}. No probability is asserted by this algebra. For population generalization, one must additionally justify the deviation event using the actual dependence and selection scheme. Exhaustive finite-test scores alone do not supply that justification.
+
+\paragraph{Polynomial-kernel MMD.}
+The feature map $\phi(h)=hh^\top$, equipped with Frobenius inner product, satisfies $\langle\phi(h),\phi(h')\rangle_F=(h^\top h')^2$. The squared distance between source and target empirical feature means is therefore Equation~\eqref{eq:mmd}. This is the biased empirical squared MMD (a V-statistic), not the diagonal-excluded unbiased estimator. It depends on uncentered second moments and cannot distinguish all distributions sharing those moments. We use it as a computationally simple same-information comparator, not a complete discrepancy measure.
+
+\section{Implementation and Audit Details}
+\label{app:protocol}
+\paragraph{Readout and numerics.}
+For the DomainNet experiment,
+\begin{equation}
+ \begin{aligned}
+ W_S&=(I+G_S)^{-1}\sum_{i\in S}H_i^\top Y_i,\qquad
+ p(x)=\operatorname{softmax}(h(x)^\top W_S),\\
+ b(S)&=\frac1{n_T}\sum_t\norm{p(x_t)-e_{y_t}}_2^2.
+ \end{aligned}
+\end{equation}
+$Y_i$ is the one-hot source-label matrix over the fixed 100-class vocabulary. There is no intercept or temperature tuning. Linear algebra uses float64 after loading float32 features. For effective rank obtained through a Gram eigendecomposition, negative roundoff eigenvalues are clipped to zero, square roots form singular values, and only $\sigma_j>\sigma_{\max}\sqrt{8\epsilon_{64}\max(n_S,d,1)}$ are retained. The zero matrix returns rank zero in code. This tolerance concerns numerical rank; the entropy definition itself is unchanged. The shared projection uses seed $20260911$ and $d=128$; no outcome-dependent dimension choice is used within the frozen DomainNet protocol.
+
+\paragraph{Diversity comparators.}
+Bayesian D-opt maximizes $\log\det(I+G_S)$. Subspace DPP takes each block's top 16 Gram eigenvectors $U_i$, defines $K_{ij}=\norm{U_i^\top U_j}_F^2/16$ with $K_{ii}=1$, numerically projects the matrix to a PSD correlation matrix, and maximizes $\log\det(K_{S,S}+10^{-8}I)$. Its kernel describes block subspaces, not individual-image features. Domain balance maximizes the number of represented domains minus $10^{-3}$ times the sum of squared domain block counts. Deterministic scores break ties lexicographically by combination identifier. These choices are fixed comparators; poor performance of this DPP construction is not a result about all determinantal selection methods.
+
+\paragraph{Construction and access checks.}
+DomainNet records image content hashes, sample identifiers, official split membership, role assignments, and class vocabulary. Archive and split checksums are validated before feature extraction. Disjoint role membership and duplicate-content checks address overlap within the materialized benchmark; they do not rule out semantic near-duplicates or pretraining contamination. All screen methods use the same source blocks, projection, target-selection rows, and candidate family. Feature extraction ignores labels, while benchmark materialization uses taxonomy metadata and stores labels for later authorized stages.
+
+Screen, validation, and audit manifests bind configuration and upstream artifact hashes. Stage-specific loaders enforce label and split permissions. Validation actually evaluates each method or random repeat separately, rather than substituting previously observed test outcomes. The test audit covers all $6\times455$ combinations per encoder only after choices are frozen. The exhaustive oracle is an audit reference, not a method eligible for deployment. Random repeats and shared combinations are not extra statistical units.
+
+\paragraph{Study and artifact map.}
+The archive retains historical experiment IDs to identify results without confusing them with the paper's scientific questions. The following paths are relative to the anonymous code repository:
+\begin{itemize}
+\item Shared-model and shift studies (E1): \path{results/target_conditioned/e1_synthetic/expanded_v3_controlled_rng/}.
+\item PACS/Office-Home comparison (E2): \path{results/target_conditioned/e2_dataset_selection/method_v1/}.
+\item Post-hoc headroom (E2a): \path{results/target_conditioned/e2_dataset_selection/oracle_headroom_v1/}.
+\item Equal-cost shortlist (E2b): \path{results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/}.
+\item Risk sketch sweep (E5): \path{results/target_conditioned/e5_sketch_certificate/expanded_v3_controlled_rng/}.
+\end{itemize}
+The DomainNet data manifest begins \texttt{1ba25059df70be4d}, candidate-set ID \texttt{545fe86c8c9e8304}, and summary ID \texttt{2d473cb9eb977e85}; full SHA-256 identifiers are in the artifacts. Configuration is \path{code/configs/target_conditioned_e2b/domainnet_v1.json}; stage implementation is \path{scripts/run_target_conditioned_e2b_shortlist.py}. The manuscript's \path{build_assets.py} regenerates the primary table, both figures, and bilingual abstracts from the committed sources and records full input hashes in \path{generated/asset_manifest.json}. It does not fit new models or alter experiment gates.
+
+The three original feature matrices are not duplicated in Git. Metadata record their exact file and checkpoint hashes, shapes, preprocessing, extraction code revision, and runtime. Re-extraction requires access to the original public data and model weights; bitwise identity across different hardware is not assumed. The repository contains manifests and sufficient outcome tables to reproduce reported aggregate results without those matrices.
+
+\section{Additional Failure Diagnostics}
+\label{app:diagnostics}
+\paragraph{Spectral intervals are not risk intervals.}
+The four-encoder, ten-construction-seed spectral sweep uses six overlap settings and four budgets, with 960 configurations per sketch rank. At ranks $10,20,50$, relative exact merged-effective-rank gains over rank-only are respectively $2.09,3.81,4.94\%$ for the Gram sketch and $4.90,5.48,5.68\%$ for DPP. These gains are in the geometry objective, not classification accuracy. Its entropy-continuity bounds follow the type of bound in \citet{audenaert2007}; all 2,880 selected-prefix intervals cover, but none of 7,200 evaluated greedy steps is certified. The archived source is \path{results/two_stage_controlled_rank_sweep_corrected_v3/}. These observations do not imply that every low-rank sketch must fail.
+
+\paragraph{Target-risk sketches.}
+The separate E5 study compares sketch payloads to packed symmetric float64 Grams, not inflated dense storage. Among full-grid strategies whose mean byte ratio is at most $25\%$, the best selected-set match to Full-Gram greedy is $15.42\%$, achieved by adaptive rank cap 2 with mean byte ratio $14.91\%$. Its pairwise certificate rate is $3.91\%$ and fully certified selection rate zero. Adaptive fallback reaches full selected-set agreement but costs approximately $160\%$ of packed-Gram bytes on average when previous transmissions are counted. This fails the joint decision-and-communication requirement. The reference is Full-Gram greedy, not the exhaustive global minimizer.
+
+\paragraph{A weak candidate family can make low regret misleading.}
+An earlier, different experiment trains source-supervised bottleneck adapters on 21 sources and audits seven targets with four encoders and five adapter seeds. Target-train validation uses three stratified five-fold partitions, with held-out target test accessed separately after selection freezing. Frozen identity reaches mean accuracy $0.83654$, an untrained random adapter $0.77144$, and the validation-oracle source-supervised adapter $0.76951$. The last trails identity by $0.06703$, with target-cluster 95\% interval $[-0.09771,-0.04400]$. Small shortlist regret relative to this adapter family is therefore not downstream benefit. This is not a DomainNet experiment or evidence against all adaptation methods. Results reside in \path{results/two_stage_repeated_cv_utility_corrected_v3/}.
+
+\paragraph{Unfinished challenges.}
+The current evidence does not include an independent replication of the fixed-cost shortlist protocol on another dataset, per-example uncertainty for the DomainNet top-ten set, a calibrated readout sensitivity study, or a matched end-to-end timing comparison against MMD. NTK, LoRA, and nonlinear training extensions are not results of this paper. Proposed experiments must be frozen before new outcomes are accessed; further analyses of already opened test results remain exploratory. No future result is used to support the present abstract or conclusion.

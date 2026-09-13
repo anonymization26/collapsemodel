@@ -1,0 +1,93 @@
+{
+  "diagnostic_status": "post-hoc description; no changed gates or new experiments",
+  "domainnet_brier_spans": [
+    {
+      "domain": "clipart",
+      "encoder": "resnet50",
+      "relative_brier_span_percent": 0.1923706084881445
+    },
+    {
+      "domain": "infograph",
+      "encoder": "resnet50",
+      "relative_brier_span_percent": 0.11779303660713641
+    },
+    {
+      "domain": "painting",
+      "encoder": "resnet50",
+      "relative_brier_span_percent": 0.3260990896217164
+    },
+    {
+      "domain": "quickdraw",
+      "encoder": "resnet50",
+      "relative_brier_span_percent": 0.028040008081303094
+    },
+    {
+      "domain": "real",
+      "encoder": "resnet50",
+      "relative_brier_span_percent": 0.3602623082015806
+    },
+    {
+      "domain": "sketch",
+      "encoder": "resnet50",
+      "relative_brier_span_percent": 0.17215846553577513
+    },
+    {
+      "domain": "clipart",
+      "encoder": "dinov2_b14",
+      "relative_brier_span_percent": 0.3171594442764999
+    },
+    {
+      "domain": "infograph",
+      "encoder": "dinov2_b14",
+      "relative_brier_span_percent": 0.22230512115056486
+    },
+    {
+      "domain": "painting",
+      "encoder": "dinov2_b14",
+      "relative_brier_span_percent": 0.4022957186319901
+    },
+    {
+      "domain": "quickdraw",
+      "encoder": "dinov2_b14",
+      "relative_brier_span_percent": 0.06904230204779678
+    },
+    {
+      "domain": "real",
+      "encoder": "dinov2_b14",
+      "relative_brier_span_percent": 0.42419846697538766
+    },
+    {
+      "domain": "sketch",
+      "encoder": "dinov2_b14",
+      "relative_brier_span_percent": 0.3331705675514754
+    }
+  ],
+  "e2b_summary_id": "2d473cb9eb977e859b2f08e8193d03bcac1b8924aac1403bc3ae2e6ea3a12fe9",
+  "input_sha256": {
+    "paper/iclr2027/abstract_en.txt": "3481b4ab0ba18694c9678c2194a953079478a5a60a4645c4b6b5bcc93bd59e93",
+    "paper/iclr2027/abstract_zh.txt": "f2cbe57c9a4f613b4a5ff57ec7279c107b6e39b283267c0c2707e842fab35e1e",
+    "results/target_conditioned/e2_dataset_selection/oracle_headroom_v1/summary/primary_headroom_units.csv": "957972b53f0fa39d3ba7ccbab6b697f7b2e38dfcc432081c604ae8fe5c08be10",
+    "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/summary/method_summary.csv": "16031d62e2cc3caebb99ba0710b4dccdbec1076304d923a249a529c9c82c9b03",
+    "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/summary/summary.json": "c2b7629f8138209f113741f1d7f2ec1025d754d6ed3e2e43b930adc2b5cd0f3c",
+    "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/test_audit/dinov2_b14/combinations.csv": "1350564a180e714f7a04fd8386bf837f9cecda0f55bf1b807ac17270a5614bfe",
+    "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/test_audit/resnet50/combinations.csv": "45fcd7191537f28d3bcd9098432c72806c079411b856e5b9b6b18ae189771a24"
+  },
+  "primary_metrics": {
+    "mean_best_shortlist_normalized_regret": 0.0,
+    "mean_screen_spearman_vs_test_brier": 0.744317641358564,
+    "mean_selected_normalized_regret": 1.311320985254453e-05,
+    "mean_shortlist_reduction": 0.5010989010989011,
+    "mean_true_top_q_recall": 0.9833333333333334,
+    "method": "target_a",
+    "passes_all_gates": 1,
+    "passes_recall_gate": 1,
+    "passes_reduction_gate": 1,
+    "passes_regret_gate": 1,
+    "recall_ci_high": 1.0,
+    "recall_ci_low": 0.9666666666666667,
+    "regret_ci_high": 3.0314599509689923e-05,
+    "regret_ci_low": 2.2843903488936408e-06,
+    "shortlist_size": 227,
+    "unit_count": 6
+  }
+}
