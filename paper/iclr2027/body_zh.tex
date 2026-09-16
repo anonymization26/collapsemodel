@@ -128,7 +128,7 @@ Target A-opt 使用 $P_0^{-1}=I$ 和 $\sigma^2=1$。对照包括二阶矩 MMD、
 表\ref{tab:primary} 给出 DomainNet 主结果。455 个组合保留 227 个，移除比例为 $\MainReduction\%$；Target A-opt 平均测试前十名召回率为 $\MainRecall\%$。描述性召回区间为 $[96.667,100]\%$；最终选择的归一化遗憾为 $\MainRegret\%$，区间为 $[0.000228,0.003031]\%$。全部十二个编码器--目标任务的主设置短名单均包含测试 Brier oracle，因此观测到的遗漏项均为零。剩余的小遗憾来自验证阶段在短名单内部的选择。
 
 \begin{table}[t]
-\centering\small
+\centering
 \caption{DomainNet，$s=227$。先在六个目标域内平均两个编码器，再跨域平均；随机重复不视为独立单位。遗憾是 oracle Brier 的百分比，而非候选跨度的百分比。所有方法均通过宽松遗憾子门控，仅 A-opt 与 MMD 通过召回子门控。}
 \label{tab:primary}
 \input{generated/primary_rows}

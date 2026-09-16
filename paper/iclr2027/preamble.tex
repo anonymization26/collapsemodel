@@ -21,3 +21,12 @@
 \graphicspath{{figures/}}
 \brokenpenalty=10000
 \input{generated/numbers}
+% Record the effective layout for verify_draft.py without changing the style.
+\makeatletter
+\AtBeginDocument{%
+  \typeout{ICLR-FORMAT-FONT: \f@size; \the\baselineskip}%
+  \typeout{ICLR-FORMAT-TEXT: \the\textwidth; \the\textheight}%
+  \typeout{ICLR-FORMAT-PAGE: \the\paperwidth; \the\paperheight}%
+  \typeout{ICLR-FORMAT-PAR: \the\parindent; \the\parskip}%
+}
+\makeatother

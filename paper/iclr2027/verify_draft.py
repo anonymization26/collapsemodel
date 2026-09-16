@@ -14,6 +14,13 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 E2B = ROOT / "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1"
+STYLE = HERE / "iclr2027-style"
+STYLE_SHA256 = {
+    "iclr2027_conference.sty": "797deef41724e93761426ac0cbcca46279a91cc650dd1f0ce76a4f08d2098ea6",
+    "iclr2027_conference.bst": "2d67552db7ed38ccfccb5957b52f95656e25c249724761d3cf5f7922ad1844c5",
+    "fancyhdr.sty": "b56ec4434b9f4607529a4b23dc68ad8d4b94f1f631c8cddaf7da78140d53a5ea",
+    "natbib.sty": "88bc70c0e48461934cab5b2accef06b74a8b3ac45ad03ccd3f2a6b7e0d6d530d",
+}
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
@@ -34,7 +41,48 @@ def text_from_pdf(path: Path, first_page: bool = False) -> str:
     return subprocess.check_output(command, text=True)
 
 
+def verify_format(stem: str, log: str, full_text: str) -> None:
+    recorded_inputs = {
+        (HERE / line.removeprefix("INPUT ")).resolve()
+        for line in (HERE / f"{stem}.fls").read_text().splitlines()
+        if line.startswith("INPUT ")
+    }
+    for name in STYLE_SHA256:
+        if name.endswith(".sty"):
+            loaded = {path for path in recorded_inputs if path.name == name}
+            # TeX also records existence probes of the identical legacy copies.
+            assert (STYLE / name).resolve() in loaded, (stem, name, loaded)
+            assert all(hashlib.sha256(path.read_bytes()).hexdigest() == STYLE_SHA256[name]
+                       for path in loaded), (stem, name, "non-template dependency")
+            assert f"(./iclr2027-style/{name}" in log, (stem, name, "not loaded")
+    assert "The style file: iclr2027-style/iclr2027_conference.bst" in (HERE / f"{stem}.blg").read_text()
+    for field, expected in {
+        "FONT": (10, 11),
+        "TEXT": (5.5 * 72.27, 9 * 72.27),
+        "PAGE": (8.5 * 72.27, 11 * 72.27),
+        "PAR": (0, 6),
+    }.items():
+        match = re.search(rf"^ICLR-FORMAT-{field}: (.+)$", log, re.M)
+        assert match is not None, (stem, field, "missing layout diagnostics")
+        actual = [float(value.removesuffix("pt")) for value in match[1].split("; ")]
+        assert np.allclose(actual, expected, rtol=0, atol=1e-3), (stem, field, actual)
+    info = subprocess.check_output(["pdfinfo", str(HERE / f"{stem}.pdf")], text=True)
+    assert re.search(r"Page size:\s+612 x 792 pts", info), (stem, "not US Letter")
+    page_count = int(re.search(r"^Pages:\s+(\d+)", info, re.M)[1])
+    pages = full_text.split("\f")
+    assert not pages.pop().strip(), (stem, "missing final PDF page delimiter")
+    assert len(pages) == page_count
+    for number, page in enumerate(pages, 1):
+        assert "Under review as a conference paper at ICLR 2027" in page, (stem, number, "header")
+        assert page.rstrip().splitlines()[-1].strip() == str(number), (stem, number, "footer")
+    assert "Anonymous authors" in pages[0] and "Paper under double-blind review" in pages[0]
+    print(f"PASS: {stem} official dependencies, 10/11pt text, layout, headers and page numbers")
+
+
 def main() -> None:
+    for name, expected in STYLE_SHA256.items():
+        assert hashlib.sha256((STYLE / name).read_bytes()).hexdigest() == expected, name
+    print("PASS: unmodified official style bundle")
     manifest = json.loads((HERE / "generated/asset_manifest.json").read_text())
     for relative, expected in manifest["input_sha256"].items():
         assert hashlib.sha256((ROOT / relative).read_bytes()).hexdigest() == expected, relative
@@ -96,6 +144,8 @@ def main() -> None:
     for language in ("en", "zh"):
         paths = [HERE / f"{part}_{language}.tex" for part in ("body", "appendix", "statements")]
         source = "\n".join(p.read_text(encoding="utf-8") for p in paths)
+        for table in re.findall(r"\\begin\{table\}.*?\\end\{table\}", source, re.S):
+            assert not re.search(r"\\(?:small|footnotesize|scriptsize|tiny)\b", table), language
         citations = {key for group in re.findall(r"\\cite[pt]\{([^}]+)\}", source)
                      for key in group.split(",")}
         assert citations <= keys
@@ -128,6 +178,7 @@ def main() -> None:
         actual = clean[clean.index(opening):end.start()]
         assert normalized_rendering(actual) == normalized_rendering(abstract), (lang, actual)
         full_text = text_from_pdf(HERE / f"{stem}.pdf")
+        verify_format(stem, log, full_text)
         assert "\ufffd" not in full_text
         if lang == "zh":
             assert sum("\u4e00" <= c <= "\u9fff" for c in full_text) > 7000

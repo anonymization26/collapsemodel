@@ -128,7 +128,7 @@ The subsequent exhaustive audit evaluates all 220 $K=3$ combinations per task. R
 Table~\ref{tab:primary} gives the DomainNet primary result. Retaining 227 of 455 combinations removes $\MainReduction\%$ and gives target A-opt $\MainRecall\%$ mean test top-ten recall. Its descriptive recall interval is $[96.667,100]\%$ and normalized selected regret is $\MainRegret\%$, with interval $[0.000228,0.003031]\%$. Every primary shortlist contains a test Brier oracle, so the observed omission term is zero across all twelve encoder--target tasks. The small remaining regret comes from the validation-selected choice within the shortlist.
 
 \begin{table}[t]
-\centering\small
+\centering
 \caption{DomainNet, $s=227$. Means average two encoders within each of six target domains; random repetitions are not independent units. Regret is a percentage of oracle Brier, not of the candidate span. All methods pass the loose regret sub-gate; only A-opt and MMD pass the recall sub-gate.}
 \label{tab:primary}
 \input{generated/primary_rows}
