@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Extract manifest-ordered CLIP/ResNet/DINO features for E2b on Ascend."""
+"""Extract manifest-ordered E2b features on CUDA, CPU, or Ascend.
+
+The historical filename and --npu option remain supported for frozen run scripts.
+"""
 
 from __future__ import annotations
 
@@ -18,7 +21,6 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torch_npu  # noqa: F401
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 
@@ -127,7 +129,10 @@ def main() -> None:
     parser.add_argument("--manifest-dir", type=Path, required=True)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--npu", type=int, required=True)
+    devices = parser.add_mutually_exclusive_group(required=True)
+    devices.add_argument("--npu", type=int)
+    devices.add_argument("--device", help="cuda:0, cuda:1, cuda:2, or cpu")
+    parser.add_argument("--expected-metadata", type=Path)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--workers", type=int, default=4)
     args = parser.parse_args()
@@ -151,17 +156,59 @@ def main() -> None:
                 args.config,
                 args.variant,
             )
+            cached = json.loads(metadata_path.read_text(encoding="utf-8"))
+            if args.expected_metadata is not None and cached.get("reference_metadata_sha256") != sha256_file(args.expected_metadata):
+                raise E2BArtifactError("cached features lack the requested reference identity check")
+            requested_device = f"npu:{args.npu}" if args.npu is not None else str(torch.device(args.device))
+            if cached.get("runtime", {}).get("device") != requested_device:
+                raise E2BArtifactError("cached features were produced on a different requested device")
             print(json.dumps({"status": "cached", **report}, sort_keys=True))
             return
         raise E2BArtifactError("partial feature cache exists")
 
-    device = torch.device(f"npu:{args.npu}")
-    torch.npu.set_device(device)
+    if args.batch_size < 1 or args.workers < 0:
+        parser.error("batch size must be positive and workers nonnegative")
+    if args.npu is not None:
+        import torch_npu  # noqa: F401
+
+        device = torch.device(f"npu:{args.npu}")
+    else:
+        device = torch.device(args.device)
+        if device.type not in {"cuda", "cpu"}:
+            parser.error("--device supports cuda or cpu; use --npu for Ascend")
+    backend = None if device.type == "cpu" else getattr(torch, device.type)
+    if backend is not None:
+        backend.set_device(device)
+    if device.type == "cuda":
+        torch.backends.cuda.matmul.allow_tf32 = False
+        torch.backends.cudnn.allow_tf32 = False
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+        os.environ["XFORMERS_DISABLED"] = "1"
+        torch.backends.cuda.enable_flash_sdp(False)
+        torch.backends.cuda.enable_mem_efficient_sdp(False)
+        torch.backends.cuda.enable_cudnn_sdp(False)
+        torch.backends.cuda.enable_math_sdp(True)
     started_utc = datetime.now(timezone.utc).isoformat()
     load_started = time.perf_counter()
     model, preprocess, checkpoint = load_encoder(args.variant)
     state_hash = model_state_sha256(model)
     checkpoint_id, checkpoint_hash = _checkpoint_identity(args.variant, checkpoint)
+    preprocess_text = repr(preprocess)
+    preprocess_hash = hashlib.sha256(preprocess_text.encode("utf-8")).hexdigest()
+    expected_metadata_hash = None
+    if args.expected_metadata is not None:
+        expected = json.loads(args.expected_metadata.read_text(encoding="utf-8"))["encoder"]
+        observed = {
+            "name": args.variant,
+            "checkpoint_file_sha256": checkpoint_hash,
+            "model_state_sha256": state_hash,
+            "preprocess_sha256": preprocess_hash,
+        }
+        for key, value in observed.items():
+            if value is None or expected.get(key) != value:
+                raise E2BArtifactError(f"encoder identity differs from reference: {key}")
+        expected_metadata_hash = sha256_file(args.expected_metadata)
     model.eval().to(device)
     load_seconds = time.perf_counter() - load_started
 
@@ -175,16 +222,24 @@ def main() -> None:
     )
     features = []
     observed_indices = []
-    torch.npu.reset_peak_memory_stats(device)
+    if backend is not None:
+        backend.synchronize(device)
+        backend.reset_peak_memory_stats(device)
     inference_started = time.perf_counter()
     with torch.inference_mode():
-        for images, indices in loader:
+        for batch_index, (images, indices) in enumerate(loader, 1):
             output = flatten_output(model(images.to(device, non_blocking=True)))
             if output.ndim != 2:
                 raise RuntimeError(f"encoder output has shape {tuple(output.shape)}")
             features.append(output.float().cpu().numpy())
             observed_indices.append(np.asarray(indices, dtype=np.int64))
-    torch.npu.synchronize()
+            if batch_index % 100 == 0 or batch_index == len(loader):
+                print(json.dumps({"status": "extracting", "variant": args.variant,
+                                  "batches": batch_index, "total_batches": len(loader),
+                                  "elapsed_seconds": time.perf_counter() - inference_started}),
+                      flush=True)
+    if backend is not None:
+        backend.synchronize(device)
     inference_seconds = time.perf_counter() - inference_started
     matrix = np.concatenate(features).astype(np.float32, copy=False)
     indices = np.concatenate(observed_indices)
@@ -196,7 +251,6 @@ def main() -> None:
     sample_ids = np.asarray([str(row["sample_id"]) for row in samples], dtype="<U64")
     _write_npz(feature_path, matrix, labels, sample_ids)
 
-    preprocess_text = repr(preprocess)
     metadata = {
         "schema_version": CACHE_SCHEMA,
         "manifest_id": manifest_report["manifest_id"],
@@ -213,9 +267,7 @@ def main() -> None:
             "model_state_sha256": state_hash,
             "feature_layer": FEATURE_LAYERS[args.variant],
             "preprocess": preprocess_text,
-            "preprocess_sha256": hashlib.sha256(
-                preprocess_text.encode("utf-8")
-            ).hexdigest(),
+            "preprocess_sha256": preprocess_hash,
         },
         "access": {
             "feature_extraction_uses_labels": False,
@@ -231,9 +283,13 @@ def main() -> None:
             "batch_size": args.batch_size,
             "workers": args.workers,
             "device": str(device),
-            "device_name": str(torch.npu.get_device_name(args.npu)),
-            "peak_allocated_mb": torch.npu.max_memory_allocated(device) / (1024**2),
-            "peak_reserved_mb": torch.npu.max_memory_reserved(device) / (1024**2),
+            "device_name": platform.processor() if backend is None else backend.get_device_name(device),
+            "peak_allocated_mb": None if backend is None else backend.max_memory_allocated(device) / (1024**2),
+            "peak_reserved_mb": None if backend is None else backend.max_memory_reserved(device) / (1024**2),
+            "cuda_version": torch.version.cuda,
+            "tf32_enabled": False if device.type == "cuda" else None,
+            "sdpa_backend": "math" if device.type == "cuda" else None,
+            "xformers_disabled": os.environ.get("XFORMERS_DISABLED") is not None,
             "python_version": platform.python_version(),
             "torch_version": torch.__version__,
             "numpy_version": np.__version__,
@@ -241,7 +297,10 @@ def main() -> None:
         "code": {
             "git_revision": _git_revision(),
             "extractor_sha256": sha256_file(Path(__file__)),
+            "encoder_loader_sha256": sha256_file(ROOT / "scripts/benchmark_two_stage_encoders_npu.py"),
         },
+        "reference_metadata_sha256": expected_metadata_hash,
+        "reconstruction_note": "New cache; cross-device bitwise equivalence is not assumed.",
     }
     write_json_atomic(metadata_path, metadata)
     report = validate_feature_cache(

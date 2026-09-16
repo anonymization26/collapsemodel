@@ -47,6 +47,7 @@ from metrics.target_conditioned_e2b import (  # noqa: E402
     write_csv_atomic,
     write_json_atomic,
 )
+from metrics.e2b_stage_bundle import load_stage_bundle  # noqa: E402
 
 
 SCREEN_FIELDS = (
@@ -207,6 +208,43 @@ def _projected_views(
     return projected, block_indices, role_indices
 
 
+def _stage_inputs(stage, manifest_dir, config_path, candidate_path,
+                  anchor_feature_path, anchor_metadata_path, feature_path,
+                  metadata_path, encoder, stage_bundle):
+    config = load_config(config_path)
+    if stage_bundle is not None:
+        loaded = load_stage_bundle(stage_bundle, config_path, stage, encoder)
+        metadata = loaded["metadata"]
+        manifest_report = {"manifest_id": metadata["manifest_id"],
+                           "class_count": metadata["class_count"]}
+        candidate_report = {"candidate_set_id": metadata["candidate_set_id"]}
+        feature_report = {"feature_file_sha256": metadata["source_feature_file_sha256"]}
+        features, labels = loaded["features"], loaded["labels"]
+        sample_ids, samples = loaded["sample_ids"], loaded["samples"]
+        candidate_ids, candidate_domains = loaded["candidate_ids"], loaded["candidate_domains"]
+        isolation = {"mode": "role-separated-files", "stage": stage,
+                     "bundle_id": metadata["bundle_id"],
+                     "os_sandbox": False}
+    else:
+        manifest_report = validate_manifest(manifest_dir, config_path)
+        candidate_report = validate_candidates(candidate_path, manifest_dir, config_path,
+                                               anchor_feature_path, anchor_metadata_path)
+        features, labels, sample_ids, feature_report = _load_features(
+            feature_path, metadata_path, manifest_dir, config_path, encoder,
+            load_labels=stage != "screen",
+        )
+        samples = read_manifest_samples(manifest_dir)
+        candidate_ids, candidate_domains = _candidate_maps(candidate_path)
+        isolation = {"mode": "legacy-full-cache", "stage": stage,
+                     "os_sandbox": False,
+                     "warning": "Legacy access flags describe score use, not physical file access."}
+    projected, block_indices, role_indices = _projected_views(
+        features, sample_ids, samples, candidate_ids, config, encoder
+    )
+    return (manifest_report, candidate_report, feature_report, sample_ids, labels,
+            candidate_domains, projected, block_indices, role_indices, isolation)
+
+
 def _nearest_psd_correlation(kernel: np.ndarray) -> np.ndarray:
     values, vectors = np.linalg.eigh((kernel + kernel.T) / 2.0)
     projected = (vectors * np.maximum(values, 1e-10)) @ vectors.T
@@ -294,6 +332,8 @@ def run_screen(
     metadata_path: Path,
     encoder: str,
     output_dir: Path,
+    *,
+    stage_bundle: Path | None = None,
 ) -> dict[str, object]:
     if output_dir.exists() and any(output_dir.iterdir()):
         raise E2BArtifactError("refusing to overwrite a frozen screen run")
@@ -302,29 +342,13 @@ def run_screen(
     config = load_config(config_path)
     if encoder not in config["features"]["evaluators"]:
         raise E2BArtifactError("screen encoder is not registered")
-    manifest_report = validate_manifest(manifest_dir, config_path)
-    candidate_report = validate_candidates(
-        candidate_path,
-        manifest_dir,
-        config_path,
-        anchor_feature_path,
-        anchor_metadata_path,
-    )
-    features, labels, sample_ids, feature_report = _load_features(
-        feature_path,
-        metadata_path,
-        manifest_dir,
-        config_path,
-        encoder,
-        load_labels=False,
+    (manifest_report, candidate_report, feature_report, sample_ids, labels,
+     candidate_domains, projected, block_indices, role_indices, isolation) = _stage_inputs(
+        "screen", manifest_dir, config_path, candidate_path, anchor_feature_path,
+        anchor_metadata_path, feature_path, metadata_path, encoder, stage_bundle,
     )
     if labels is not None:
         raise AssertionError("screen loaded labels")
-    samples = read_manifest_samples(manifest_dir)
-    candidate_ids, candidate_domains = _candidate_maps(candidate_path)
-    projected, block_indices, role_indices = _projected_views(
-        features, sample_ids, samples, candidate_ids, config, encoder
-    )
     rows = []
     tasks = []
     screen_config = config["screen"]
@@ -420,6 +444,7 @@ def run_screen(
         "rankings_file_sha256": sha256_file(rankings_path),
         "row_count": len(rows),
         "runner_revision": git_revision(),
+        "input_isolation": isolation,
         "access": {
             "source_candidate_features": True,
             "target_selection_features": True,
@@ -620,27 +645,24 @@ def run_validation(
     encoder: str,
     screen_dir: Path,
     output_dir: Path,
+    *,
+    stage_bundle: Path | None = None,
 ) -> dict[str, object]:
     if output_dir.exists() and any(output_dir.iterdir()):
         raise E2BArtifactError("refusing to overwrite a frozen validation run")
     started = time.perf_counter()
     started_utc = utc_now()
     config = load_config(config_path)
-    manifest_report = validate_manifest(manifest_dir, config_path)
-    candidate_report = validate_candidates(
-        candidate_path,
-        manifest_dir,
-        config_path,
-        anchor_feature_path,
-        anchor_metadata_path,
-    )
-    features, labels, sample_ids, feature_report = _load_features(
-        feature_path,
-        metadata_path,
-        manifest_dir,
-        config_path,
-        encoder,
-        load_labels=True,
+    if stage_bundle is not None:
+        header = read_json(stage_bundle / "manifest.json")
+        upstream, _ = _validate_screen(screen_dir, config_path, str(header["candidate_set_id"]),
+                                       str(header["source_feature_file_sha256"]), encoder)
+        if upstream.get("input_isolation", {}).get("mode") != "role-separated-files":
+            raise E2BArtifactError("isolated validation requires an isolated screen")
+    (manifest_report, candidate_report, feature_report, sample_ids, labels,
+     candidate_domains, projected, block_indices, role_indices, isolation) = _stage_inputs(
+        "validate", manifest_dir, config_path, candidate_path, anchor_feature_path,
+        anchor_metadata_path, feature_path, metadata_path, encoder, stage_bundle,
     )
     if labels is None:
         raise AssertionError("validation did not load labels")
@@ -650,11 +672,6 @@ def run_validation(
         str(candidate_report["candidate_set_id"]),
         str(feature_report["feature_file_sha256"]),
         encoder,
-    )
-    samples = read_manifest_samples(manifest_dir)
-    candidate_ids, candidate_domains = _candidate_maps(candidate_path)
-    projected, block_indices, role_indices = _projected_views(
-        features, sample_ids, samples, candidate_ids, config, encoder
     )
     validation_config = config["validation"]
     audit_config = config["test_audit"]
@@ -770,6 +787,7 @@ def run_validation(
         "metric_row_count": len(metric_rows),
         "selection_row_count": len(selection_rows),
         "runner_revision": git_revision(),
+        "input_isolation": isolation,
         "selection_frozen_before_target_test": True,
         "execution": {
             "rule": validation_config["execution_rule"],
@@ -907,27 +925,29 @@ def run_test_audit(
     screen_dir: Path,
     validation_dir: Path,
     output_dir: Path,
+    *,
+    stage_bundle: Path | None = None,
 ) -> dict[str, object]:
     if output_dir.exists() and any(output_dir.iterdir()):
         raise E2BArtifactError("refusing to overwrite a test audit")
     started = time.perf_counter()
     started_utc = utc_now()
     config = load_config(config_path)
-    manifest_report = validate_manifest(manifest_dir, config_path)
-    candidate_report = validate_candidates(
-        candidate_path,
-        manifest_dir,
-        config_path,
-        anchor_feature_path,
-        anchor_metadata_path,
-    )
-    features, labels, sample_ids, feature_report = _load_features(
-        feature_path,
-        metadata_path,
-        manifest_dir,
-        config_path,
-        encoder,
-        load_labels=True,
+    if stage_bundle is not None:
+        header = read_json(stage_bundle / "manifest.json")
+        screen_artifact, _ = _validate_screen(
+            screen_dir, config_path, str(header["candidate_set_id"]),
+            str(header["source_feature_file_sha256"]), encoder,
+        )
+        upstream, _, _ = _validate_validation(validation_dir, config_path, screen_artifact,
+                                              str(header["source_feature_file_sha256"]), encoder)
+        if any(artifact.get("input_isolation", {}).get("mode") != "role-separated-files"
+               for artifact in (screen_artifact, upstream)):
+            raise E2BArtifactError("isolated test audit requires isolated upstream stages")
+    (manifest_report, candidate_report, feature_report, sample_ids, labels,
+     candidate_domains, projected, block_indices, role_indices, isolation) = _stage_inputs(
+        "test-audit", manifest_dir, config_path, candidate_path, anchor_feature_path,
+        anchor_metadata_path, feature_path, metadata_path, encoder, stage_bundle,
     )
     if labels is None:
         raise AssertionError("test audit did not load labels")
@@ -944,11 +964,6 @@ def run_test_audit(
         screen_artifact,
         str(feature_report["feature_file_sha256"]),
         encoder,
-    )
-    samples = read_manifest_samples(manifest_dir)
-    candidate_ids, candidate_domains = _candidate_maps(candidate_path)
-    projected, block_indices, role_indices = _projected_views(
-        features, sample_ids, samples, candidate_ids, config, encoder
     )
     regularization = float(config["validation"]["ridge_regularization"])
     audit_config = config["test_audit"]
@@ -1116,6 +1131,7 @@ def run_test_audit(
         "combination_row_count": len(combination_rows),
         "audit_row_count": len(audit_rows),
         "runner_revision": git_revision(),
+        "input_isolation": isolation,
         "access": {
             "screen_and_validation_hashes_verified_first": True,
             "target_test_features": True,

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import platform
 import time
 from datetime import datetime, timezone
@@ -14,14 +15,17 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
-import torch_npu  # noqa: F401 - registers the NPU backend
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, models, transforms
 
 
-MANUAL_WEIGHT_DIR = Path("/data/Paper06/manual_weights")
-DINO_REPOSITORY = Path("/root/.cache/torch/hub/facebookresearch_dinov2_main")
-DINO_CHECKPOINT = Path("/root/.cache/torch/hub/checkpoints/dinov2_vitb14_pretrain.pth")
+MANUAL_WEIGHT_DIR = Path(os.environ.get("COLLAPSE_WEIGHT_DIR", "/data/Paper06/manual_weights"))
+DINO_REPOSITORY = Path(os.environ.get(
+    "COLLAPSE_DINO_REPOSITORY", "/root/.cache/torch/hub/facebookresearch_dinov2_main"
+))
+DINO_CHECKPOINT = Path(os.environ.get(
+    "COLLAPSE_DINO_CHECKPOINT", "/root/.cache/torch/hub/checkpoints/dinov2_vitb14_pretrain.pth"
+))
 
 
 class OpenClipImageEncoder(nn.Module):
@@ -98,8 +102,9 @@ def load_dinov2_b14() -> tuple[nn.Module, object, str]:
             f"missing offline DINOv2 assets: {DINO_REPOSITORY}, {DINO_CHECKPOINT}"
         )
     model = torch.hub.load(
-        str(DINO_REPOSITORY), "dinov2_vitb14", source="local", pretrained=True,
+        str(DINO_REPOSITORY), "dinov2_vitb14", source="local", pretrained=False,
     )
+    model.load_state_dict(torch.load(DINO_CHECKPOINT, map_location="cpu", weights_only=True))
     preprocess = transforms.Compose([
         transforms.Resize(256, interpolation=transforms.InterpolationMode.BICUBIC),
         transforms.CenterCrop(224),
@@ -140,6 +145,8 @@ def synchronize() -> None:
 
 
 def main() -> None:
+    import torch_npu  # noqa: F401 - only the NPU benchmark registers this backend
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--variant", choices=["resnet50", "vit_b16", "clip_b32", "dinov2_b14"], required=True)
     parser.add_argument("--data-root", type=Path, required=True)
