@@ -182,12 +182,18 @@ it post hoc.
 
 ## Paper
 
-The compiled PDF is at `paper/main.pdf`. The LaTeX source can be recompiled with:
+The current manuscript is the [ICLR 2027 draft](paper/iclr2027/README.md):
+[English PDF](paper/iclr2027/main.pdf), [Chinese PDF](paper/iclr2027/main_zh.pdf),
+and [synchronized abstracts](paper/iclr2027/abstract.md). Rebuild and verify both versions with:
 
 ```bash
-cd paper
-xelatex main.tex
-bibtex main
-xelatex main.tex
-xelatex main.tex
+cd paper/iclr2027
+python3 build_assets.py
+latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+latexmk -xelatex -interaction=nonstopmode -halt-on-error main_zh.tex
+python3 verify_draft.py
 ```
+
+The previous NeurIPS manuscript and its supporting figures/documents are preserved in
+[paper/archive](paper/archive/README.md). Experiment results referenced by the current draft
+remain in their original locations.

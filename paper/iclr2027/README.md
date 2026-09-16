@@ -3,7 +3,8 @@
 题目：**When Does Feature Geometry Help Data-Pool Screening?**
 
 本版基于 `65a6435` 已提交实验基线重新组织论文。它是供作者审阅的完整工作初稿，尚未提交会议。
-不覆盖旧 NeurIPS 稿，不启动新实验，不改变已冻结的实验门控。
+旧 NeurIPS 稿完整保存在 [归档目录](../archive/neurips2026/)，不与当前稿混用。
+整理目录不启动新实验，不改变已冻结的实验门控。
 
 ## 文件
 
@@ -30,7 +31,8 @@ python3 verify_draft.py
 ```
 
 必须保留 `.latexmkrc` 与完整的 `iclr2027-style/` 目录，并从本目录执行上述 `latexmk` 命令。
-两个入口都直接引用模板目录中的 `.sty` 和 `.bst`；本目录原有的同名副本保留，但不再作为主样式入口。
+两个入口都直接引用模板目录中的 `.sty` 和 `.bst`；已不再使用的同名副本及旧英文 XeLaTeX
+中间文件已移入 [历史构建材料](../archive/iclr2027_legacy/)，本目录不再保留冗余样式入口。
 不要使用未配置依赖搜索路径的裸 `pdflatex` / `xelatex` 命令：它们不读取 `.latexmkrc`，可能重新加载
 系统版 `fancyhdr` 并丢失页眉。必须直接调用引擎时，显式设置 `TEXINPUTS=./iclr2027-style//:`，
 保留结尾的冒号以继续搜索 TeX 系统目录。首次迁移到完整模板可给 `latexmk` 加 `-g` 强制重建。
