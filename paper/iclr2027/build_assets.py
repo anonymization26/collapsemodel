@@ -1,4 +1,4 @@
-"""Generate manuscript tables/figures from committed outcomes, without fitting models."""
+"""Generate manuscript assets from recorded outcomes, without fitting models."""
 from __future__ import annotations
 
 import csv
@@ -17,6 +17,8 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 E2B = ROOT / "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1"
 E2A = ROOT / "results/target_conditioned/e2_dataset_selection/oracle_headroom_v1"
+REVISION = ROOT / "results/target_conditioned/revision_20260916"
+READOUT = ROOT / "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1"
 INPUTS: dict[str, str] = {}
 
 
@@ -35,6 +37,121 @@ def tex_escape(value: str) -> str:
     if any(c in value for c in "\\{}$~^"):
         raise ValueError("Abstract must be plain text without TeX control syntax")
     return "".join(escapes.get(c, c) for c in value)
+
+
+def supplement_numbers() -> dict[str, float]:
+    root = REVISION / "revision_results/e2b_loss_diagnostics_v1"
+    loaded = {name: [] for name in ("topq_stability.csv", "shortlist_recall.csv", "metric_agreement.csv")}
+    identifiers = []
+    for encoder in ("resnet50", "dinov2_b14"):
+        path = root / encoder / "manifest.json"
+        INPUTS[str(path.relative_to(ROOT))] = digest(path)
+        manifest = json.loads(path.read_text())
+        core = {k: v for k, v in manifest.items() if k != "diagnostics_id"}
+        sealed = hashlib.sha256(json.dumps(core, sort_keys=True, ensure_ascii=True,
+                                          separators=(",", ":")).encode()).hexdigest()
+        assert sealed == manifest["diagnostics_id"]
+        identifiers.append(sealed)
+        assert manifest["encoder"] == encoder
+        assert manifest["diagnostics_settings"]["bootstrap_repeats"] == 2000
+        assert manifest["diagnostics_settings"]["top_q"] == 10
+        assert len(manifest["domains"]) == 6
+        assert max(d["loss_mean_max_abs_error"] for d in manifest["domains"]) < 1e-10
+        for filename in loaded:
+            csv_path = root / encoder / filename
+            assert digest(csv_path) == manifest["files"][filename]
+            loaded[filename].extend(rows(csv_path))
+    path = root / "pairing_verification.json"
+    INPUTS[str(path.relative_to(ROOT))] = digest(path)
+    pairing = json.loads(path.read_text())
+    assert pairing["status"] == "paired-inputs-verified"
+    assert pairing["diagnostics_ids"] == identifiers
+    comparison = rows(REVISION / "reconstruction_comparison/per_task.csv")
+    assert len(comparison) == 12 and all(float(r["top_q_overlap"]) == 1 for r in comparison)
+    definitions = {
+        "BootstrapRecall": ("shortlist_recall.csv", "mean", {"metric": "brier_score", "method": "target_a", "shortlist_size": "227"}),
+        "BootstrapMMDRecall": ("shortlist_recall.csv", "mean", {"metric": "brier_score", "method": "second_moment_mmd", "shortlist_size": "227"}),
+        "BootstrapOverlap": ("topq_stability.csv", "mean", {"metric": "brier_score"}),
+        "BrierErrorOverlap": ("metric_agreement.csv", "top_q_overlap", {"left_metric": "brier_score", "right_metric": "error_rate"}),
+        "BrierSquaredOverlap": ("metric_agreement.csv", "top_q_overlap", {"left_metric": "brier_score", "right_metric": "squared_loss"}),
+        "BrierNLLOverlap": ("metric_agreement.csv", "top_q_overlap", {"left_metric": "brier_score", "right_metric": "nll"}),
+    }
+    values = {}
+    for name, (filename, column, conditions) in definitions.items():
+        selected = [r for r in loaded[filename] if all(r[k] == v for k, v in conditions.items())]
+        assert len(selected) == len({(r["encoder"], r["target_domain"]) for r in selected}) == 12
+        values[name] = 100 * float(np.mean([float(r[column]) for r in selected]))
+    return values
+
+
+def readout_assets(generated: Path) -> dict[str, float]:
+    path = READOUT / "summary/summary.json"
+    INPUTS[str(path.relative_to(ROOT))] = digest(path)
+    summary = json.loads(path.read_text())
+    for relative, expected in summary["input_sha256"].items():
+        source = READOUT / relative
+        assert digest(source) == expected, relative
+        INPUTS[str(source.relative_to(ROOT))] = expected
+    table = rows(READOUT / "summary/new_seeds.csv")
+    units = rows(READOUT / "summary/unit_rows.csv")
+    key = lambda r: (r["readout"], r["method"], r["metric"], int(r["shortlist_size"]))
+    index = {key(r): r for r in table}
+    recorded = {key(r): r for r in summary["new_seeds"]}
+    assert len(index) == len(table) == len(recorded) == 240
+    for k, row in index.items():
+        assert int(row["target_domain_count"]) == 6
+        assert int(row["repeated_task_count"]) == 48
+        assert json.loads(row["projection_seeds"]) == [20260917, 20260918, 20260919, 20260920]
+        for field in ("recall_at_top_q", "relative_candidate_span", "relative_regret", "absolute_omission"):
+            assert np.isclose(float(row[field]), recorded[k][field], rtol=1e-12, atol=1e-15)
+    labels = {
+        "target_a": "Target A-opt", "second_moment_mmd": "Second-moment MMD",
+        "bayesian_d": "Bayesian D-opt", "merged_effective_rank": "Merged effective rank",
+        "random": "Random (20 repeats)", "target_energy": "Target energy",
+        "dpp_subspace": "DPP subspace", "domain_balance": "Domain balance",
+    }
+    output = []
+    for readout, label in (("ridge", "Ridge"), ("logistic", "Logistic")):
+        for metric, metric_label in (("brier_score", "Brier"), ("nll", "NLL"), ("error_rate", "Error")):
+            values = [100 * float(index[readout, method, metric, 227]["recall_at_top_q"])
+                      for method in ("target_a", "second_moment_mmd", "random")]
+            output.append(f"{label} & {metric_label} & " + " & ".join(f"{v:.2f}" for v in values) + r"\\")
+    (generated / "readout_rows.tex").write_text(
+        "\\begin{tabular}{llrrr}\n\\toprule\n"
+        + "Readout & Metric & A-opt & MMD & Random\\\\\n\\midrule\n"
+        + "\n".join(output) + "\n\\bottomrule\n\\end{tabular}\n")
+    output = []
+    for method, label in labels.items():
+        values = [100 * float(index[readout, method, "brier_score", 227]["recall_at_top_q"])
+                  for readout in ("ridge", "logistic")]
+        output.append(f"{label} & {values[0]:.2f} & {values[1]:.2f} " + r"\\")
+    (generated / "readout_all_rows.tex").write_text(
+        "\\begin{tabular}{lrr}\n\\toprule\n"
+        + "Screen & Ridge & Logistic\\\\\n\\midrule\n"
+        + "\n".join(output) + "\n\\bottomrule\n\\end{tabular}\n")
+    new_units = [r for r in units if int(r["projection_seed"]) != 20260911
+                 and int(r["shortlist_size"]) == 227]
+    worst = min((r for r in new_units if r["readout"] == "logistic"
+                 and r["method"] == "target_a" and r["metric"] == "error_rate"),
+                key=lambda r: float(r["recall_at_top_q"]))
+    assert (worst["encoder"], worst["target_domain"], int(worst["projection_seed"])) == (
+        "dinov2_b14", "quickdraw", 20260918)
+    assert float(worst["absolute_omission"]) == 0
+    values = {
+        "WorstErrorRecall": 100 * float(worst["recall_at_top_q"]),
+        "WorstErrorGap": 100 * float(worst["absolute_regret"]),
+    }
+    for readout, prefix in (("ridge", "Ridge"), ("logistic", "Logistic")):
+        a = index[readout, "target_a", "brier_score", 227]
+        m = index[readout, "second_moment_mmd", "brier_score", 227]
+        assert float(a["relative_regret"]) == float(m["relative_regret"])
+        assert float(a["absolute_omission"]) == float(m["absolute_omission"]) == 0
+        values[f"Readout{prefix}A"] = 100 * float(a["recall_at_top_q"])
+        values[f"Readout{prefix}MMD"] = 100 * float(m["recall_at_top_q"])
+        values[f"{prefix}Span"] = 100 * float(a["relative_candidate_span"])
+        values[f"{prefix}SelectedRegret"] = 100 * float(a["relative_regret"])
+    assert np.isclose(values["ReadoutRidgeA"], values["ReadoutLogisticA"])
+    return values
 
 
 def main() -> None:
@@ -126,11 +243,24 @@ def main() -> None:
                loc="outside lower center", ncol=2)
     fig.savefig(figures / "headroom_diagnostics.pdf", metadata={"CreationDate": None})
     plt.close(fig)
+    supplemental = supplement_numbers()
+    readout = readout_assets(generated)
+    readout_precision = {
+        "WorstErrorRecall": 0, "WorstErrorGap": 2,
+        "ReadoutRidgeA": 2, "ReadoutRidgeMMD": 2,
+        "ReadoutLogisticA": 2, "ReadoutLogisticMMD": 2,
+        "LogisticSpan": 2, "RidgeSelectedRegret": 6,
+    }
     (generated / "numbers.tex").write_text(
-        "% Generated from committed E2b outcome tables.\n"
+        "% Generated from recorded E2b outcome tables.\n"
         + f"\\newcommand{{\\MainRecall}}{{{100 * float(a['mean_true_top_q_recall']):.3f}}}\n"
         + f"\\newcommand{{\\MainRegret}}{{{100 * float(a['mean_selected_normalized_regret']):.6f}}}\n"
-        + f"\\newcommand{{\\MainReduction}}{{{100 * float(a['mean_shortlist_reduction']):.3f}}}\n")
+        + f"\\newcommand{{\\MainReduction}}{{{100 * float(a['mean_shortlist_reduction']):.3f}}}\n"
+        + "% Supplemental diagnostics: post-hoc 2026-09-16 run.\n"
+        + "".join(f"\\newcommand{{\\{name}}}{{{value:.2f}}}\n" for name, value in supplemental.items())
+        + "% Exploratory projection/readout follow-up, 2026-09-17.\n"
+        + "".join(f"\\newcommand{{\\{name}}}{{{value:.{readout_precision.get(name, 3)}f}}}\n"
+                  for name, value in readout.items()))
     abstracts = {}
     for lang in ("en", "zh"):
         path = HERE / f"abstract_{lang}.txt"
@@ -143,8 +273,29 @@ def main() -> None:
         "Generated by `build_assets.py`; the paper inputs the same text.\n\n"
         "## Plain-text fallback (no math rendering required)\n\n" + abstracts["en"]
         + "\n\n## 中文对照\n\n" + abstracts["zh"] + "\n", encoding="utf-8")
+    metadata_path = HERE / "submission_metadata.json"
+    INPUTS[str(metadata_path.relative_to(ROOT))] = digest(metadata_path)
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    (generated / "submission_metadata.tex").write_text(
+        "\\newcommand{\\PaperTitleEN}{" + tex_escape(metadata["title_en"]) + "}\n"
+        + "\\newcommand{\\PaperTitleZH}{" + tex_escape(metadata["title_zh"]) + "}\n"
+        + "\\newcommand{\\PaperKeywordsEN}{" + tex_escape(", ".join(metadata["keywords_en"])) + "}\n",
+        encoding="utf-8")
+    (HERE / "submission_metadata.md").write_text(
+        "# ICLR 2027 投稿信息\n\n"
+        "由 `build_assets.py` 从唯一题目、关键词和摘要文本源生成，与论文输入保持一致。\n"
+        "状态：作者审阅稿，尚未提交 OpenReview；不表示已完成全部补实验或作者科学核验。\n\n"
+        "## Title\n\n" + metadata["title_en"] + "\n\n"
+        "## Abstract\n\n" + abstracts["en"] + "\n\n"
+        "## Keywords\n\n" + ", ".join(metadata["keywords_en"]) + "\n\n"
+        "## 中文题目\n\n" + metadata["title_zh"] + "\n\n"
+        "## 中文摘要\n\n" + abstracts["zh"] + "\n\n"
+        "## 中文关键词\n\n" + "、".join(metadata["keywords_zh"]) + "\n\n"
+        f"英文摘要词数（按空白分词）：{len(abstracts['en'].split())}。\n", encoding="utf-8")
     report = {"input_sha256": INPUTS, "e2b_summary_id": summary["summary_id"],
               "diagnostic_status": "post-hoc description; no changed gates or new experiments",
+              "supplemental_diagnostics_percent": supplemental,
+              "readout_followup_percent": readout,
               "domainnet_brier_spans": spans,
               "primary_metrics": summary["primary_result"]}
     (generated / "asset_manifest.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")

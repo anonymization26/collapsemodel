@@ -1,0 +1,68 @@
+{
+  "claim_boundary": "E2b is a new exploratory hypothesis on an independent dataset. It cannot retroactively rescue E2 H2 or H2b. Passing H3 on DomainNet supports only equal-cost shortlist pre-screening for frozen linear readouts under this protocol.",
+  "config_file_sha256": "5d405f4e3d9036d056f9c0f32d693c019e93f949f1c885fa3dcac694ffee1ed5",
+  "h3_passed": true,
+  "inputs": [
+    {
+      "audit_file_sha256": "0eaf3c2558af7ce4c42ee7cebadc73c842c915322e392d2b89ebed7315700420",
+      "encoder": "resnet50",
+      "manifest_file_sha256": "cc21c39457a5184a384a71e5bd02f74b9899b3308b6035419ad50dbc5ee15fe1"
+    },
+    {
+      "audit_file_sha256": "2c8e3831276b02f2647ace08dffb0234dea899cfd0d237f26d8f06f5eca231c8",
+      "encoder": "dinov2_b14",
+      "manifest_file_sha256": "30657609a5fc769c2078e7af00c058913cedf6baa66ce45d15358e62c0b9f097"
+    }
+  ],
+  "method_summary_file_sha256": "30eb3360b4e3cb2e6a9a5ba62831034f9481e216747c6c1a26640fe20cbe81c4",
+  "per_encoder_file_sha256": "55e8558ac622649b5101ab4cd83df17e127619a533ada4d480ca6d7498d40333",
+  "per_unit_file_sha256": "1d6ceb28fc5d669d950fa160f2dc98581c6d614593a3a3d27bf0325cffa084e5",
+  "primary_result": {
+    "mean_best_shortlist_normalized_regret": 0.0,
+    "mean_screen_spearman_vs_test_brier": 0.7444838056680161,
+    "mean_selected_normalized_regret": 1.319817539504726e-05,
+    "mean_shortlist_reduction": 0.5010989010989011,
+    "mean_true_top_q_recall": 0.9833333333333334,
+    "method": "target_a",
+    "passes_all_gates": 1,
+    "passes_recall_gate": 1,
+    "passes_reduction_gate": 1,
+    "passes_regret_gate": 1,
+    "recall_ci_high": 1.0,
+    "recall_ci_low": 0.9666666666666667,
+    "regret_ci_high": 3.0325469946286586e-05,
+    "regret_ci_low": 2.3489240273430256e-06,
+    "shortlist_size": 227,
+    "unit_count": 6
+  },
+  "same_information_baseline_result": {
+    "mean_best_shortlist_normalized_regret": 0.0,
+    "mean_screen_spearman_vs_test_brier": 0.6902855983571263,
+    "mean_selected_normalized_regret": 1.319817539504726e-05,
+    "mean_shortlist_reduction": 0.5010989010989011,
+    "mean_true_top_q_recall": 0.9833333333333334,
+    "method": "second_moment_mmd",
+    "passes_all_gates": 1,
+    "passes_recall_gate": 1,
+    "passes_reduction_gate": 1,
+    "passes_regret_gate": 1,
+    "recall_ci_high": 1.0,
+    "recall_ci_low": 0.9666666666666667,
+    "regret_ci_high": 3.0325469946286586e-05,
+    "regret_ci_low": 2.3489240273430256e-06,
+    "shortlist_size": 227,
+    "unit_count": 6
+  },
+  "same_information_selection_comparison": {
+    "comparison_count": 12,
+    "matching_validation_selected_combinations": 12
+  },
+  "schema_version": "target-conditioned-e2b-summary-v1",
+  "statistics": {
+    "encoder_handling": "average-within-target-domain",
+    "random_repeats_are_not_independent_units": true,
+    "target_unit_count": 6,
+    "unit": "target-domain"
+  },
+  "summary_id": "28ae17a5eeb46d12290ec9872fb085aae0819045f72adee266a309b22880d416"
+}

@@ -1,0 +1,224 @@
+{
+  "schema_version": "target-conditioned-e2b-config-v1",
+  "status": "frozen-before-domainnet-feature-extraction-and-outcome-evaluation",
+  "frozen_date": "2026-09-11",
+  "dataset": {
+    "name": "domainnet",
+    "version": "2019-multi-source-cleaned",
+    "official_page_url": "https://ai.bu.edu/M3SDA/",
+    "official_cleaned_index_url": "https://github.com/datasets-mila/datasets--domainnet/blob/master/README.rst",
+    "source_correction_date": "2026-09-12",
+    "source_correction_access": "before-feature-extraction-and-before-any-outcome-evaluation",
+    "archive_urls": {
+      "clipart": "https://csr.bu.edu/ftp/visda/2019/multi-source/groundtruth/clipart.zip",
+      "infograph": "https://csr.bu.edu/ftp/visda/2019/multi-source/infograph.zip",
+      "painting": "https://csr.bu.edu/ftp/visda/2019/multi-source/groundtruth/painting.zip",
+      "quickdraw": "https://csr.bu.edu/ftp/visda/2019/multi-source/quickdraw.zip",
+      "real": "https://csr.bu.edu/ftp/visda/2019/multi-source/real.zip",
+      "sketch": "https://csr.bu.edu/ftp/visda/2019/multi-source/sketch.zip"
+    },
+    "archive_md5": {
+      "clipart": "cd0d8f2d77a4e181449b78ed62bccf1e",
+      "infograph": "720380b86f9e6ab4805bb38b6bd135f8",
+      "painting": "1ae32cdb4f98fe7ab5eb0a351768abfd",
+      "quickdraw": "bdc1b6f09f277da1a263389efe0c7a66",
+      "real": "dcc47055e8935767784b7162e7c7cca6",
+      "sketch": "658d8009644040ff7ce30bb2e820850f"
+    },
+    "archive_local_suffix": ".cleaned.zip",
+    "split_base_url": "https://csr.bu.edu/ftp/visda/2019/multi-source/domainnet/txt",
+    "split_md5": {
+      "clipart": {
+        "train": "b4349693a7f9c05c53955725c47ed6cb",
+        "test": "f5ddbcfd657a3acf9d0f7da10db22565"
+      },
+      "infograph": {
+        "train": "379b50054f4ac2018dca4f89421b92d9",
+        "test": "779626b50869edffe8ea6941c3755c71"
+      },
+      "painting": {
+        "train": "7db0e7ca73ad9982f6e1f7f3ef372c0a",
+        "test": "232b35dc53f26d414686ae579e38d9b5"
+      },
+      "quickdraw": {
+        "train": "b732ced3939ac8efdd8c0a889dca56cc",
+        "test": "c1a828fdfe216fb109f1c0083a252c6f"
+      },
+      "real": {
+        "train": "8ebf02c2075fadd564705f0dc7cd6291",
+        "test": "6098816791c3ebed543c71ffa11b9054"
+      },
+      "sketch": {
+        "train": "1233bd18aa9a8a200bf4cecf1c34ef3e",
+        "test": "d8a222e4672cfd585298aa14d02ea441"
+      }
+    },
+    "domains": [
+      "clipart",
+      "infograph",
+      "painting",
+      "quickdraw",
+      "real",
+      "sketch"
+    ],
+    "expected_class_count": 345,
+    "class_subset": {
+      "count": 100,
+      "rule": "smallest-sha256-by-class-name",
+      "seed": "domainnet-e2b-class-v1",
+      "uses_class_taxonomy": true,
+      "uses_sample_outcomes_or_model_outputs": false
+    }
+  },
+  "sampling": {
+    "seed": "domainnet-e2b-sampling-v1",
+    "target_selection_per_domain": 1536,
+    "target_validation_per_domain": 1024,
+    "anchor_pool_per_domain": 3072,
+    "target_test_per_domain": 2048,
+    "official_split_policy": {
+      "target_selection": "official-train",
+      "target_validation": "official-train",
+      "anchor_pool": "official-train",
+      "target_test": "official-test"
+    },
+    "train_roles_are_disjoint_within_domain": true,
+    "invalid_image_policy": "skip-in-hash-order-and-replenish-before-freeze",
+    "duplicate_content_policy": "retain-first-in-frozen-domain-role-hash-traversal-and-replenish-before-freeze",
+    "role_order": [
+      "target_selection",
+      "target_validation",
+      "anchor_pool",
+      "target_test"
+    ],
+    "uses_labels_for_within_subset_assignment": false,
+    "uses_model_outputs": false
+  },
+  "candidate_construction": {
+    "anchor_encoder": "clip_b32",
+    "anchor_checkpoint": "openai-vit-b-32",
+    "anchor_is_an_evaluator": false,
+    "row_l2_normalize": true,
+    "center_within_domain": true,
+    "axis": "largest-eigenvector-of-anchor-covariance",
+    "axis_sign": "largest-absolute-loading-positive",
+    "strata": [
+      "low",
+      "middle",
+      "high"
+    ],
+    "stratum_rule": "stable-sort-projection-then-split-into-three-equal-contiguous-groups",
+    "candidate_samples_per_stratum": 512,
+    "candidate_pick_rule": "smallest-sha256-within-stratum",
+    "candidate_pick_seed": "domainnet-e2b-candidate-v1",
+    "blocks_per_source_domain": 3,
+    "candidate_blocks_per_target": 15,
+    "uses_labels_or_target_data": false
+  },
+  "features": {
+    "evaluators": [
+      "resnet50",
+      "dinov2_b14"
+    ],
+    "raw_row_l2_normalize": true,
+    "projection": {
+      "name": "rademacher-jl",
+      "output_dimension": 128,
+      "seed": 20260911,
+      "scale": "one-over-sqrt-output-dimension",
+      "shared_across_domains_and_roles_within_encoder": true,
+      "post_projection_row_l2_normalize": true,
+      "uses_labels_or_test_outcomes": false
+    }
+  },
+  "combinations": {
+    "budget_blocks": 3,
+    "samples_per_block": 512,
+    "fixed_training_sample_count": 1536,
+    "expected_combinations_per_target": 455,
+    "rule": "all-lexicographic-size-three-combinations-of-fifteen-blocks"
+  },
+  "screen": {
+    "permission": "U0",
+    "methods": {
+      "target_a": "ascending",
+      "second_moment_mmd": "ascending",
+      "target_energy": "descending",
+      "bayesian_d": "descending",
+      "merged_effective_rank": "descending",
+      "dpp_subspace": "descending",
+      "domain_balance": "descending",
+      "random": "random"
+    },
+    "prior_precision": 1.0,
+    "noise_variance": 1.0,
+    "subspace_rank": 16,
+    "shortlist_sizes": [
+      10,
+      25,
+      50,
+      100,
+      227
+    ],
+    "primary_shortlist_size": 227,
+    "random_repeats": 20,
+    "random_seed": 20260911,
+    "tie_break": "score-then-lexicographic-combination",
+    "uses_source_labels": false,
+    "uses_target_validation_labels": false,
+    "uses_target_test_features": false,
+    "uses_target_test_labels": false
+  },
+  "validation": {
+    "permission": "U2",
+    "selection_rule": "minimum-target-validation-brier-with-lexicographic-tie-break",
+    "execution_rule": "evaluate-each-method-repeat-separately-through-largest-nested-shortlist",
+    "cross_method_result_cache": false,
+    "physical_primary_combination_evaluations_per_target": 227,
+    "ridge_regularization": 1.0,
+    "source_labels": "allowed-only-after-screen-artifact-freeze",
+    "target_validation_labels": "allowed-only-after-screen-artifact-freeze",
+    "target_test_features": "forbidden",
+    "target_test_labels": "forbidden",
+    "selection_artifact_is_immutable": true
+  },
+  "test_audit": {
+    "permission": "post-selection-oracle-audit",
+    "primary_metric": "brier_score",
+    "supporting_metrics": [
+      "squared_loss",
+      "nll",
+      "accuracy",
+      "macro_f1",
+      "ece"
+    ],
+    "ece_bins": 15,
+    "top_q": 10,
+    "evaluate_all_combinations": true,
+    "true_shortlist_recall": "cardinality-of-shortlist-intersection-test-top-q-divided-by-q",
+    "normalized_regret_denominator": "absolute-test-oracle-risk",
+    "requires_screen_and_validation_hash_verification": true
+  },
+  "primary_analysis": {
+    "unit": "target-domain",
+    "encoder_handling": "average-within-target-domain",
+    "primary_method": "target_a",
+    "bootstrap_repeats": 10000,
+    "confidence_level": 0.95,
+    "success_gate": {
+      "primary_shortlist_reduction_at_least": 0.5,
+      "mean_true_top_q_recall_at_least": 0.9,
+      "mean_validation_selected_normalized_regret_at_most": 0.05
+    },
+    "single_dataset_limitation": "six target domains are paired units but do not establish cross-dataset generality"
+  },
+  "stop_rules": {
+    "insufficient_quota": "abort-without-changing-counts",
+    "candidate_count_mismatch": "abort",
+    "unequal_block_size": "abort",
+    "combination_count_mismatch": "abort",
+    "test_access_before_validation_freeze": "invalidate-run",
+    "primary_gate_failure": "report-negative-result-and-do-not-claim-effective-prescreening"
+  },
+  "claim_boundary": "E2b is a new exploratory hypothesis on an independent dataset. It cannot retroactively rescue E2 H2 or H2b. Passing H3 on DomainNet supports only equal-cost shortlist pre-screening for frozen linear readouts under this protocol."
+}

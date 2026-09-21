@@ -1,0 +1,18 @@
+{
+  "schema_version": "e2b-readout-projection-v1",
+  "status": "exploratory-fixed-before-new-runs-original-outcomes-known",
+  "registered_date": "2026-09-17",
+  "projection_seeds": [20260911, 20260917, 20260918, 20260919, 20260920],
+  "readouts": ["ridge", "logistic"],
+  "ridge_regularization": 1.0,
+  "logistic": {"C": 1.0, "solver": "lbfgs", "fit_intercept": false, "max_iter": 1000, "tol": 0.000001},
+  "metrics": ["brier_score", "nll", "error_rate"],
+  "primary_metric": "brier_score",
+  "convergence_warning_policy": "abort-without-dropping-candidate-or-changing-hyperparameters",
+  "selection": "separate-validation-minimum-for-each-prespecified-metric-lexicographic-ties",
+  "evaluation": "exhaustive-validation-and-test-counterfactual-shortlist-audit",
+  "cross_method_result_cache": true,
+  "cost_claim": "audit-runtime-only-not-deployed-shortlist-or-end-to-end-speedup",
+  "statistical_unit": "target-domain-with-encoders-and-projection-seeds-as-repeated-measures",
+  "primary_analysis": "report-base-seed-and-four-new-seeds-separately-no-best-seed-or-best-readout-selection"
+}

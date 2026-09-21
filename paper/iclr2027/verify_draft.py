@@ -121,12 +121,22 @@ def main() -> None:
         p = s / s.sum()
         ranks.append(float(np.exp(-np.sum(p * np.log(p)))))
     assert np.allclose(ranks, [2.626012, 2.849536], atol=1e-6, rtol=0)
+    def singular_rank(matrix):
+        singular_values = np.linalg.svd(matrix, compute_uv=False)
+        probabilities = singular_values[singular_values > 0] / singular_values.sum()
+        return np.exp(-np.sum(probabilities * np.log(probabilities)))
+    example = np.diag([9.0, 1.0])
+    assert np.isclose(singular_rank(example), 1.384145488461686, rtol=1e-12)
+    assert np.isclose(singular_rank(np.eye(2)), 2.0)
+    assert np.isclose(singular_rank(np.tile(example, (3, 1))), singular_rank(example))
     # Numerical sanity checks supplement, and do not replace, the written proofs.
     rng = np.random.default_rng(17)
     for _ in range(50):
         x, h = rng.normal(size=(9, 4)), rng.normal(size=(7, 4))
         g, c = x.T @ x, h.T @ h / len(h)
         ev, u = np.linalg.eigh(g)
+        directional_score = np.sum(np.diag(u.T @ c @ u) / (1 + ev))
+        assert np.isclose(directional_score, np.trace(c @ np.linalg.inv(np.eye(4) + g)))
         sketch = (u[:, -2:] * ev[-2:]) @ u[:, -2:].T
         delta = float(ev[-3])
         f = lambda z: float(np.trace(c @ np.linalg.inv(np.eye(4) + z)))
@@ -144,6 +154,7 @@ def main() -> None:
     for language in ("en", "zh"):
         paths = [HERE / f"{part}_{language}.tex" for part in ("body", "appendix", "statements")]
         source = "\n".join(p.read_text(encoding="utf-8") for p in paths)
+        assert r"\paragraph{" not in source, (language, "run-in phrase heading")
         for table in re.findall(r"\\begin\{table\}.*?\\end\{table\}", source, re.S):
             assert not re.search(r"\\(?:small|footnotesize|scriptsize|tiny)\b", table), language
         citations = {key for group in re.findall(r"\\cite[pt]\{([^}]+)\}", source)
@@ -159,12 +170,57 @@ def main() -> None:
     print("PASS: bilingual label/citation parity, no missing or unused bibliography entries")
 
     md = (HERE / "abstract.md").read_text(encoding="utf-8")
+    submission = (HERE / "submission_metadata.md").read_text(encoding="utf-8")
+    metadata = json.loads((HERE / "submission_metadata.json").read_text(encoding="utf-8"))
+    generated_metadata = (HERE / "generated/submission_metadata.tex").read_text(encoding="utf-8")
+    for lang in ("en", "zh"):
+        assert metadata[f"title_{lang}"] in submission
+        assert metadata[f"title_{lang}"] in generated_metadata
+        assert all(keyword in submission for keyword in metadata[f"keywords_{lang}"])
+    assert len(metadata["keywords_en"]) == len(metadata["keywords_zh"])
+    supplements = manifest["supplemental_diagnostics_percent"]
+    assert np.isclose(supplements["BootstrapRecall"], 97.42041666666668)
+    assert np.isclose(supplements["BootstrapOverlap"], 85.15375000000002)
+    assert np.isclose(supplements["BrierErrorOverlap"], 29.166666666666668)
+    print("PASS: submission metadata and recorded supplemental statistics")
+    followup = ROOT / "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/summary"
+    groups = {}
+    for row in read_csv(followup / "unit_rows.csv"):
+        if int(row["projection_seed"]) == 20260911:
+            continue
+        key = (row["readout"], row["method"], row["metric"], row["shortlist_size"])
+        groups.setdefault(key, {}).setdefault(row["target_domain"], []).append(row)
+    for row in read_csv(followup / "new_seeds.csv"):
+        domains = groups[row["readout"], row["method"], row["metric"], row["shortlist_size"]]
+        assert len(domains) == 6 and all(len(task) == 8 for task in domains.values())
+        for field in ("recall_at_top_q", "relative_candidate_span", "relative_regret", "absolute_omission"):
+            mean = np.mean([np.mean([float(r[field]) for r in task]) for task in domains.values()])
+            assert np.isclose(mean, float(row[field]), rtol=1e-12, atol=1e-15)
+    followup_values = manifest["readout_followup_percent"]
+    for name, expected in {
+        "ReadoutRidgeA": 98.33333333333333,
+        "ReadoutLogisticA": 98.33333333333333,
+        "ReadoutRidgeMMD": 99.375,
+        "ReadoutLogisticMMD": 98.95833333333333,
+        "RidgeSpan": 0.247864,
+        "LogisticSpan": 14.652095,
+        "WorstErrorRecall": 40,
+        "WorstErrorGap": 1.66015625,
+    }.items():
+        assert np.isclose(followup_values[name], expected, rtol=0, atol=1e-6), name
+    print("PASS: 240 follow-up means independently recovered from domain-level repetitions")
     for lang, stem, opening, heading in (
-        ("en", "main", "Can unlabeled", r"^\s*1\s+I\s*NTRODUCTION"),
-        ("zh", "main_zh", "无标签", r"^\s*1\s+引言"),
+        ("en", "main", "Selecting source-data", r"^\s*1\s+I\s*NTRODUCTION"),
+        ("zh", "main_zh", "为目标任务", r"^\s*1\s+引言"),
     ):
         abstract = " ".join((HERE / f"abstract_{lang}.txt").read_text(encoding="utf-8").split())
-        assert abstract in md
+        assert abstract in md and abstract in submission
+        assert len(re.findall(r"\d+(?:\.\d+)?%", abstract)) <= 2, (lang, "abstract result density")
+        body = (HERE / f"body_{lang}.tex").read_text(encoding="utf-8")
+        introduction = body.split(r"\section{")[1]
+        assert r"\begin{itemize}" not in introduction
+        assert r"\begin{enumerate}" not in introduction
+        assert r"\label{sec:limitations}" in body
         tex = (HERE / f"generated/abstract_{lang}.tex").read_text(encoding="utf-8").strip()
         assert tex.replace(r"\%", "%") == abstract
         log = (HERE / f"{stem}.log").read_text(errors="replace")
@@ -173,6 +229,10 @@ def main() -> None:
         first = text_from_pdf(HERE / f"{stem}.pdf", first_page=True)
         clean = "\n".join(line[6:] if re.match(r"^\d{3}(?:\s|$)", line) else line
                           for line in first.splitlines())
+        assert normalized_rendering(metadata[f"title_{lang}"]).casefold() in normalized_rendering(clean).casefold()
+        info = subprocess.check_output(["pdfinfo", str(HERE / f"{stem}.pdf")], text=True)
+        assert metadata[f"title_{lang}"] in info
+        assert ", ".join(metadata["keywords_en"]) in info
         end = re.search(heading, clean, re.M)
         assert end is not None
         actual = clean[clean.index(opening):end.start()]
@@ -186,7 +246,9 @@ def main() -> None:
         end_page = int(re.search(r"\\newlabel\{main-text-end\}\{\{[^}]*\}\{(\d+)\}", aux).group(1))
         main_pages = [int(v) for v in re.findall(r"\\newlabel\{(?:fig:[^}]+|tab:[^}]+)\}\{\{[^}]*\}\{(\d+)\}", aux)]
         assert max(main_pages + [end_page]) <= 9
-        print(f"PASS: {stem} abstract matches text/Markdown/PDF; main text ends on page {end_page}")
+        if lang == "en":
+            assert end_page == 9, ("main", "English Conclusion must end on page 9")
+        print(f"PASS: {stem} title/keywords and abstract match submission/text/Markdown/PDF; main text ends on page {end_page}")
     print("All automated draft checks passed. Visual review and human scientific sign-off remain separate.")
 
 

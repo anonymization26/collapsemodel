@@ -1,0 +1,61 @@
+{
+  "access": {
+    "source_labels": true,
+    "target_test": true,
+    "target_validation": false
+  },
+  "artifact_id": "fc8e5887899facebe5890ccfacb8c264b528b648fc4d0e44dc044fbeba386b71",
+  "bundle_id": "acef8b918aafb269a4a872fad7b9a04cf9e655446bb53de1cb1999fce1f7f4e6",
+  "context": {
+    "base_config_sha256": "5d405f4e3d9036d056f9c0f32d693c019e93f949f1c885fa3dcac694ffee1ed5",
+    "encoder": "resnet50",
+    "projection_seed": 20260911,
+    "protocol_sha256": "2d6d07ba5d2071f6d5a64285881f87c823a2ea634431b8f93e3711eda7e99cb9",
+    "source_sha256": {
+      "code/metrics/collapse_core.py": "40d9e8fcc07583eefeefb61b3b3b18126ff12ee936cd00a1a66690a82c8d46bd",
+      "code/metrics/e2b_stage_bundle.py": "26f946ded82e8af8d8dce40aa38059f4ba6b28116c2c64c4af83fc6d2afe34c8",
+      "code/metrics/target_conditioned_e2b.py": "6dc3417bfe905081749391036d6714491ae59ae67fbd3ba2e2248fd85a28ad19",
+      "scripts/run_e2b_readout_projection.py": "ed39edb1b9e0dbb0c085f3ebc133251e5df5d0d97c44894473d500e63c0cba87",
+      "scripts/run_target_conditioned_e2b_shortlist.py": "5bedcdbd08e04e027706f82b1db5cae683d93b802ffac71c8620da27cca95c18"
+    }
+  },
+  "cost_claim": "audit-runtime-only-not-deployed-shortlist-or-end-to-end-speedup",
+  "created_utc": "2026-09-17T21:00:13.526844+00:00",
+  "elapsed_seconds": 28.229258224368095,
+  "environment": {
+    "numpy": "1.26.4",
+    "python": "3.12.3",
+    "scipy": "1.16.1",
+    "sklearn": "1.7.1"
+  },
+  "files": {
+    "audit.json": "af35c4b8fb9536bb79c72f6b8d494b034535f4724312cbec2edf0fd61597b67e",
+    "clipart__logistic_losses.json": "1f689a310f05e243fe0890d7aa2ee22922c890be79b83e37999991ac6a909de6",
+    "clipart__ridge_losses.json": "b6ce4c8d54df351979d9699b4c3cf3fb95ccd16c86658101810159db03d00a74",
+    "infograph__logistic_losses.json": "93648485c62d4dd37fac6c996cb8de8d8289a04ab276196295355727de91ccfd",
+    "infograph__ridge_losses.json": "50e32d079ba202bcf0e14721b6289b722e6a058658e37a129f3d149819d7851e",
+    "painting__logistic_losses.json": "9ef8648ad4e680a212083668aa0d2af8a9ec71afda14d4f414d57d67173fb140",
+    "painting__ridge_losses.json": "d1e1d91eccdf0876955b49c5c22aaa370c6263019d7fa74e93acb84dd42e24db",
+    "progress.json": "7a5ff394e5f5beae3b0427d77d4369fc6fef02d28e4a5b2e2a1e12d75cba2fee",
+    "quickdraw__logistic_losses.json": "f6590b0ccc3780bb332c1257a8627b8cea95919e52276a72c429658e8e65ff59",
+    "quickdraw__ridge_losses.json": "cba7f21dcd2048803280668937429b09e91b66d61f9edea11e832ba494841058",
+    "real__logistic_losses.json": "17a79e26bf7a2c70c2d7767fd7b5f9ad594d93653dc1f5318c3aad3cc3e24fb3",
+    "real__ridge_losses.json": "12755074c149b8cecbcf6fff8670dae0ddc8af115420ca42099e892cb906b1fc",
+    "sketch__logistic_losses.json": "8ad8f9587d8d37b3da71f2bebff45acb36e2ca2fde12c483c07d14627965d346",
+    "sketch__ridge_losses.json": "a94bdfc4fbf2e16cdf43ce0c3727463dc4ca1eaf1271ddbadda4d05162e31091"
+  },
+  "interpretation": "exhaustive-validation-and-test-counterfactual-shortlist-audit",
+  "lineage": {
+    "candidate_set_id": "545fe86c8c9e830448f14f0ce0a300a33389f3eb9787e118572e7e78da87e9a8",
+    "manifest_id": "1ba25059df70be4d9d22ec1c3c25bdd03e6a83795fbb44a45b3a8e0bb6b20839",
+    "source_feature_file_sha256": "37725c82c24fa9284c1492f95ded412ea8c100b35ba7230cd2a01666ea30a7aa"
+  },
+  "runner_revision": "566679a0ee59ace27f6da7ed44fbd18ebe6cd5ad",
+  "schema_version": "e2b-readout-projection-artifact-v1",
+  "stage": "test-audit",
+  "status": "complete",
+  "upstream": {
+    "screen": "df3c1c8b23de40b6e9f8154d290c1c79afcb611db09ee74afaf406ded0c25ad1",
+    "validate": "0ba180d53c1f2ab3303835f75340cb4720b31db2e3fef84bc9ca6da382a30030"
+  }
+}

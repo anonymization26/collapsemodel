@@ -1,0 +1,89 @@
+{
+  "access": {
+    "screen_and_validation_hashes_verified_first": true,
+    "target_test_features": true,
+    "target_test_labels": true,
+    "test_outcomes_change_screen_or_validation_selection": false
+  },
+  "audit_file_sha256": "2c8e3831276b02f2647ace08dffb0234dea899cfd0d237f26d8f06f5eca231c8",
+  "audit_row_count": 810,
+  "candidate_set_id": "545fe86c8c9e830448f14f0ce0a300a33389f3eb9787e118572e7e78da87e9a8",
+  "combination_row_count": 2730,
+  "combinations_file_sha256": "ef0330a4f317d5269ae714afedd9df285e975d87d0f5e78e64d5a029f9f501db",
+  "config_file_sha256": "5d405f4e3d9036d056f9c0f32d693c019e93f949f1c885fa3dcac694ffee1ed5",
+  "created_utc": "2026-09-16T19:05:32.577646+00:00",
+  "encoder": "dinov2_b14",
+  "feature_file_sha256": "69b83e5ad6cfe1e847f87ec53dd6848685bbc1b9461b475bfdfb191eab9fc9c2",
+  "input_isolation": {
+    "bundle_id": "8483f959adc6e088195391774b9bde1382dd9b4b8a3a09f85fd65c632daff8e1",
+    "mode": "role-separated-files",
+    "os_sandbox": false,
+    "stage": "test-audit"
+  },
+  "manifest_id": "1ba25059df70be4d9d22ec1c3c25bdd03e6a83795fbb44a45b3a8e0bb6b20839",
+  "runner_revision": "566679a0ee59ace27f6da7ed44fbd18ebe6cd5ad",
+  "runtime": {
+    "device": "cpu",
+    "elapsed_seconds": 20.37313836067915,
+    "finished_utc": "2026-09-16T19:05:32.578864+00:00",
+    "numpy_version": "1.26.4",
+    "python_version": "3.12.3",
+    "started_utc": "2026-09-16T19:05:12.205737+00:00"
+  },
+  "schema_version": "target-conditioned-e2b-test-audit-v1",
+  "screen_id": "fcc5fb9b3d6d846da9ceced2d751b097b12935ec4f00b8a445a86365307b7d53",
+  "tasks": [
+    {
+      "combination_count": 455,
+      "target_domain": "clipart",
+      "target_test_count": 2048,
+      "target_test_ids_sha256": "b8f1203b7c259adc5e6364fd0eabd9407b6ff7211c589d72d41d5622f3a57464",
+      "test_oracle_brier_score": 0.9845735231466439,
+      "test_oracle_combination": "real__clip_pc1_low|sketch__clip_pc1_low|sketch__clip_pc1_middle"
+    },
+    {
+      "combination_count": 455,
+      "target_domain": "infograph",
+      "target_test_count": 2048,
+      "target_test_ids_sha256": "e3a147c01c481f42161052f352d565f56e664ca04eab2efaeb24fbf4b2ebbee1",
+      "test_oracle_brier_score": 0.986668906798051,
+      "test_oracle_combination": "clipart__clip_pc1_low|clipart__clip_pc1_middle|sketch__clip_pc1_low"
+    },
+    {
+      "combination_count": 455,
+      "target_domain": "painting",
+      "target_test_count": 2048,
+      "target_test_ids_sha256": "265374b7d770acf1c5e803b4ffd5aedc00d519ecd8aab991d125cbbad69e9b1e",
+      "test_oracle_brier_score": 0.984469301966842,
+      "test_oracle_combination": "real__clip_pc1_high|sketch__clip_pc1_high|sketch__clip_pc1_low"
+    },
+    {
+      "combination_count": 455,
+      "target_domain": "quickdraw",
+      "target_test_count": 2048,
+      "target_test_ids_sha256": "cf39b0ddd35ef35d2f485408daf852126347bc4e806a1808ba683d4a5777370a",
+      "test_oracle_brier_score": 0.9887810266418002,
+      "test_oracle_combination": "clipart__clip_pc1_low|clipart__clip_pc1_middle|sketch__clip_pc1_low"
+    },
+    {
+      "combination_count": 455,
+      "target_domain": "real",
+      "target_test_count": 2048,
+      "target_test_ids_sha256": "60384adbcc168b7512a6047eeb05a4074989921af1e14502c7091c9f3932eccb",
+      "test_oracle_brier_score": 0.984347283949494,
+      "test_oracle_combination": "clipart__clip_pc1_low|painting__clip_pc1_low|painting__clip_pc1_middle"
+    },
+    {
+      "combination_count": 455,
+      "target_domain": "sketch",
+      "target_test_count": 2048,
+      "target_test_ids_sha256": "2746bec4ac2a6080a149c3b49ffb10fc50ac4c34f85395c3792675ff0aa9fb9f",
+      "test_oracle_brier_score": 0.9848259755899641,
+      "test_oracle_combination": "clipart__clip_pc1_low|clipart__clip_pc1_middle|painting__clip_pc1_middle"
+    }
+  ],
+  "test_audit_id": "ab07a852fe9f1d91c91ef1b5d43e843c80cb9eccef89ffc46c1bfecb1e5f4199",
+  "validation_id": "6e9c7df52bc42e02abe781f8ea074a276b151d7485554f2592f2f8d28d78afe6",
+  "validation_manifest_file_sha256": "d1b228756d3ef6d3e94e1992e54822bc6fc49af370565199e1e5b3bcd581742c",
+  "validation_selections_file_sha256": "de13eca9ba6f54d7440c8bc24d6ee687f863d8dcde5e9a5e88f444a828fce0ba"
+}

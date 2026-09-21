@@ -1,6 +1,5 @@
 \section{证明与数学主张的适用范围}
 \label{app:proofs}
-\paragraph{局部双方向计算。}
 设 $u,v$ 为单位方向，$u^\top v=c\in[0,1]$。在正交基 $u,z$ 中写成 $v=cu+\sqrt{1-c^2}z$，算子 $a^2uu^\top+b^2vv^\top$ 表示为
 \begin{equation}
  \begin{pmatrix}
@@ -8,25 +7,27 @@
  b^2c\sqrt{1-c^2} & b^2(1-c^2)
  \end{pmatrix}.
 \end{equation}
-其迹为 $a^2+b^2$，行列式为 $a^2b^2(1-c^2)$，从而得到式\eqref{eq:local}。当 $c=1$ 时，将第二方向理解为零分支。仅当相关子块相互正交，且对两个源 Gram 都是不变子空间时，各特征值对的汇集才给出完整谱；未配对方向另外贡献自身特征值。主向量不必是奇异向量。主文行归一化反例已否定边际谱与主角度列表足够这一推断，并不需要不同样本数等额外复杂因素。
+其迹为 $a^2+b^2$，行列式为 $a^2b^2(1-c^2)$，因此特征值为
+\begin{equation}
+ \lambda_{\pm}=\frac{a^2+b^2\pm\sqrt{(a^2-b^2)^2+4a^2b^2c^2}}{2}.
+ \label{eq:local}
+\end{equation}
+当 $c=1$ 时，第二分支为零。若相关子块相互正交，且对两个源 Gram 都是不变子空间，汇集这些特征值对便得到完整谱；未配对方向贡献自身特征值。这一相容条件不可省略，因为主向量不必是奇异向量。
 
-\paragraph{后验风险恒等式。}
 固定 $H_S$ 并采用高斯似然，对先验与似然乘积完成平方可得后验精度 $P_0^{-1}+\sigma^{-2}H_S^\top H_S$ 和均值 $\mu_S=P_S\sigma^{-2}H_S^\top y_S$。对独立目标观测 $y=h^\top\theta+\epsilon$，给定训练数据与 $h$，有
 \begin{equation}
  \E[(y-h^\top\mu_S)^2\mid H_S,y_S,h]=\sigma^2+h^\top P_Sh.
 \end{equation}
 对 $h$ 积分得到式\eqref{eq:risk}。这里假设目标协变量分布不会在该模型之外额外透露关于 $\theta$ 的信息。若源数据具有不同回归函数，或标签为多分类且采用 softmax 读出，则该推导不再等于所评价的损失。证明不约束这种模型误设误差。以有限样本估计替代 $C_T$ 还引入另一类偏差，恒等式也不会自动消除它。
 
-\paragraph{单调性与确定性草图区间。}
 若 $G\succeq\widetilde G\succeq0$，逆矩阵序给出 $(P_0^{-1}+\sigma^{-2}G)^{-1}\preceq(P_0^{-1}+\sigma^{-2}\widetilde G)^{-1}$。与 PSD 目标矩相乘取迹保持该顺序。更一般地，若遗漏草图尾部之和满足 $0\preceq G-\widetilde G\preceq\delta I$，定义 $B=P_0^{-1}+\sigma^{-2}\widetilde G$，则
 \begin{equation}
  \tr\!\left(\widehat C_T(B+\sigma^{-2}\delta I)^{-1}\right)
  \leq f_A(G)\leq\tr(\widehat C_TB^{-1}).
  \label{eq:interval}
 \end{equation}
-各 PSD 尾部的有效谱范数上界之和，是一种可取的 $\delta$。这个初等区间说明，正确的分数界仍可能过宽而无法确定排序。认证某候选需要其上界严格低于全部竞争者下界；认证的只是所声明代理的该次比较，而不是全局最优、标签隐私或真实分类风险。归档的草图扫描采用其文档中的具体实现和字节计数；式\eqref{eq:interval} 不意味着已经评估全部可能的更紧界。
+各 PSD 尾部的有效谱范数上界之和，是一种可取的 $\delta$。当某候选上界低于所有竞争者下界时，可以认证该候选的代理排序。因此，除了覆盖率，区间宽度也决定草图能否支撑下一次选择。归档扫描使用其文档中的字节计数，评价这类代理比较。
 
-\paragraph{验证分解。}
 令 $S_Q$ 在 $\cQ_s$ 中最小化 $\ell$。短名单上的一致偏差给出
 \begin{equation}
  \ell(\widehat S)\leq v(\widehat S)+\varepsilon
@@ -34,13 +35,11 @@
 \end{equation}
 减去 $\min_{S\in\cC}\ell(S)$ 即得式\eqref{eq:decomposition}。该代数推导没有给出概率声明。若要获得总体泛化保证，必须结合真实依赖与选择流程另外证明偏差事件。有限测试集上的穷举分数本身不足以提供这种证明。
 
-\paragraph{多项式核 MMD。}
 映射 $\phi(h)=hh^\top$ 采用 Frobenius 内积，满足 $\langle\phi(h),\phi(h')\rangle_F=(h^\top h')^2$。源与目标经验特征均值之间的平方距离即式\eqref{eq:mmd}。这是有偏经验平方 MMD，即 V 统计量，而非去掉对角项的无偏估计。它依赖非中心化二阶矩，无法区分所有具有相同二阶矩的分布。我们将其作为计算简单的同信息对照，而非完备分布差异度量。
 
 \section{实现与审计细节}
 \label{app:protocol}
-\paragraph{读出器与数值约定。}
-DomainNet 实验采用
+原 DomainNet 实验拟合岭回归读出，并将其分数转换为类别概率。权重与 Brier 损失为
 \begin{equation}
  \begin{aligned}
  W_S&=(I+G_S)^{-1}\sum_{i\in S}H_i^\top Y_i,\qquad
@@ -50,15 +49,20 @@ DomainNet 实验采用
 \end{equation}
 $Y_i$ 为固定 100 类词表下的源 one-hot 标签矩阵。不使用截距或温度调参。载入 float32 特征后，线性代数以 float64 计算。通过 Gram 特征分解计算有效秩时，先将负舍入特征值裁剪为零，再取平方根得到奇异值，仅保留 $\sigma_j>\sigma_{\max}\sqrt{8\epsilon_{64}\max(n_S,d,1)}$。代码对零矩阵返回零秩。该阈值针对数值秩，不改变熵定义。共享投影种子为 $20260911$，维度为 $128$；冻结 DomainNet 协议内部没有根据结果选择维度。
 
-\paragraph{多样性对照。}
 Bayesian D-opt 最大化 $\log\det(I+G_S)$。子空间 DPP 取每个块的前 16 个 Gram 特征向量 $U_i$，定义 $K_{ij}=\norm{U_i^\top U_j}_F^2/16$、$K_{ii}=1$，将其数值投影到 PSD 相关矩阵，再最大化 $\log\det(K_{S,S}+10^{-8}I)$。该核描述块子空间，而非单图像特征。域平衡最大化已覆盖域数量，减去各域块数平方和的 $10^{-3}$ 倍。确定性分数按组合标识字典序处理并列。这些是固定对照；该 DPP 构造表现不佳，不是对所有行列式选择方法的结论。
 
-\paragraph{构造与权限检查。}
 DomainNet 记录图像内容哈希、样本标识、官方划分、角色及类别词表。特征提取前验证归档与划分校验和。角色互斥和重复内容检查处理已物化基准内部的重叠，但不能排除语义近重复或预训练污染。全部筛选方法使用相同源块、投影、目标选择行和候选集合。特征提取忽略标签，基准物化则使用类别元数据，并为后续授权阶段存储标签。
 
-筛选、验证与审计 manifest 绑定配置和上游产物哈希。分阶段加载器执行标签与划分权限。验证阶段确实单独评价每种方法或随机重复，而非用已有测试结果代替。选择冻结后，测试审计才对每个编码器覆盖全部 $6\times455$ 个组合。穷举 oracle 是审计参照，不是可部署方法。随机重复和共享组合不构成额外统计单位。
+筛选、验证与审计 manifest 绑定配置和上游产物哈希，分阶段加载器执行标签与划分权限。原协议的验证阶段单独评价每种方法或随机重复。选择冻结后，测试审计覆盖每个编码器的全部 $6\times455$ 个组合，穷举 oracle 作为研究参照。补实验的缓存策略如下。
 
-\paragraph{研究与产物映射。}
+CUDA 重建保留原样本标识、候选成员、预处理和超参数，全部十二个 Brier 前十名集合与原实验一致。逐样本损失均值与重建聚合审计的误差不超过 $1.78\times10^{-15}$。每个目标域对其 2,048 个测试样本执行 2,000 次配对 bootstrap，全部组合、编码器和四种损失共享权重。拟合模型与验证选择固定，平局按组合标识处理。这些重采样衡量对测试样本抽取的敏感性。原 Brier 前十名与 NLL、原始平方损失及分类错误率前十名的平均重叠分别为 $\BrierNLLOverlap\%$、$\BrierSquaredOverlap\%$ 和 $\BrierErrorOverlap\%$。
+
+种子 $20260917$、$20260918$、$20260919$、$20260920$ 生成新的 128 维 Rademacher 投影，保持投影前后行归一化。种子 $20260911$ 用作实现对照，不计入新种子均值。逻辑回归采用 L2 正则化、$C=1$、无截距、LBFGS，容差为 $10^{-6}$，最多迭代 1,000 次。若出现收敛警告则终止任务；实际没有出现警告，最大迭代次数为 24。类别词表固定，源数据中缺失类别的概率设为零。
+
+所有方法保留原筛选规则、候选组合和五种短名单规模，由独立进程依次筛选、拟合验证、测试冻结模型。测试特征读取前，核验源码、配置、来源、模型及选择的哈希。每个读出器对全部组合拟合一次，各方法复用这些拟合结果。这种缓存穷举评价用于比较不同短名单的反事实结果。Brier、NLL 和错误率分别使用自己的验证损失作最终选择。原种子岭回归在 5,460 个重建测试组合上的最大损失差异为 $1.78\times10^{-15}$，全部 1,620 个 Brier 验证选择完全一致。
+
+两个编码器、五个种子、两种读出器合计完成 54,600 次拟合。新种子汇总先在任务内平均随机重复，再在目标域内平均编码器和种子，最后平均六个域。每个读出器包含 48 个编码器--种子--目标域重复测量，但仍是共享相同源池的六个目标域单位。
+
 归档保留历史实验编号用于定位结果，不应将其与论文科学问题混淆。以下路径相对于匿名代码仓库：
 \begin{itemize}
 \item 共享模型与偏移研究（E1）：\path{results/target_conditioned/e1_synthetic/expanded_v3_controlled_rng/}。
@@ -66,21 +70,31 @@ DomainNet 记录图像内容哈希、样本标识、官方划分、角色及类�
 \item 事后改善空间（E2a）：\path{results/target_conditioned/e2_dataset_selection/oracle_headroom_v1/}。
 \item 等成本短名单（E2b）：\path{results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/}。
 \item 风险草图扫描（E5）：\path{results/target_conditioned/e5_sketch_certificate/expanded_v3_controlled_rng/}。
+\item 重建与测试重采样（R1/R2）：\path{results/target_conditioned/revision_20260916/}。
+\item 投影与读出器补实验（R3/R4）：\path{results/target_conditioned/revision_20260917/}。
 \end{itemize}
-DomainNet 数据 manifest 前缀为 \texttt{1ba25059df70be4d}，候选集 ID 前缀为 \texttt{545fe86c8c9e8304}，汇总 ID 前缀为 \texttt{2d473cb9eb977e85}；完整 SHA-256 位于产物中。配置为 \path{code/configs/target_conditioned_e2b/domainnet_v1.json}，阶段实现为 \path{scripts/run_target_conditioned_e2b_shortlist.py}。论文的 \path{build_assets.py} 从已提交源文件重新生成主表、两张图及双语摘要，并将完整输入哈希写入 \path{generated/asset_manifest.json}，不训练新模型，也不更改实验门控。
+{\raggedright
+DomainNet 数据 manifest 前缀为 \texttt{1ba25059df70be4d}，候选集 ID 前缀为 \texttt{545fe86c8c9e8304}，汇总 ID 前缀为 \texttt{2d473cb9eb977e85}；完整 SHA-256 位于产物中。原配置为 \path{code/configs/target_conditioned_e2b/domainnet_v1.json}，实现为 \path{scripts/run_target_conditioned_e2b_shortlist.py}。补实验采用 \path{code/configs/target_conditioned_e2b/readout_projection_v1.json} 和 \path{scripts/run_e2b_readout_projection.py}，汇总表位于 R3/R4 目录内的 \path{revision_results/e2b_readout_projection_v1/summary/}。论文的 \path{build_assets.py} 从记录的源文件生成表格、图、数字宏和双语摘要，完整输入哈希记入 \path{generated/asset_manifest.json}。\par}
 
 三份原始特征矩阵未重复存入 Git。元数据记录精确文件哈希、检查点哈希、形状、预处理、提取代码版本和运行环境。重新提取需要原始公开数据及模型权重，不假设不同硬件逐位一致。仓库保留 manifest 和足够的结果表，可在没有这些矩阵时复现报告的汇总结果。
 
-\section{补充失败诊断}
+\section{补充结果}
 \label{app:diagnostics}
-\paragraph{谱区间不是风险区间。}
+PACS/Office-Home、$K=3$ 时，A-opt 平均 Brier 为 $0.826769$，DPP 为 $0.829162$，MMD 为 $0.828719$。A-opt 减去基线的配对区间分别为 $[-0.007449,0.000731]$ 和 $[-0.003392,-0.000712]$。事后审计覆盖每个任务全部 220 个组合。Oracle 相对 DPP 的改善空间描述性 95\% 区间为 $[0.162,1.617]\%$；仅 PACS photo 在目标单位层面超过原 $2\%$ 门槛。相对父方法的事后测试最优包络，oracle 平均还能改善 $0.087\%$。该包络是基于结果的参照，不是可用于选择的基线。
+
+表\ref{app:readout-table} 给出主规模下完整的 Brier 召回比较。A-opt 和 MMD 平均相对选择遗憾相同：岭回归为 $\RidgeSelectedRegret\%$，逻辑回归为 $\LogisticSelectedRegret\%$。两者全部新种子主设置 Brier 短名单均包含经验 oracle。
+
+\begin{table}[ht]
+\centering
+\caption{表中报告全部补实验评分规则在 $s=227$ 时的 Brier 前十名召回率（\%）。平均方式与表\ref{tab:readout} 相同，不包括原种子对照。}
+\label{app:readout-table}
+\input{generated/readout_all_rows}
+\end{table}
+
+A-opt 最低分类错误率召回出现在 DINOv2、Quickdraw、逻辑回归、投影种子 $20260918$ 的任务中。测试错误率 oracle 为 $85.9863\%$，验证选择为 $87.6465\%$。虽然前十名召回只有 $\WorstErrorRecall\%$，短名单仍保留 oracle。因此，保留最佳成员与保留前十名回答不同问题，二者也都不同于可用模型的绝对质量。
+
 四编码器、十个构造种子的谱扫描使用六个重叠设置和四种预算，每个草图秩有 960 个配置。秩为 $10,20,50$ 时，相对仅使用秩的对照，Gram 草图在精确合并有效秩上的收益分别为 $2.09,3.81,4.94\%$，DPP 为 $4.90,5.48,5.68\%$。这些是几何目标收益，不是分类准确率。熵连续性界采用\citet{audenaert2007} 这一类型的界；2,880 个已选择前缀区间全部覆盖，但 7,200 个评价的贪心步骤没有一步得到认证。结果来源为 \path{results/two_stage_controlled_rank_sweep_corrected_v3/}。这并不意味着所有低秩草图都必然失败。
 
-\paragraph{目标风险草图。}
 独立 E5 研究将草图载荷与紧凑对称 float64 Gram 比较，而非与更大的稠密存储比较。在覆盖完整网格、平均字节比不超过 $25\%$ 的策略中，与 Full-Gram 贪心的最佳所选集合一致率为 $15.42\%$，由自适应秩上限 2 获得，平均字节比为 $14.91\%$。其成对证书率为 $3.91\%$，完整选择认证率为零。自适应回退能够实现完全所选集合一致，但计入此前传输后，平均成本约为紧凑 Gram 字节的 $160\%$，未达到决策与通信的联合要求。参照是 Full-Gram 贪心，而非穷举全局最小解。
 
-\paragraph{较弱候选族可能使低遗憾具有误导性。}
 另一项早期实验在 21 个来源上训练源监督 bottleneck adapter，使用四个编码器、五个 adapter 种子审计七个目标。目标训练内验证采用三个分层五折划分，选择冻结后独立读取 held-out 目标测试集。冻结 identity 平均准确率为 $0.83654$，未训练随机 adapter 为 $0.77144$，验证 oracle 源监督 adapter 为 $0.76951$。后者比 identity 低 $0.06703$，目标聚类 95\% 区间为 $[-0.09771,-0.04400]$。相对该 adapter 族的小短名单遗憾因而不代表下游收益。这不是 DomainNet 实验，也不是对所有适应方法的否定。结果位于 \path{results/two_stage_repeated_cv_utility_corrected_v3/}。
-
-\paragraph{未完成的挑战。}
-现有证据不包含另一个数据集上的等成本短名单独立复现、DomainNet 前十名的逐样本不确定性、经校准读出器的敏感性研究，或相对 MMD 的匹配端到端时间对照。NTK、LoRA 和非线性训练扩展不是本文已获得的结果。拟开展实验必须在读取新结果前冻结；继续分析已打开测试结果仍属于探索性工作。当前摘要和结论不以任何未来结果作为支撑。

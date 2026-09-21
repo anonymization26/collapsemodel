@@ -1,0 +1,85 @@
+{
+  "caches": {
+    "clip_b32": {
+      "encoder": "clip_b32",
+      "feature_file_sha256": "c1dcfba65b18dffd89a8e917f8a7582234bfb08704507f84c58e3ef805887ef8",
+      "feature_shape": [
+        46080,
+        512
+      ],
+      "manifest_id": "1ba25059df70be4d9d22ec1c3c25bdd03e6a83795fbb44a45b3a8e0bb6b20839",
+      "status": "valid"
+    },
+    "dinov2_b14": {
+      "encoder": "dinov2_b14",
+      "feature_file_sha256": "69b83e5ad6cfe1e847f87ec53dd6848685bbc1b9461b475bfdfb191eab9fc9c2",
+      "feature_shape": [
+        46080,
+        768
+      ],
+      "manifest_id": "1ba25059df70be4d9d22ec1c3c25bdd03e6a83795fbb44a45b3a8e0bb6b20839",
+      "status": "valid"
+    },
+    "resnet50": {
+      "encoder": "resnet50",
+      "feature_file_sha256": "37725c82c24fa9284c1492f95ded412ea8c100b35ba7230cd2a01666ea30a7aa",
+      "feature_shape": [
+        46080,
+        2048
+      ],
+      "manifest_id": "1ba25059df70be4d9d22ec1c3c25bdd03e6a83795fbb44a45b3a8e0bb6b20839",
+      "status": "valid"
+    }
+  },
+  "code_sha256": {
+    "code/metrics/e2b_stage_bundle.py": "26f946ded82e8af8d8dce40aa38059f4ba6b28116c2c64c4af83fc6d2afe34c8",
+    "scripts/benchmark_two_stage_encoders_npu.py": "72e11df2e7ed69cbeb4622c9f42cbf3db0f10830644463549fdc9ba5cd7a2c1f",
+    "scripts/check_target_conditioned_e2b_cuda.py": "cc9ee50ac427fab78b5f6913d95c5911e2573ac2a87d677ffecb1dfbb962d8b6",
+    "scripts/check_target_conditioned_e2b_preparation.py": "134fe07e534f6a1b01c187880a10f14fb5e1821b58f6f90fe8905e003c3aae8b",
+    "scripts/extract_target_conditioned_e2b_features.py": "c3c26e5baa32309e152423db30c4077eeb55464a7e3d752cd6b44048dee0e015",
+    "scripts/extract_target_conditioned_e2b_features_npu.py": "4f9e336870b62f95e0faac368f88fa1781f57ceed6f83fdbefae5b0e64da33d3",
+    "scripts/materialize_target_conditioned_e2b_parquet.py": "760d9255c107b79b4d725a41ed57b9bf3b9a6523f9028183fe1b2702bbe5e3b3",
+    "scripts/prepare_target_conditioned_e2b_cuda.sh": "11a728320279ebc63db6bbeeeefaf5ef968ef878e24c55fe01b6f30a7d466444",
+    "scripts/prepare_target_conditioned_e2b_stage_bundles.py": "ddc386bf983be805f92ff073a047f6da2c2a370ac5b07a5403786e469103bb7e",
+    "scripts/run_target_conditioned_e2b_isolated.py": "c5e3855436d036612dc951727089de0a529c10910f1310ff77e5ed9b126e96ff",
+    "scripts/run_target_conditioned_e2b_preparation.py": "27ace1a63428c5286eb04b2d5a6c3d9437af137b7d93f4f57937ecc4b8849309",
+    "scripts/run_target_conditioned_e2b_shortlist.py": "5bedcdbd08e04e027706f82b1db5cae683d93b802ffac71c8620da27cca95c18"
+  },
+  "image_bytes": 1819753655,
+  "note": "CUDA reconstruction, not a claim of bitwise equality with archived NPU features.",
+  "real_outcome_experiments_started": false,
+  "sample_count": 46080,
+  "stage_bundles": {
+    "dinov2_b14/screen": {
+      "bundle_id": "9b2e33c6d21667cebf775fcf03e5a705527f7ab1e402c1aa9e4739da18905b28",
+      "has_labels": false,
+      "samples": 18432
+    },
+    "dinov2_b14/test-audit": {
+      "bundle_id": "8483f959adc6e088195391774b9bde1382dd9b4b8a3a09f85fd65c632daff8e1",
+      "has_labels": true,
+      "samples": 21504
+    },
+    "dinov2_b14/validate": {
+      "bundle_id": "640d07f15f08829a73b69a6b2aeec367243df8e6fea939eca9c8cc6ca4b5ce15",
+      "has_labels": true,
+      "samples": 15360
+    },
+    "resnet50/screen": {
+      "bundle_id": "c699e9d9f7f649e552678dada157004c024c6cdec262d93de1976b76546cb51c",
+      "has_labels": false,
+      "samples": 18432
+    },
+    "resnet50/test-audit": {
+      "bundle_id": "acef8b918aafb269a4a872fad7b9a04cf9e655446bb53de1cb1999fce1f7f4e6",
+      "has_labels": true,
+      "samples": 21504
+    },
+    "resnet50/validate": {
+      "bundle_id": "0bfca2b3ec6939cda768e14fa3805f2c71745bc58042948ae76a724d4bce7d6d",
+      "has_labels": true,
+      "samples": 15360
+    }
+  },
+  "status": "ready"
+}

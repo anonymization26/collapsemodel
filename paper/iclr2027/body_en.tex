@@ -1,81 +1,98 @@
 \section{Introduction}
-Selecting source data with frozen encoders is an appealing alternative to training every candidate model. A collection of feature matrices already exposes sample counts, singular spectra, and cross-pool geometry without requiring a supervised fit. The unresolved question is what these quantities justify: predicting the spectrum of a merged representation, predicting a downstream risk, or merely preserving useful candidates for later evaluation. These are different objectives, and success at one need not imply success at another.
+Researchers adapting a predictor to a target domain often have several source-data pools to choose from. The pools may differ in acquisition conditions, image style, or the range of examples they contain. A source combination is useful only in relation to the intended prediction task, so its quality is usually assessed by training a model and evaluating it on target validation data. Repeating this procedure for every combination can be costly even when each individual model is small. The practical problem is deciding which combinations deserve that supervised evaluation.
 
-We study \emph{data-pool screening}: rank a finite collection of source-pool combinations using unlabeled source features and, when permitted, an unlabeled target sample; retain a shortlist; then use supervised validation to choose its final member. This setting is deliberately narrower than fully label-free data selection. Labels are hidden from the screening rule, not removed from the subsequent training and validation procedure. Our aim is to determine when second-order geometry is informative enough to reduce this evaluation search space.
+Pretrained encoders provide a common space in which to inspect these choices. An encoder maps each image to a feature vector; with its parameters frozen, the same extracted features can be reused across source combinations and classifier fits. Learned visual representations such as CLIP and DINOv2 make this setting natural \citep{radford2021,oquab2024}. Stacking feature vectors as rows of a matrix exposes properties that can be measured without fitting a classifier. Sample counts indicate the amount of data, while singular values describe how strongly different feature directions are represented. These measurements offer a possible first step in a search that would otherwise require labels at every comparison.
 
-The distinction matters mathematically. Full feature Gram operators determine a merged singular spectrum, whereas marginal spectra and principal angles can omit how singular mass aligns with shared directions. Even exact merged geometry does not identify a supervised target task. A shared Bayesian linear model supplies a conditional bridge to target-weighted A-optimal design, but does not establish a general connection to classification utility. We use this bridge to motivate an empirical comparator, not to relabel a standard optimal-design criterion as a new theorem or a universally reliable selector.
+Effective rank is one way to summarize that directional structure. Ordinary matrix rank counts nonzero singular values, so it can assign the same rank to a well-spread representation and one dominated by a few directions. Effective rank instead normalizes the singular values, takes their entropy, and exponentiates the result \citep{roy2007}. It describes how many equally weighted directions would have the same spectral entropy. RankMe uses this idea to assess self-supervised representations without downstream labels \citep{garrido2023rankme}. For source-pool selection, the corresponding intuition is that a combination covering more directions may offer a richer set of features for learning.
 
-The empirical picture is similarly conditional. On PACS and Office-Home, the target-weighted criterion has a small Brier advantage but fails the prespecified practical-effect threshold. An exhaustive, explicitly post-hoc audit finds little average room for any selector to improve over a strong target-blind comparator. A subsequent DomainNet experiment fixes the number of source samples, broadens the candidate construction, and separates validation from official test data. Here, screening half of the combinations retains almost all of the test top ten. Yet a simpler second-moment matching baseline obtains the same primary result, and the absolute Brier differences are small enough to make a generous regret threshold vacuous.
+Moving from representation assessment to pool selection introduces two questions. First, how do the directions supplied by different pools combine? Two pools can each have broad spectra while covering much the same part of feature space; another pair can complement one another. Second, which of the resulting directions matter to the target? A combination may have high effective rank because it contains variation rarely encountered at prediction time. For example, if the target occupies a narrow part of feature space, adding variation outside that part can raise a diversity score without improving its coverage. A pooled spectrum describes source variation, whereas prediction also depends on the target distribution and the relation between features and labels.
 
-Our contribution is an analysis of these distinctions and their consequences. First, we give a constructive spectral insufficiency example and state the assumptions needed for a risk interpretation. Second, we evaluate target-conditioned and target-blind scores under an access-controlled, equal-cost shortlist protocol with exhaustive outcome audits. Third, we expose three diagnostics that qualify apparent success: oracle headroom, metric resolution, and the difference between score certificates and useful decisions. The evidence supports a bounded screening role for target-conditioned geometry, not a new state-of-the-art selection method.
+These questions suggest using geometry to retain alternatives rather than requiring it to choose the final model. A screen can keep several combinations whose features look relevant and let labeled validation resolve the remaining uncertainty. The resulting objective is to preserve useful candidates within a smaller evaluation budget. It differs from maximizing a geometric score for its own sake: a useful shortlist should contain candidates with good target outcomes, even when their exact ordering is hard to predict from features.
 
-\section{Problem and Related Work}
+We study this approach through a two-stage data-pool screening protocol. The first stage ranks combinations using unlabeled source and target features; the second trains on source labels and chooses within the shortlist using separate target-validation data. Target-weighted A-optimal design favors source combinations that reduce uncertainty along directions common in the target, a connection made explicit by a shared Bayesian linear model. Second-moment matching asks a simpler question: how closely does the source's average directional energy match the target's? Comparing these scores with merged effective rank and other target-blind criteria distinguishes the use of target information from the choice of scoring function.
+
+The experiments evaluate both the retained candidates and the final validation choice. Direct selection on PACS and Office-Home produces modest gains, and exhaustive evaluation finds little room to improve on the baselines within those candidate families. An equal-sample-cost DomainNet study instead shows that target-aware screening can retain most promising combinations while shortening the list sent to supervised evaluation. Additional projection seeds and classifier readouts preserve high average recall, and second-moment matching remains competitive with A-optimal screening. By relating these observations to the construction of effective rank and the assumptions behind target-weighted risk, the paper identifies what geometry contributes to pool screening and what must be decided using task-specific evidence.
+
+\section{Related Work}
+\subsection{Representation geometry and diversity}
+RankMe uses effective rank to assess learned representations without downstream labels \citep{garrido2023rankme}. Determinantal point processes favor subsets with complementary directions \citep{kulesza2012}. Both motivate ways to compare source pools before fitting a task-specific model. Their geometric objectives differ, however, from preserving candidates with low target loss: variation may be redundant for a particular task, and directions important to that task may occupy only part of the representation. We examine merged effective rank and a specified subspace-DPP implementation as target-blind comparators.
+
+\subsection{Optimal design and distribution matching}
+A-optimal design measures uncertainty through the trace of a covariance matrix, with applications to active linear regression \citep{fontaine2021}. Weighting that covariance by a target feature moment directs the criterion toward predictions on the intended population. Distribution matching offers a different approach. MMD compares mean embeddings of source and target distributions \citep{gretton2012}; a homogeneous quadratic kernel makes this comparison depend on their second moments. Moment alignment has also been used to learn representations for multi-source domain adaptation \citep{peng2019}. Here the encoder stays fixed, allowing us to compare uncertainty reduction and moment matching as scoring rules on the same candidate combinations.
+
+\subsection{Selection under a computation budget}
+Compute-constrained data selection accounts for the work needed to select data as well as the subsequent training \citep{yin2025}. Pool screening introduces an intermediate decision: how many combinations should receive supervised evaluation? A broad shortlist may be easy to construct and preserve good candidates, while still requiring substantial validation work. Our protocol measures retention at a declared shortlist size and separates it from the quality of the final selected model. This provides the decision-level evidence needed before measuring the total cost of a deployment.
+
+\section{Geometry-Guided Screening}
 \label{sec:problem}
-Let $H_i\in\R^{n_i\times d}$ be the features of source pool $i$, produced by a fixed encoder and a declared, label-independent preprocessing map. Write $G_i=H_i^\top H_i$. A feasible combination $S$ belongs to a finite family $\cC$; $G_S=\sum_{i\in S}G_i$ and $n_S=\sum_{i\in S}n_i$. An unlabeled target-selection sample estimates the uncentered second moment $C_T=\E_T[hh^\top]$. A screen produces $\cQ_s\subset\cC$ with $|\cQ_s|=s$. A separate target-validation set chooses $\widehat S\in\cQ_s$ after source-supervised training. Target-test data are reserved for auditing this frozen choice and the shortlist.
-
-We distinguish two access levels. At U0, a rule sees source features and target-selection features but neither source labels nor target validation/test data. At U2, it may fit on source labels and select using target-validation labels. A target-blind rule uses less information than U0. Comparing against both types of rules separates the value of target information from the value of the particular functional applied to it. Label use in defining the benchmark taxonomy is disclosed separately from selector access.
-
-\paragraph{Spectral diagnostics.}
-Effective-rank criteria such as RankMe assess learned representations without downstream labels \citep{garrido2023rankme}. This motivates a diversity comparator, but selecting among encoders is not the same problem as selecting combinations of pools with one frozen encoder. In our setting, even a perfect merged-rank predictor need not rank supervised risks correctly. We therefore keep spectral fidelity and downstream usefulness as separate endpoints.
-
-\paragraph{Optimal design and moment matching.}
-Trace-of-covariance objectives are standard in A-optimal design and active linear regression \citep{fontaine2021}. Target weighting changes which prediction directions matter; it does not make the underlying posterior covariance identity novel. Second-moment matching is a direct instance of empirical MMD with a homogeneous degree-two polynomial kernel \citep{gretton2012}. Moment alignment also appears in multi-source domain adaptation \citep{peng2019}. Our comparison freezes representations and ranks pool combinations; it neither retrains a domain-invariant representation nor claims a new MMD construction.
-
-\paragraph{Diversity and cost.}
-Determinantal objectives favor diverse subsets \citep{kulesza2012}. We implement a declared subspace-kernel comparator, not every possible DPP or coreset algorithm. Compute-constrained selection must account for both selection and subsequent training \citep{yin2025}. Accordingly, a reduction in evaluated combinations is reported as such, rather than converted into an unmeasured end-to-end speedup. The contribution is the matched audit and its boundaries, not a claim that classical alternatives are exhausted.
-
-\section{What Geometry Can and Cannot Predict}
 \label{sec:theory}
-\subsection{Exact composition requires directional information}
-For vertically stacked features with fixed nonnegative source weights $w_i$,
+\subsection{Problem and two-stage procedure}
+Let $H_i\in\R^{n_i\times d}$ contain the features of source pool $i$, obtained with a fixed encoder and a shared, label-independent preprocessing map. Write $G_i=H_i^\top H_i$. A feasible combination $S$ belongs to a finite family $\cC$, with $G_S=\sum_{i\in S}G_i$ and $n_S=\sum_{i\in S}n_i$. An unlabeled target-selection sample estimates the uncentered second moment $C_T=\E_T[hh^\top]$.
+
+The screen ranks $\cC$ and retains its first $s$ combinations as $\cQ_s$. We then train predictors on their source labels and use a separate target-validation set to choose $\widehat S\in\cQ_s$. Target-test data evaluate this frozen choice and the candidates retained. The screening stage, denoted U0, sees source and target-selection features but no labels or validation/test data. The supervised stage, U2, reads source labels and target-validation data. Target-blind rules use only source information. This separation lets the screen exploit reusable features while reserving task-specific evidence for the final choice.
+
+Here a pool is a fixed block of examples, and a candidate is a feasible union of such blocks. We select among these unions rather than choose individual images or retrain the encoder. This distinction fixes what a screening score is allowed to change. Each retained combination receives the same prescribed classifier and validation procedure, so differences in its outcome come from the source examples supplied to that procedure. In the equal-cost study, all combinations also contain the same number of examples.
+
+\subsection{Constructing effective rank from pooled features}
+The singular value decomposition $H=U\Sigma V^\top$ separates feature directions from their strengths. The columns of $V$ give directions in the encoder's coordinate space, and the diagonal entries of $\Sigma$ measure the magnitude of the feature matrix along those directions. Since $H^\top H=V\Sigma^\top\Sigma V^\top$, the Gram matrix contains the information needed to recover them. It also gives a convenient way to combine pools without repeatedly stacking their feature rows.
+
+For fixed nonnegative weights $w_i$, vertically stacking source features gives
 \begin{equation}
  H_S=\begin{bmatrix}\sqrt{w_{i_1}}H_{i_1}\\ \vdots\\\sqrt{w_{i_k}}H_{i_k}\end{bmatrix},
  \qquad H_S^\top H_S=\sum_{i\in S}w_iG_i.
  \label{eq:gram}
 \end{equation}
-Thus the full Gram sum exactly determines the merged singular values. This identity presumes the same feature coordinates and fixed preprocessing. Re-centering each proposed merge or re-fitting a projection for each combination defines a different problem. Our reported effective rank uses singular values, not squared singular values:
+The Gram sum therefore determines the merged singular values in the shared feature coordinates. Keeping these operators preserves both the strength of each direction and its alignment across pools. Re-centering or re-fitting a projection for each combination would change those coordinates and require a different calculation.
+
+We construct the effective rank by normalizing the singular values into a probability vector and exponentiating its Shannon entropy \citep{roy2007}:
 \begin{equation}
  \reff(H)=\exp\!\left(-\sum_j p_j\log p_j\right),\qquad
- p_j=\frac{\sigma_j(H)}{\sum_k\sigma_k(H)}.
+ p_j=\frac{\sigma_j(H)}{\sum_k\sigma_k(H)},
  \label{eq:rank}
 \end{equation}
-For a nonzero matrix, zero terms use $0\log0=0$. Numerical implementations apply a declared singular-value rank tolerance (Appendix~\ref{app:protocol}); it is not part of the exact identity.
+The convention $0\log0=0$ handles zero singular values for a nonzero matrix. If $\rho$ singular values are positive, the entropy lies between $0$ and $\log\rho$, so $1\leq\reff(H)\leq\rho$. A rank-one matrix attains the lower endpoint; equal positive singular values attain the upper endpoint. For two positive singular values with ratio $9:1$, ordinary rank is two, but effective rank is about $1.38$. Equal singular values instead give effective rank two. Thus the score distinguishes concentrated from balanced variation even when ordinary rank is unchanged.
 
-\begin{proposition}[Marginal spectra and principal angles are insufficient]
+In implementation, we first sum the source Grams, compute their nonnegative eigenvalues, and take square roots to obtain the singular values used in Equation~\eqref{eq:rank}. Normalizing the Gram eigenvalues directly would give a different score, with more weight on large directions. A common scalar rescaling cancels in the normalized singular values. In particular, repeating an entire feature matrix multiplies every singular value by the same factor and leaves effective rank unchanged. The statistic measures spectral shape, not the amount of labeled evidence available for training. Numerical tolerances are specified in Appendix~\ref{app:protocol}.
+
+The direction information in the Gram sum is important before this spectral summary is taken. Keeping only each pool's spectrum and a list of subspace overlaps can already lose information needed to calculate the merged effective rank.
+
+\begin{proposition}[Directional assignment matters]
 There exist row-normalized pairs $(A,B_1)$ and $(A,B_2)$ with identical marginal singular spectra and identical principal angles between their row spaces, but different effective ranks after vertical concatenation.
 \end{proposition}
 \begin{proof}
-Take $A$ with four rows $e_1^\top$ and one row $e_2^\top$. Let $B_1$ have four rows $e_1^\top$ and one $e_3^\top$, and let $B_2$ have one row $e_1^\top$ and four $e_3^\top$. All three nonzero singular spectra are $(2,1)$; both row-space pairs have principal angles $(0,\pi/2)$. The merged Gram spectra are respectively $(8,1,1)$ and $(5,4,1)$. Equation~\eqref{eq:rank} yields approximately $2.6260$ and $2.8495$.
+Take $A$ with four rows $e_1^\top$ and one row $e_2^\top$. Let $B_1$ have four rows $e_1^\top$ and one $e_3^\top$, and let $B_2$ have one row $e_1^\top$ and four $e_3^\top$. All three nonzero singular spectra are $(2,1)$; both row-space pairs have principal angles $(0,\pi/2)$. The merged Gram spectra are $(8,1,1)$ and $(5,4,1)$, giving effective ranks of approximately $2.6260$ and $2.8495$.
 \end{proof}
-The missing information is the assignment of singular mass to the shared versus private directions. Under the additional assumption of mutually orthogonal, paired two-dimensional invariant blocks, a block with singular weights $a,b$ and overlap $c$ has eigenvalues
-\begin{equation}
- \lambda_{\pm}=\frac{a^2+b^2\pm\sqrt{(a^2-b^2)^2+4a^2b^2c^2}}{2}.
- \label{eq:local}
-\end{equation}
-This is an exact local calculation, not a general reduction to four scalar summaries. Appendix~\ref{app:proofs} derives it and explains its scope.
+The two merges assign different amounts of energy to their shared direction. This explains why our screening rules use Gram operators rather than marginal spectra alone. Appendix~\ref{app:proofs} also gives an exact local spectral formula when the operators admit compatible two-direction blocks.
 
-\subsection{A risk interpretation needs a shared conditional model}
-Full source and target feature geometry still cannot identify arbitrary target utility. For example, let every feature equal $1$, and let two source pools have constant labels $+1$ and $-1$. Two target worlds can have identical features and opposite constant labels. Source-trained constant predictors exchange their target-risk ordering between these worlds. Any feature-only screen sees the same input in both. Additional assumptions or labeled evidence are therefore necessary for a universally correct preference.
-
-A useful conditional model is scalar Bayesian linear regression. Assume $\theta\sim N(0,P_0)$, $P_0\succ0$, and $y=h^\top\theta+\epsilon$ with independent $\epsilon\sim N(0,\sigma^2)$, $\sigma^2>0$. The same $\theta$ and noise model govern all sources and the target. Conditional on the source design, the posterior covariance and posterior-mean prediction risk are
+\subsection{Target weighting and moment matching}
+To connect geometry to prediction, consider scalar Bayesian linear regression with $\theta\sim N(0,P_0)$, $P_0\succ0$, and $y=h^\top\theta+\epsilon$, where independent noise satisfies $\epsilon\sim N(0,\sigma^2)$ and $\sigma^2>0$. Sources and target share $\theta$ and the noise model; target covariates reveal no further information about $\theta$. Conditional on the source design, the posterior covariance and posterior-mean target risk are
 \begin{equation}
  P_S=\left(P_0^{-1}+\sigma^{-2}G_S\right)^{-1},\qquad
  R_T(S)=\sigma^2+\tr(C_TP_S).
  \label{eq:risk}
 \end{equation}
-The expectation integrates posterior uncertainty and a new target observation. This is a standard conjugate calculation, recalled in Appendix~\ref{app:proofs}; it is not a distribution-free risk bound. It motivates ranking combinations by $f_A(S)=\tr(\widehat C_TP_S)$ with fixed hyperparameters. Adding a PSD source Gram cannot increase this score, but we make no general diminishing-returns or greedy global-approximation claim.
+The expectation averages posterior uncertainty and a new target observation. The derivation is recalled in Appendix~\ref{app:proofs}.
 
-The same-information alternative is
+Equation~\eqref{eq:risk} motivates the score $f_A(S)=\tr(\widehat C_TP_S)$, minimized with fixed hyperparameters. Source observations reduce uncertainty in the directions they cover, and the target moment weights those reductions by how often the directions occur at prediction time. Thus a pool can be valuable even without high overall diversity if it covers directions that remain uncertain and matter to the target. Adding a positive-semidefinite source Gram cannot increase this score.
+
+For the experimental choice $P_0^{-1}=I$ and $\sigma^2=1$, write $G_S=U\operatorname{diag}(\lambda_j)U^\top$, including zero eigenvalues. Then
+\begin{equation}
+ f_A(S)=\sum_j\frac{u_j^\top\widehat C_Tu_j}{1+\lambda_j}.
+ \label{eq:target-directions}
+\end{equation}
+The denominator reflects source coverage of direction $u_j$, while the numerator measures its importance to the target. Two combinations with the same eigenvalues can therefore receive different scores if their directions align differently with the target. Effective rank treats their spectra identically; target weighting distinguishes where their coverage is useful.
+
+Second-moment matching instead minimizes
 \begin{equation}
  f_M(S)=\norm{G_S/n_S-\widehat C_T}_F^2.
  \label{eq:mmd}
 \end{equation}
-This is squared distance between empirical second-moment embeddings for $k(h,h')=(h^\top h')^2$, including diagonal terms. It is uncentered moment matching, not the centered covariance loss sometimes used in adaptation. Both scores see the same unlabeled data. Their different operations on that information must earn any relative advantage empirically.
+This is empirical squared MMD with kernel $k(h,h')=(h^\top h')^2$, including diagonal terms. It brings the source's average directional energy closer to the target's rather than weighting a posterior uncertainty matrix. Both criteria read the same features, so their comparison tests whether inverse-covariance weighting adds value beyond direct moment matching.
 
-The real-data readout is not the generative model in Equation~\eqref{eq:risk}. We fit one-hot ridge regression and apply softmax before computing multiclass Brier loss. Conditional shift, model misspecification, and this nonlinear transformation all break an automatic identification of $f_A$ with the evaluated loss. Consequently, agreement in the synthetic shared-model setting tests the conditional motivation, whereas success on classification is an empirical observation.
+The shared conditional model supplies the risk interpretation of A-opt. Its assumption is substantive: if all features equal $1$, source pools labeled constantly $+1$ and $-1$ produce predictors whose risk ordering reverses between two target worlds with opposite constant labels. The feature geometry is unchanged. In classification, we therefore evaluate the scores using trained ridge-softmax and logistic-regression readouts rather than identify Equation~\eqref{eq:risk} with their losses.
 
-\subsection{Screening and validation have different error sources}
-Let $\ell(S)$ be a target risk for fixed trained predictors, and let $v(S)$ be their validation losses. Suppose $|v(S)-\ell(S)|\leq\varepsilon$ for every $S\in\cQ_s$. For $\widehat S\in\arg\min_{S\in\cQ_s}v(S)$,
+\subsection{Separating retention from final selection}
+Let $\ell(S)$ denote target risk for a fixed trained predictor and $v(S)$ its validation loss. If $|v(S)-\ell(S)|\leq\varepsilon$ throughout $\cQ_s$, then the validation minimizer satisfies
 \begin{equation}
  \ell(\widehat S)-\min_{S\in\cC}\ell(S)
  \leq
@@ -83,86 +100,104 @@ Let $\ell(S)$ be a target risk for fixed trained predictors, and let $v(S)$ be t
  +2\varepsilon.
  \label{eq:decomposition}
 \end{equation}
-This elementary deterministic inequality separates missing a good candidate from selecting badly within the shortlist. A proof is included in Appendix~\ref{app:proofs}. The experiments audit the finite-test counterparts of these quantities; they do not establish a population uniform-deviation value $\varepsilon$. Recall of the test top ten further assesses whether a screen preserves multiple good candidates, rather than merely one observed oracle.
+The proof appears in Appendix~\ref{app:proofs}. The first term asks whether screening discarded the best available choice; the second concerns choosing within the retained set. A shortlist that preserves an oracle can still lead to an inferior final model if validation ranks its members differently. We audit their finite-test counterparts and also measure recall of the test top ten, which asks whether several good alternatives survive screening. The deviation condition is used to explain these two error sources, not estimated as a population guarantee in our experiments.
 
 \section{Evaluation Protocol}
 \label{sec:protocol}
-\paragraph{Study sequence.}
-We first test the risk motivation with controlled synthetic tasks, then evaluate one-shot selection on PACS and Office-Home \citep{li2017,venkateswara2017}. Their failed practical-effect tests are retained. An exhaustive oracle-headroom analysis is performed after opening those outcomes and is labeled post hoc. DomainNet is a subsequent exploratory hypothesis on a different dataset, with its own configuration frozen before feature extraction and outcome evaluation. It is not a retroactive confirmation of the earlier hypothesis. Appendix~\ref{app:protocol} maps these studies to immutable result directories.
+Controlled synthetic tasks test the risk model. PACS and Office-Home \citep{li2017,venkateswara2017} then evaluate direct selection against a prespecified practical-effect threshold. An exhaustive headroom analysis follows those outcomes. The subsequent DomainNet study fixes sample cost and evaluates shortlists; its configuration was frozen before feature extraction and outcome evaluation. Test-sample resampling and the later projection/readout study are exploratory follow-ups. Appendix~\ref{app:protocol} records their configurations and result locations.
 
-\paragraph{Fixed-cost DomainNet candidates.}
-We use the official cleaned DomainNet data \citep{peng2019}, selecting 100 class names by a fixed hash rule. In each of six domains, disjoint roles contain 1,536 target-selection images, 1,024 target-validation images, and 3,072 anchor-pool images from official training data, plus 2,048 images from official test data. The manifest therefore contains 46,080 samples. Benchmark construction uses class metadata; screening does not use their labels.
+From the official cleaned DomainNet data \citep{peng2019}, we select 100 class names by a fixed hash rule. Each of six domains contributes disjoint sets of 1,536 target-selection images, 1,024 target-validation images, and 3,072 anchor-pool images from official training data, plus 2,048 official test images. The manifest contains 46,080 images. Class metadata define the benchmark vocabulary but are hidden from screening.
 
-CLIP ViT-B/32 \citep{radford2021} is used only as a frozen construction anchor. Within each domain, its first principal-component scores define low, middle, and high strata; each candidate block contains 512 images. For any target domain, we exclude its three blocks and enumerate $\binom{15}{3}=455$ combinations. Every combination contains exactly 1,536 source samples. ResNet-50 and DINOv2-B/14 provide the evaluation features \citep{he2016,oquab2024}. Row normalization, a fixed Rademacher projection to 128 dimensions, and post-projection row normalization are shared by all rules. The construction encoder is not an evaluation encoder, but this alone does not establish independence from pretrained model corpora.
+CLIP ViT-B/32 \citep{radford2021} serves as a frozen construction anchor. Within each domain, its first principal-component scores define low, middle, and high strata, each supplying a block of 512 images. For a given target, we exclude its own blocks and enumerate $\binom{15}{3}=455$ combinations, each with 1,536 source images. ResNet-50 and DINOv2-B/14 provide evaluation features \citep{he2016,oquab2024}. All rules share row normalization, a fixed Rademacher projection to 128 dimensions, and post-projection row normalization. Holding sample count constant removes a direct source of training-cost differences between candidates.
 
-\paragraph{Scores and baselines.}
-Target A-opt uses $P_0^{-1}=I$ and $\sigma^2=1$. We compare second-moment MMD, target energy $\tr(\widehat C_TG_S/n_S)$, Bayesian D-opt, merged effective rank, subspace DPP, domain balance, and 20 seeded random rankings. All rules score the same 455 combinations; there is no unequal search budget in this experiment. Domain balance additionally uses source-domain identifiers, not target outcome labels. Appendix~\ref{app:protocol} specifies the DPP kernel and tie rules. Classical coverage and moment baselines are controls with explicit implementations, not straw-man labels for unspecified algorithms.
+Target A-opt uses $P_0^{-1}=I$ and $\sigma^2=1$. Comparators are second-moment MMD, target energy $\tr(\widehat C_TG_S/n_S)$, Bayesian D-opt, merged effective rank, subspace DPP, domain balance, and 20 seeded random rankings. They score the same candidate family. Domain balance additionally reads source-domain identifiers. Kernel definitions and tie rules appear in Appendix~\ref{app:protocol}.
 
-\paragraph{Screen, validate, freeze, audit.}
-The screen emits immutable rankings without reading target-validation or target-test features or labels. It retains nested shortlists of sizes $10,25,50,100,227$, with $227$ fixed as primary. The U2 stage independently evaluates each method's 227 combinations, fits ridge with regularization $1$ and no intercept, and chooses minimum validation Brier with lexicographic tie-breaking. Smaller shortlist outcomes reuse only that method's nested evaluations. No cross-method result cache is used. The test stage verifies upstream hashes before exhaustively evaluating all 455 combinations. This expensive oracle audit is a research cost, not an action available to deployment.
+The screen produces nested shortlists of sizes $10,25,50,100,227$, with $227$ designated primary. In the original protocol, U2 independently evaluates each method's primary shortlist using ridge regression with regularization $1$, no intercept, and a fixed softmax temperature. Validation Brier selects the final combination, breaking ties lexicographically. Smaller lists reuse that method's nested evaluations; there is no cross-method cache. The test stage verifies upstream hashes before evaluating every combination to establish an exhaustive audit reference.
 
-For test Brier $b(S)$ and its exhaustive minimizer $S^*$, we report
+The follow-up adds four projection seeds and a multinomial logistic readout with fixed regularization. It keeps the candidate members and data roles unchanged. Screen, validation, and test remain separate processes, but the follow-up reuses each combination's fitted model across methods to audit their shortlists. Its runtime is therefore the cost of a cached research audit rather than separate deployments. Readout settings and provenance checks are detailed in Appendix~\ref{app:protocol}.
+
+We measure how many test top-ten candidates survive screening and how far the validation choice lies from the empirical optimum. Writing test Brier as $b(S)$ and its exhaustive minimizer as $S^*$, these quantities are
 \begin{equation}
  \mathrm{Recall}_{10}(\cQ_s)=\frac{|\cQ_s\cap\mathrm{Top}_{10}(b)|}{10},\qquad
  \mathrm{Regret}(\widehat S)=\frac{b(\widehat S)-b(S^*)}{|b(S^*)|}.
  \label{eq:metrics}
 \end{equation}
-The denominator is the oracle loss, \emph{not} the best-to-worst span. The frozen primary gate requires at least $50\%$ removal, mean recall at least $90\%$, and mean normalized regret at most $5\%$. Brier is primary; accuracy, squared loss, NLL, macro-F1, and calibration error are supporting outcomes. They are not interchangeable with the primary metric.
+The original acceptance criteria require at least $50\%$ removal, mean recall of at least $90\%$, and mean normalized regret at most $5\%$. Brier is primary. Follow-up NLL and classification-error audits use their corresponding validation metric to select candidates, with the metric fixed before test access.
 
-\paragraph{Units and uncertainty.}
-For real data we first average encoders within each dataset--target-domain unit; random repetitions are averaged within task. PACS/Office-Home have eight such units and DomainNet six. Bootstrap intervals resample those units. Neither 455 overlapping combinations nor two encoders create hundreds of independent tasks. Even target-domain units share source pools, so these intervals are descriptive stability summaries under that resampling scheme, not evidence of broad independent-dataset generalization.
+We average encoder results within each dataset--target-domain unit and random rankings within each task. PACS/Office-Home contain eight such units and DomainNet six. Follow-up seeds are also averaged within domains. Original bootstrap intervals resample target units; the test-sample analysis fixes trained models and resamples examples within each target. Seeds, encoders, and overlapping combinations are repeated measurements, not additional independent datasets.
 
 \section{Empirical Findings}
 \label{sec:results}
-\subsection{The risk motivation works under its assumptions, not under arbitrary shift}
-The corrected synthetic sweep uses 20 independent generation seeds and 4,320 configurations, varying feature dimension, candidate count, block budget, target sample size, and target rank. Within each setting, target-sample generation is controlled across comparisons. Under the shared conditional model, target A-opt reduces modeled risk by $4.23\%$ relative to the strongest target-blind effective-rank comparator (95\% interval $[3.86,4.62]\%$) and by $14.85\%$ relative to second-moment MMD ($[13.99,15.70]\%$). These intervals bootstrap 216 design settings after averaging their 20 seeds; they describe that fixed design grid.
+\subsection{Target weighting under the shared risk model}
+The synthetic study varies feature dimension, candidate count, source budget, target sample size, and target rank, using 20 generation seeds for 216 design settings. Under the shared conditional model, A-opt reduces modeled risk by $4.23\%$ relative to the strongest target-blind effective-rank comparator and by $14.85\%$ relative to MMD. The respective descriptive 95\% intervals are $[3.86,4.62]\%$ and $[13.99,15.70]\%$, resampling design settings after averaging seeds. These comparisons show the benefit of weighting uncertainty by the target when the model that motivates this operation holds.
 
-These are conditional synthetic gains. In a separate source-conditional-shift sweep, its mean normalized prediction regret increases from $0.211$ at shift $0$ to $2.197$ and $3.143$ at shifts $0.5$ and $1$. The shift-free value differs from the posterior-risk experiment because this sweep evaluates a different, realized prediction endpoint. The deterioration is consistent with a violated shared-mechanism assumption; it is not a refutation of the correctly conditioned covariance identity. Nor do numerous parameter-grid rows constitute numerous independently sampled real domains.
+A separate source-conditional-shift sweep changes the regression mechanism. Its mean normalized prediction regret increases from $0.211$ without shift to $3.143$ at the largest tested shift. This endpoint measures realized prediction rather than posterior risk. Together, the two studies distinguish the advantage of covering target-relevant directions from the effect of transferring labels across different conditional mechanisms.
 
-\subsection{Small real-data gains coincide with limited oracle headroom}
-On PACS and Office-Home at block budget $K=3$, target A-opt has mean Brier $0.826769$, versus $0.829162$ for DPP and $0.828719$ for MMD. The mean of within-unit relative improvements is $0.351\%$ over DPP and $0.273\%$ over MMD. Against DPP the paired Brier difference interval is $[-0.007449,0.000731]$; against MMD it is $[-0.003392,-0.000712]$. The latter is directionally consistent but still far below the frozen $2\%$ practical-effect requirement. Both primary gates fail. These comparisons hold the number of blocks fixed, not the number of source samples.
+\subsection{Direct selection and available improvement headroom}
+PACS and Office-Home test whether the score can directly choose a better source combination. At block budget $K=3$, A-opt improves mean within-unit relative Brier by $0.351\%$ over DPP and $0.273\%$ over MMD. Both fall below the prespecified $2\%$ practical-effect threshold. The paired difference interval crosses zero against DPP and is negative against MMD; detailed values are in Appendix~\ref{app:diagnostics}. These comparisons hold block count, rather than source sample count, fixed.
 
-The subsequent exhaustive audit evaluates all 220 $K=3$ combinations per task. Relative to DPP, the oracle offers only $0.781\%$ mean headroom, with descriptive 95\% interval $[0.162,1.617]\%$. Only PACS photo exceeds $2\%$ at the target-unit level (Figure~\ref{fig:diagnostics}, left). The oracle's mean remaining gain over the post-hoc envelope of the tested parent methods is $0.087\%$. This envelope uses test outcomes and is not a deployable selector. Low headroom helps explain why large average gains are unavailable in this candidate family; it does not turn the failed original tests into successes.
+To understand the scale of the available gains, the post-hoc audit evaluates every feasible combination. Figure~\ref{fig:diagnostics} shows that even the test oracle offers only $0.781\%$ mean headroom over DPP. Most target units therefore leave little room for a different selector to improve the average loss substantially. This observation motivates examining candidate retention separately: geometry may help narrow the search even when the final choices have similar loss.
 
-\subsection{Equal-cost screening preserves good candidates, with MMD parity}
-Table~\ref{tab:primary} gives the DomainNet primary result. Retaining 227 of 455 combinations removes $\MainReduction\%$ and gives target A-opt $\MainRecall\%$ mean test top-ten recall. Its descriptive recall interval is $[96.667,100]\%$ and normalized selected regret is $\MainRegret\%$, with interval $[0.000228,0.003031]\%$. Every primary shortlist contains a test Brier oracle, so the observed omission term is zero across all twelve encoder--target tasks. The small remaining regret comes from the validation-selected choice within the shortlist.
+\subsection{Retaining promising equal-cost combinations}
+Table~\ref{tab:primary} compares the original DomainNet shortlists. A-opt retains nearly all test top-ten candidates while discarding approximately half the combinations. Every primary shortlist contains a test Brier oracle; the remaining selected regret comes from validation choosing another member. This is the distinction captured by Equation~\eqref{eq:decomposition}: successful screening leaves a separate task for validation.
 
 \begin{table}[t]
 \centering
-\caption{DomainNet, $s=227$. Means average two encoders within each of six target domains; random repetitions are not independent units. Regret is a percentage of oracle Brier, not of the candidate span. All methods pass the loose regret sub-gate; only A-opt and MMD pass the recall sub-gate.}
+\caption{The original DomainNet study retains $s=227$ of 455 combinations. Means average encoders within six target domains. Recall concerns the test Brier top ten; regret is relative to oracle Brier. Spearman measures agreement between the complete screening and test-loss rankings.}
 \label{tab:primary}
 \input{generated/primary_rows}
 \end{table}
 
-Second-moment MMD obtains exactly the same primary recall and selected regret. Moreover, validation selects the same final combination for both methods in all twelve tasks. Their mean primary-shortlist Jaccard similarity is $0.8307$ in a post-hoc comparison. A-opt has higher full-ranking Spearman correlation with test Brier ($0.7443$ versus $0.6902$), but MMD has higher mean top-ten recall at all four smaller shortlist sizes (Figure~\ref{fig:recall}). Better global correlation therefore does not imply a better operating point for screening.
+MMD reaches the same primary recall and selected regret as A-opt, and validation chooses the same final combination for both in every encoder--target task. At smaller shortlist sizes, MMD has higher mean recall (Figure~\ref{fig:recall}). A-opt's stronger full-ranking correlation therefore does not translate into better retention at those operating points. The common advantage over the tested target-blind rules points to the usefulness of target-conditioned second-order information; direct moment matching is already an effective way to use it here.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{shortlist_recall.pdf}
-\caption{DomainNet shortlist-size curves from the frozen outcome tables. The dotted line is the prespecified $90\%$ recall threshold. MMD has higher mean recall at smaller shortlists and ties A-opt at the primary size. Curves are descriptive means, not tests of pairwise significance.}
+\caption{Mean test Brier top-ten recall is shown across shortlist sizes in the original DomainNet study. The dotted line marks the prespecified recall threshold. All curves use the same candidate combinations and feature access appropriate to each rule.}
 \label{fig:recall}
 \end{figure}
 
-This is evidence that target-conditioned second-order information is useful for this shortlist protocol. It is not evidence that inverse-covariance weighting is necessary: direct moment matching is competitive under identical feature access. It also does not show that added candidate heterogeneity caused the improvement relative to PACS/Office-Home. Dataset, projection dimension, sample budget, and candidate construction changed together; no isolated heterogeneity intervention was performed.
+\subsection{Projection and readout sensitivity}
+\label{sec:readout}
+The original ridge-softmax results have small differences between candidate losses. We therefore ask whether high recall persists when the projection changes and a different readout produces a wider range of losses. The exploratory follow-up uses four new projection seeds and logistic regression, keeping source membership and sample cost fixed. Table~\ref{tab:readout} reports the new-seed averages; the original seed is held aside as an implementation control.
 
-\subsection{Low regret and valid intervals can be uninformative}
-In a post-hoc diagnostic, the full relative Brier span $[\max_S b(S)-\min_S b(S)]/|\min_S b(S)|$ ranges from $0.0280\%$ to $0.4242\%$ across the twelve DomainNet tasks. Thus \emph{every} possible candidate satisfies the $5\%$ regret threshold, regardless of screening. Passing that sub-gate supplies no discrimination here. The useful primary evidence is preservation of high-ranked candidates at a fixed evaluation count, with the important caveat that exact top-ten membership can itself be sensitive to small finite-test differences.
+\begin{table}[t]
+\centering
+\caption{The exploratory DomainNet follow-up evaluates shortlists of size $s=227$. Test top-ten recall (\%) is averaged over two encoders and four new projection seeds within each target domain, then over six domains. Ridge denotes ridge-softmax. NLL and error use matching validation losses for final selection.}
+\label{tab:readout}
+\input{generated/readout_rows}
+\end{table}
+
+A-opt retains $\ReadoutRidgeA\%$ of the Brier top ten on average under each readout, with MMD slightly higher. The mean relative best-to-worst Brier span increases from $\RidgeSpan\%$ under ridge-softmax to $\LogisticSpan\%$ under logistic regression. High recall thus persists in a setting with more separation between candidates, rather than appearing only when their Brier losses are almost equal. The two target-aware scores also retain most NLL- and error-ranked candidates on average, with MMD higher in these comparisons.
+
+For Brier, both methods retain a test oracle in every new-seed task and have the same mean selected regret. Average retention does not describe every case: A-opt's classification-error recall falls to $\WorstErrorRecall\%$ in one DINOv2--Quickdraw logistic task. Its shortlist still contains a test-error oracle, but validation chooses a model with error $\WorstErrorGap$ percentage points higher. This example shows why broad retention, metric-specific retention, and final selection are reported separately. Appendix~\ref{app:diagnostics} gives the full comparator table and task-level details.
+
+\subsection{Loss resolution and test-sample stability}
+The post-hoc loss-span diagnostic in Figure~\ref{fig:diagnostics} puts the original regret criterion in context. Every candidate's relative Brier regret lies below the $5\%$ threshold, so that threshold cannot distinguish successful screens in this experiment. Recall provides the more informative comparison, but it raises another question: how sensitive is the test top ten to the sampled test examples?
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{headroom_diagnostics.pdf}
-\caption{Post-hoc diagnostics, without changing frozen gates. Left: relative oracle improvement over DPP for eight PACS/Office-Home target units, averaging encoders first. Right: within-task best-to-worst relative Brier span on DomainNet; all bars are below $0.425\%$, far below the $5\%$ regret gate. These quantities answer different questions and are not directly comparable effect sizes.}
+\caption{The panels report post-hoc diagnostics for different candidate families. The left panel shows oracle Brier improvement over DPP, averaging encoders within each PACS/Office-Home target. The right panel shows relative best-to-worst Brier spans for the original DomainNet tasks. The original evaluation thresholds are unchanged.}
 \label{fig:diagnostics}
 \end{figure}
 
-Accuracy varies across combinations and its oracle does not always coincide with the Brier oracle. This cautions against describing low Brier regret as general classification-performance preservation. Because the readout applies fixed-temperature softmax to one-hot ridge scores, calibration and score scale are plausible contributors to small Brier differences, but the current experiment does not establish that mechanism. Repeated independent tests or per-example paired resampling would be needed to assess top-ten stability; neither is claimed here.
+A CUDA reconstruction first reproduces all original Brier top-ten sets. We then apply paired test-example bootstrap resampling while fixing fitted models and validation choices. Although resampled and original top-ten sets overlap by only $\BootstrapOverlap\%$ on average, A-opt and MMD retain $\BootstrapRecall\%$ and $\BootstrapMMDRecall\%$ of the resampled top tens. Broad shortlists are less sensitive than exact rank membership to these test-sample changes.
 
-Compression certificates show a related distinction. In the earlier four-encoder spectral rank sweep, all 2,880 selected-prefix intervals cover their exact scores, yet no greedy step is certified among 7,200 steps at sketch ranks at most 50. A separate target-risk sketch study over 20 seeds and 1,440 configurations also fails its byte-budget gate: among full-grid strategies using at most one quarter of packed full-Gram bytes on average, the best selected-set agreement with Full-Gram greedy is $15.42\%$, with a $3.91\%$ pairwise certificate rate. Coverage is a correctness check, not sufficient evidence of decision utility or practical communication savings (Appendix~\ref{app:diagnostics}).
+Changing the metric has a larger effect on which combinations count as good: the original Brier and classification-error top tens overlap by only $\BrierErrorOverlap\%$ on average. A screen should therefore be evaluated against the intended deployment metric, even when its average recall is high for several metrics. The resampling protocol and additional metric comparisons appear in Appendix~\ref{app:protocol}.
 
-\section{Discussion and Conclusion}
+\section{Discussion}
+\subsection{What makes screening useful?}
+The results suggest evaluating screening in terms of the decision it enables. When the candidate family offers little improvement headroom, a small selected loss difference says little about the quality of a ranking. When candidates differ more, retaining several promising alternatives gives validation room to make a task-specific choice. A-opt and MMD both do this well on the audited DomainNet construction; their similar results make moment matching an important baseline for more elaborate geometric scores.
+
+The natural operating point depends on the target metric, the acceptable loss gap, and the cost of supervised evaluation. Shortlist size controls how many candidates proceed, but total savings also depend on scoring, feature preparation, and validation costs. Separately, the sketch experiments in Appendix~\ref{app:diagnostics} show that valid score intervals can remain too wide to resolve choices at a useful byte budget. For a compressed score to support screening, it must still distinguish candidates at the intended shortlist budget.
+
+\subsection{Limitations}
+\label{sec:limitations}
+The equal-sample-cost evidence comes from one DomainNet construction. Its target domains share source pools, and the added seeds and readouts reuse the same images. They measure sensitivity within this benchmark rather than replication on independent data. Changes from PACS/Office-Home also include the dataset, projection, sample budget, and candidate construction, so they do not isolate candidate heterogeneity as a cause.
+
+The Bayesian derivation concerns shared linear regression; the classification results establish the usefulness of its score empirically. Test-example resampling conditions on fitted models and validation choices. It does not measure uncertainty from training or validation selection. Absolute task quality also depends on the candidate family, as the supplementary adapter study illustrates. Finally, we have not measured matched end-to-end savings or ruled out overlap with encoder pretraining data. Independent equal-cost datasets, controlled validation budgets, and matched timing comparisons would address these remaining questions.
+
+\section{Conclusion}
 \label{sec:conclusion}
-The evidence separates three claims. Gram additivity and compatible local spectral calculations are exact algebraic statements. Target-weighted A-optimal risk is justified by a shared Bayesian linear model. Useful shortlist screening in real classification remains an empirical property of a candidate family, readout, target sample, and operating point. None of these implications can be freely reversed or extended.
-
-For the audited equal-cost DomainNet construction, second-order target geometry preserves substantially more test top-ten candidates than the tested target-blind diversity rules at half the evaluation count. The simplest successful same-information rule, second-moment MMD, is equally important to this conclusion as A-opt. PACS/Office-Home failures, limited oracle headroom, loose regret gates, and weak compression decisions prevent a broader utility or superiority claim.
-
-The main limitations are one new equal-cost dataset, six correlated target units, one frozen projection seed, one linear readout, and no independent demonstration of end-to-end time savings. The next evidentiary steps are an independent fixed-cost dataset, stability of the chosen metric and top-ten set, matched total-cost measurements, and a controlled test of when inverse-covariance weighting adds value over moment matching. Until those tests are completed, feature geometry is best understood as a conditional pre-screening signal that requires subsequent labeled validation and explicit failure diagnostics.
+We developed a two-stage protocol that uses feature geometry to shortlist source-data combinations before supervised validation. The analysis explains how target weighting connects source coverage to risk under a shared linear model and separates screening omissions from final selection errors. Experiments show high candidate retention on equal-cost DomainNet combinations across projection seeds and readouts, with second-moment matching as effective as A-optimal screening at the primary operating point. Direct-selection results on PACS and Office-Home show that available improvement headroom also matters. Together, these findings support using target-aware geometry to narrow a search whose final decision is made with task-specific evidence. Measuring that decision's quality alongside the full evaluation cost is the next step toward choosing useful screening budgets.

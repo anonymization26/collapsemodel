@@ -1,7 +1,9 @@
 # E2b 修订实验准备
 
-本轮只准备数据、环境和执行代码，不启动完整实验矩阵，不修改已有冻结结果。
-本地核验记录见 [准备快照](../results/target_conditioned/preparation_20260916/README.md)；其中状态 JSON 是取回时的快照，不是实时监控。
+本文件记录数据、环境和执行代码的准备，不修改已有冻结结果。
+早期记录见 [准备快照](../results/target_conditioned/preparation_20260916/README.md)，保留其取回时状态，不回写为完成。
+2026-09-16 15:32 UTC 准备已验收完成；随后按用户指示执行的 R1/R2 补实验及最终验收记录见
+[本轮结果](../results/target_conditioned/revision_20260916/README.md)和[补实验计划](ICLR_SUPPLEMENT_PLAN.md)。
 
 ## 当前状态
 
@@ -13,10 +15,10 @@
 - [x] 实现筛选、验证和测试分别读取独立数据包的执行入口。
 - [x] 16 项测试通过：原有 6 项 E2b 测试、7 项阶段隔离测试和 3 项准备流水线测试，包含合成端到端对照。
 - [x] 三个模型的权重、模型状态、预处理指纹和 CUDA 前向检查全部通过。
-- [x] 已启动可断线运行的准备流水线，自动衔接下载、特征提取和验收；尚未完成的步骤见下。
-- [ ] 按冻结清单恢复并逐张验证 46,080 张 DomainNet 图像。
-- [ ] 重建三份 CUDA 特征缓存，并生成六个角色隔离数据包。
-- [ ] 完成准备状态总检查，保存可核验报告。
+- [x] 可断线运行的准备流水线完成下载、特征提取和验收。
+- [x] 按冻结清单恢复并逐张验证 46,080 张 DomainNet 图像的字节数及 SHA-256。
+- [x] 重建三份 CUDA 特征缓存，并生成六个角色隔离数据包。
+- [x] 完成准备状态总检查，保存 [ready 验收报告](../results/target_conditioned/revision_20260916/preparation_report.json)。
 
 ## 目录与环境
 
@@ -107,8 +109,8 @@ export SOURCE_GIT_REVISION=4bb2f5027212bf6921d409da2d1d9560822f8cc3
 .venv/bin/python -u scripts/run_target_conditioned_e2b_preparation.py --work-root "$PWD"
 ```
 
-当前服务器已使用 `nohup` 启动上述流程，日志为 `logs/preparation-pipeline.log`；
-不要在它运行时重复启动单独的 `restore` 或 `features` 进程。
+服务器使用 `nohup` 启动的上述流程已完成，日志为 `logs/preparation-pipeline.log`；
+已通过核验的缓存和数据包直接复用，不重复启动 `restore` 或 `features`。
 `environment_check.json` 通过仅代表环境可用，不能代替最后的 `preparation_report.json`。
 
 正式实验前还需冻结新增基线、读出器、独立数据集和统计方案。本轮准备完成不代表这些科学问题
