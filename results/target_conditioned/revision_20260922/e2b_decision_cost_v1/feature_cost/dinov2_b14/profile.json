@@ -1,0 +1,348 @@
+{
+  "disk_cache": "operating-system-cache-not-flushed",
+  "encoder": "dinov2_b14",
+  "encoder_identity": {
+    "checkpoint_file_sha256": "0b8b82f85de91b424aded121c7e1dcc2b7bc6d0adeea651bf73a13307fad8c73",
+    "model_state_sha256": "fe64abe930063edc1e857fc3c0ea8162f7de6a056b4f903730cc0410a90e60a4",
+    "name": "dinov2_b14",
+    "preprocess_sha256": "26184559c02d24bb9e3bfc740fea07c88c8f7f2fb942b67cfa4ad9fc5a6577b8"
+  },
+  "environment": {
+    "batch_size": 64,
+    "cpu_info": "Intel(R) Xeon(R) Platinum 8352V CPU @ 2.10GHz",
+    "cuda": "12.4",
+    "gpu": "NVIDIA vGPU-32GB",
+    "loader_workers": 4,
+    "numpy": "1.26.4",
+    "scikit-learn": "1.7.1",
+    "scipy": "1.16.1",
+    "torch": "2.5.1+cu124",
+    "torch_threads": 1
+  },
+  "excludes": [
+    "download",
+    "pool-construction",
+    "feature-cache-serialization",
+    "test-images",
+    "test-audit"
+  ],
+  "groups": [
+    {
+      "count": 1536,
+      "domain": "clipart",
+      "projection_seconds": 0.02123618870973587,
+      "role": "anchor_pool",
+      "seconds": 6.890949256718159
+    },
+    {
+      "count": 1536,
+      "domain": "clipart",
+      "projection_seconds": 0.014747120440006256,
+      "role": "target_selection",
+      "seconds": 5.049615852534771
+    },
+    {
+      "count": 1024,
+      "domain": "clipart",
+      "projection_seconds": 0.013278476893901825,
+      "role": "target_validation",
+      "seconds": 3.6787036135792732
+    },
+    {
+      "count": 1536,
+      "domain": "infograph",
+      "projection_seconds": 0.018843472003936768,
+      "role": "anchor_pool",
+      "seconds": 9.618235692381859
+    },
+    {
+      "count": 1536,
+      "domain": "infograph",
+      "projection_seconds": 0.019780218601226807,
+      "role": "target_selection",
+      "seconds": 6.991257026791573
+    },
+    {
+      "count": 1024,
+      "domain": "infograph",
+      "projection_seconds": 0.010537050664424896,
+      "role": "target_validation",
+      "seconds": 4.717711344361305
+    },
+    {
+      "count": 1536,
+      "domain": "painting",
+      "projection_seconds": 0.014948897063732147,
+      "role": "anchor_pool",
+      "seconds": 6.591188348829746
+    },
+    {
+      "count": 1536,
+      "domain": "painting",
+      "projection_seconds": 0.015978634357452393,
+      "role": "target_selection",
+      "seconds": 5.289945505559444
+    },
+    {
+      "count": 1024,
+      "domain": "painting",
+      "projection_seconds": 0.011136919260025024,
+      "role": "target_validation",
+      "seconds": 3.6454430893063545
+    },
+    {
+      "count": 1536,
+      "domain": "quickdraw",
+      "projection_seconds": 0.015158727765083313,
+      "role": "anchor_pool",
+      "seconds": 6.083750873804092
+    },
+    {
+      "count": 1536,
+      "domain": "quickdraw",
+      "projection_seconds": 0.014454595744609833,
+      "role": "target_selection",
+      "seconds": 4.978954888880253
+    },
+    {
+      "count": 1024,
+      "domain": "quickdraw",
+      "projection_seconds": 0.012050241231918335,
+      "role": "target_validation",
+      "seconds": 3.590685434639454
+    },
+    {
+      "count": 1536,
+      "domain": "real",
+      "projection_seconds": 0.01606263965368271,
+      "role": "anchor_pool",
+      "seconds": 6.39675010740757
+    },
+    {
+      "count": 1536,
+      "domain": "real",
+      "projection_seconds": 0.013073265552520752,
+      "role": "target_selection",
+      "seconds": 5.276590950787067
+    },
+    {
+      "count": 1024,
+      "domain": "real",
+      "projection_seconds": 0.013320952653884888,
+      "role": "target_validation",
+      "seconds": 3.7968010753393173
+    },
+    {
+      "count": 1536,
+      "domain": "sketch",
+      "projection_seconds": 0.017930492758750916,
+      "role": "anchor_pool",
+      "seconds": 6.596026346087456
+    },
+    {
+      "count": 1536,
+      "domain": "sketch",
+      "projection_seconds": 0.01840037852525711,
+      "role": "target_selection",
+      "seconds": 5.116936631500721
+    },
+    {
+      "count": 1024,
+      "domain": "sketch",
+      "projection_seconds": 0.011042878031730652,
+      "role": "target_validation",
+      "seconds": 3.6990102902054787
+    }
+  ],
+  "includes": [
+    "image-read-hash-check",
+    "preprocessing",
+    "loader-workers",
+    "GPU-forward",
+    "CPU-feature-transfer",
+    "normalization-and-projection"
+  ],
+  "input_screen_manifest_sha256": "e7ba8c5611d334b8c56e78a6e2af30096032772e2aaa3e5e95dba0eca99a4693",
+  "model_load_seconds": 4.077937506139278,
+  "per_target_accounting": [
+    {
+      "baseline_feature_seconds": 43.042592488229275,
+      "target_aware_feature_seconds": 48.092208340764046,
+      "target_domain": "clipart"
+    },
+    {
+      "baseline_feature_seconds": 41.35431378334761,
+      "target_aware_feature_seconds": 48.34557081013918,
+      "target_domain": "infograph"
+    },
+    {
+      "baseline_feature_seconds": 43.30909287184477,
+      "target_aware_feature_seconds": 48.59903837740421,
+      "target_domain": "painting"
+    },
+    {
+      "baseline_feature_seconds": 43.76177269220352,
+      "target_aware_feature_seconds": 48.740727581083775,
+      "target_domain": "quickdraw"
+    },
+    {
+      "baseline_feature_seconds": 43.65488909929991,
+      "target_aware_feature_seconds": 48.931480050086975,
+      "target_domain": "real"
+    },
+    {
+      "baseline_feature_seconds": 43.35782207548618,
+      "target_aware_feature_seconds": 48.474758706986904,
+      "target_domain": "sketch"
+    }
+  ],
+  "scope": "measured-additive-raw-image-feature-accounting-not-a-replayed-end-to-end-pipeline",
+  "source_blocks": [
+    {
+      "block_id": "clipart__clip_pc1_high",
+      "count": 512,
+      "domain": "clipart",
+      "projection_seconds": 0.009262092411518097,
+      "role": "anchor_pool",
+      "seconds": 2.5233408734202385
+    },
+    {
+      "block_id": "clipart__clip_pc1_low",
+      "count": 512,
+      "domain": "clipart",
+      "projection_seconds": 0.006884671747684479,
+      "role": "anchor_pool",
+      "seconds": 2.139190785586834
+    },
+    {
+      "block_id": "clipart__clip_pc1_middle",
+      "count": 512,
+      "domain": "clipart",
+      "projection_seconds": 0.005089424550533295,
+      "role": "anchor_pool",
+      "seconds": 2.2284175977110863
+    },
+    {
+      "block_id": "infograph__clip_pc1_high",
+      "count": 512,
+      "domain": "infograph",
+      "projection_seconds": 0.007702752947807312,
+      "role": "anchor_pool",
+      "seconds": 2.4885330349206924
+    },
+    {
+      "block_id": "infograph__clip_pc1_low",
+      "count": 512,
+      "domain": "infograph",
+      "projection_seconds": 0.006257876753807068,
+      "role": "anchor_pool",
+      "seconds": 3.8846905529499054
+    },
+    {
+      "block_id": "infograph__clip_pc1_middle",
+      "count": 512,
+      "domain": "infograph",
+      "projection_seconds": 0.004882842302322388,
+      "role": "anchor_pool",
+      "seconds": 3.245012104511261
+    },
+    {
+      "block_id": "painting__clip_pc1_high",
+      "count": 512,
+      "domain": "painting",
+      "projection_seconds": 0.005046166479587555,
+      "role": "anchor_pool",
+      "seconds": 2.192023418843746
+    },
+    {
+      "block_id": "painting__clip_pc1_low",
+      "count": 512,
+      "domain": "painting",
+      "projection_seconds": 0.005583472549915314,
+      "role": "anchor_pool",
+      "seconds": 2.2616743743419647
+    },
+    {
+      "block_id": "painting__clip_pc1_middle",
+      "count": 512,
+      "domain": "painting",
+      "projection_seconds": 0.0043192580342292786,
+      "role": "anchor_pool",
+      "seconds": 2.1374905556440353
+    },
+    {
+      "block_id": "quickdraw__clip_pc1_high",
+      "count": 512,
+      "domain": "quickdraw",
+      "projection_seconds": 0.005456902086734772,
+      "role": "anchor_pool",
+      "seconds": 2.028924860060215
+    },
+    {
+      "block_id": "quickdraw__clip_pc1_low",
+      "count": 512,
+      "domain": "quickdraw",
+      "projection_seconds": 0.004513315856456757,
+      "role": "anchor_pool",
+      "seconds": 2.020226128399372
+    },
+    {
+      "block_id": "quickdraw__clip_pc1_middle",
+      "count": 512,
+      "domain": "quickdraw",
+      "projection_seconds": 0.005188509821891785,
+      "role": "anchor_pool",
+      "seconds": 2.0345998853445053
+    },
+    {
+      "block_id": "real__clip_pc1_high",
+      "count": 512,
+      "domain": "real",
+      "projection_seconds": 0.005065955221652985,
+      "role": "anchor_pool",
+      "seconds": 2.0827406719326973
+    },
+    {
+      "block_id": "real__clip_pc1_low",
+      "count": 512,
+      "domain": "real",
+      "projection_seconds": 0.0049561187624931335,
+      "role": "anchor_pool",
+      "seconds": 2.0954951867461205
+    },
+    {
+      "block_id": "real__clip_pc1_middle",
+      "count": 512,
+      "domain": "real",
+      "projection_seconds": 0.006040565669536591,
+      "role": "anchor_pool",
+      "seconds": 2.218514248728752
+    },
+    {
+      "block_id": "sketch__clip_pc1_high",
+      "count": 512,
+      "domain": "sketch",
+      "projection_seconds": 0.005402185022830963,
+      "role": "anchor_pool",
+      "seconds": 2.3618944585323334
+    },
+    {
+      "block_id": "sketch__clip_pc1_low",
+      "count": 512,
+      "domain": "sketch",
+      "projection_seconds": 0.005504682660102844,
+      "role": "anchor_pool",
+      "seconds": 2.13125416636467
+    },
+    {
+      "block_id": "sketch__clip_pc1_middle",
+      "count": 512,
+      "domain": "sketch",
+      "projection_seconds": 0.007023625075817108,
+      "role": "anchor_pool",
+      "seconds": 2.1028777211904526
+    }
+  ],
+  "source_code_sha256": "95f6dde5415447f4358ef6261bc4a210cb968d7ca9111b6c8f9c7dfd73107ec4",
+  "status": "complete"
+}
