@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+from collections import defaultdict
 import hashlib
 import json
 import re
@@ -77,6 +78,102 @@ def verify_format(stem: str, log: str, full_text: str) -> None:
         assert page.rstrip().splitlines()[-1].strip() == str(number), (stem, number, "footer")
     assert "Anonymous authors" in pages[0] and "Paper under double-blind review" in pages[0]
     print(f"PASS: {stem} official dependencies, 10/11pt text, layout, headers and page numbers")
+
+
+def verify_construction_results() -> None:
+    revision = ROOT / "results/target_conditioned/revision_20260922"
+    root = revision / "e2b_decision_cost_v1"
+    summary = json.loads((revision / "challenge_summary/summary.json").read_text())
+    assert summary["independent_dataset"] is False
+    curves, conditional = defaultdict(list), defaultdict(list)
+    for encoder in ("resnet50", "dinov2_b14"):
+        original = json.loads((root / encoder / "original/screen/candidate_membership.json").read_text())
+        hashed = json.loads((root / encoder / "hash_partition/screen/candidate_membership.json").read_text())
+        for domain in {n.split("__")[0] for n in original}:
+            left = [s for n, ids in original.items() if n.startswith(domain + "__") for s in ids]
+            right = [s for n, ids in hashed.items() if n.startswith(domain + "__") for s in ids]
+            assert len(set(left)) == len(set(right)) == 1536
+            assert set(left) == set(right)
+            assert all(len(ids) == 512 for n, ids in hashed.items() if n.startswith(domain + "__"))
+        for construction in ("original", "hash_partition"):
+            path = root / encoder / construction / "test-audit"
+            audit = json.loads((path / "audit.json").read_text())["rows"]
+            full = {(r["target_domain"], r["readout"], r["metric"]): r["test_loss"]
+                    for r in audit if r["group"] == "exhaustive"}
+            for r in audit:
+                key = construction, r["readout"], r["metric"], r["group"].split(":")[0], r["shortlist_size"]
+                curves[key].append(r)
+                reference = full[r["target_domain"], r["readout"], r["metric"]]
+                if r["group"] == "exhaustive":
+                    filename = f"{r['target_domain']}__{r['readout']}_losses.json"
+                    validation = json.loads((path.parent / "validate" / filename).read_text())
+                    test = json.loads((path / filename).read_text())
+                    choice = min(validation, key=lambda c: (validation[c][r["metric"]], c))
+                    assert r["combination"] == choice and reference == test[choice][r["metric"]]
+            for r in json.loads((path / "within_composition.json").read_text())["rows"]:
+                assert r["candidate_count"] in (9, 27)
+                assert r["shortlist_size"] == r["candidate_count"] // 2
+                key = construction, r["readout"], r["metric"], r["group"].split(":")[0]
+                conditional[key].append(r)
+    for r in summary["curves"]:
+        group = curves[r["construction"], r["readout"], r["metric"], r["method"], r["shortlist_size"]]
+        assert len(group) == (240 if r["method"] == "random" else 12)
+        for field in ("test_loss", "absolute_omission", "recall_at_top_q"):
+            assert np.isclose(r[field], np.mean([v[field] for v in group]), atol=1e-14)
+    for r in summary["within_composition"]:
+        group = conditional[r["construction"], r["readout"], r["metric"], r["method"]]
+        assert len(group) == (7200 if r["method"] == "random" else 360)
+        for field in ("oracle_retained", "absolute_omission"):
+            assert np.isclose(r[field], np.mean([v[field] for v in group]), atol=1e-14)
+    assert len(summary["curves"]) == 312 and len(summary["within_composition"]) == 60
+    print("PASS: equal-cost repartition, 312 challenge curves, 60 within-composition summaries")
+
+
+def verify_cost_results() -> None:
+    revision = ROOT / "results/target_conditioned/revision_20260922"
+    root = revision / "e2b_decision_cost_v1"
+    observed = defaultdict(list)
+    for encoder in ("resnet50", "dinov2_b14"):
+        profile = json.loads((root / "feature_cost" / encoder / "profile.json").read_text())
+        blocks = {r["block_id"]: r for r in profile["source_blocks"]}
+        groups = {(r["domain"], r["role"]): r["seconds"] for r in profile["groups"]}
+        rankings = json.loads((root / encoder / "original/screen/rankings.json").read_text())
+        for readout, folder in (("ridge", "timing_ridge_float64"), ("logistic", "timing")):
+            timing = json.loads((root / folder / encoder / "timing.json").read_text())
+            if readout == "ridge":
+                assert timing["ridge_precision"] == "float64"
+            tests = {d: json.loads((root / encoder / "original/test-audit" /
+                                   f"{d}__{readout}_losses.json").read_text()) for d in rankings}
+            for r in timing["records"]:
+                if r["readout"] != readout:
+                    continue
+                domain, method, size = r["target_domain"], r["method"], r["shortlist_size"]
+                if method == "random":
+                    prefix = rankings[domain][f"random:{r['repeat']}"][:size]
+                    used = {n for c in prefix for n in c.split("|")}
+                else:
+                    used = {n for n, b in blocks.items() if b["domain"] != domain}
+                assert all(blocks[n]["domain"] != domain for n in used)
+                feature = profile["model_load_seconds"] + groups[domain, "target_validation"]
+                feature += sum(blocks[n]["seconds"] for n in used)
+                if method not in ("random", "exhaustive"):
+                    feature += groups[domain, "target_selection"]
+                values = {"resident_seconds": r["decision_seconds"], "feature_seconds": feature,
+                          "raw_additive_seconds": feature + r["decision_seconds"]}
+                values.update({"test_" + m: tests[domain][choice][m] for m, choice in r["selections"].items()})
+                observed[readout, method, size].append(values)
+    rows = read_csv(revision / "cost_summary/curves.csv")
+    assert len(rows) == len(observed) == 32
+    for r in rows:
+        values = observed[r["readout"], r["method"], int(r["shortlist_size"])]
+        assert len(values) == 36
+        for field in values[0]:
+            assert np.isclose(float(r[field]), np.mean([v[field] for v in values]), rtol=0, atol=1e-10), (r, field)
+        assert np.isclose(float(r["raw_additive_seconds"]),
+                          float(r["feature_seconds"]) + float(r["resident_seconds"]), atol=1e-10, rtol=0)
+        assert np.isclose(float(r["cached_two_encoder_batch_seconds"]),
+                          12 * float(r["resident_seconds"]) + float(r["batch_preparation_seconds"]), atol=1e-10, rtol=0)
+    print("PASS: 32 matched quality/cost curves, exact timed choices, random block-union accounting")
 
 
 def main() -> None:
@@ -209,6 +306,32 @@ def main() -> None:
     }.items():
         assert np.isclose(followup_values[name], expected, rtol=0, atol=1e-6), name
     print("PASS: 240 follow-up means independently recovered from domain-level repetitions")
+    budget_root = ROOT / "results/target_conditioned/revision_20260922/budget_audit"
+    budget = read_csv(budget_root / "curves.csv")
+    full_losses = {}
+    for job in sorted(followup.parent.glob("*__*/validate")):
+        if job.parent.name.endswith("__20260911"):
+            continue
+        for path in sorted(job.glob("*__*_losses.json")):
+            domain, readout = path.stem.removesuffix("_losses").split("__")
+            validation = json.loads(path.read_text())
+            test = json.loads((job.parent / "test-audit" / path.name).read_text())
+            for metric in ("brier_score", "nll", "error_rate"):
+                choice = min(validation, key=lambda c: (validation[c][metric], c))
+                full_losses.setdefault((readout, metric), {}).setdefault(domain, []).append(test[choice][metric])
+    for row in budget:
+        domains = full_losses[row["readout"], row["metric"]]
+        assert len(domains) == 6 and all(len(v) == 8 for v in domains.values())
+        full = np.mean([np.mean(v) for v in domains.values()])
+        assert np.isclose(float(row["full_validation_test_loss"]), full, atol=1e-14)
+        assert np.isclose(float(row["test_loss"]) - full, float(row["gap_to_full"]), atol=1e-14)
+        if row["method"] == "exhaustive":
+            assert int(row["shortlist_size"]) == 455
+            assert float(row["gap_to_full"]) == 0
+    assert len(budget) == 96
+    print("PASS: 96 decision-budget rows and validation-selected exhaustive references")
+    verify_construction_results()
+    verify_cost_results()
     for lang, stem, opening, heading in (
         ("en", "main", "Selecting source-data", r"^\s*1\s+I\s*NTRODUCTION"),
         ("zh", "main_zh", "为目标任务", r"^\s*1\s+引言"),
@@ -244,7 +367,10 @@ def main() -> None:
             assert sum("\u4e00" <= c <= "\u9fff" for c in full_text) > 7000
         aux = (HERE / f"{stem}.aux").read_text(encoding="utf-8")
         end_page = int(re.search(r"\\newlabel\{main-text-end\}\{\{[^}]*\}\{(\d+)\}", aux).group(1))
-        main_pages = [int(v) for v in re.findall(r"\\newlabel\{(?:fig:[^}]+|tab:[^}]+)\}\{\{[^}]*\}\{(\d+)\}", aux)]
+        main_labels = set(re.findall(r"\\label\{((?:fig|tab):[^}]+)\}", body))
+        main_pages = [int(page) for label, page in re.findall(
+            r"\\newlabel\{([^}]+)\}\{\{[^}]*\}\{(\d+)\}", aux) if label in main_labels]
+        assert len(main_pages) == len(main_labels)
         assert max(main_pages + [end_page]) <= 9
         if lang == "en":
             assert end_page == 9, ("main", "English Conclusion must end on page 9")

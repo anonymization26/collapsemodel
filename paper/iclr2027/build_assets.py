@@ -19,6 +19,10 @@ E2B = ROOT / "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1"
 E2A = ROOT / "results/target_conditioned/e2_dataset_selection/oracle_headroom_v1"
 REVISION = ROOT / "results/target_conditioned/revision_20260916"
 READOUT = ROOT / "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1"
+BUDGET = ROOT / "results/target_conditioned/revision_20260922/budget_audit"
+CHALLENGE = ROOT / "results/target_conditioned/revision_20260922/challenge_summary"
+DOMAIN_TIES = ROOT / "results/target_conditioned/revision_20260922/domain_tie_audit"
+COST = ROOT / "results/target_conditioned/revision_20260922/cost_summary"
 INPUTS: dict[str, str] = {}
 
 
@@ -154,6 +158,150 @@ def readout_assets(generated: Path) -> dict[str, float]:
     return values
 
 
+def budget_assets(generated: Path, figures: Path) -> dict[str, float]:
+    curves = rows(BUDGET / "curves.csv")
+    failures = rows(BUDGET / "failure_rates.csv")
+    rows(BUDGET / "paired_summary.csv")
+    path = BUDGET / "summary.json"
+    INPUTS[str(path.relative_to(ROOT))] = digest(path)
+    summary = json.loads(path.read_text())
+    for name, expected in summary["input_sha256"].items():
+        source = ROOT / name
+        assert digest(source) == expected, name
+        INPUTS[str(source.relative_to(ROOT))] = expected
+    index = {(r["readout"], r["metric"], r["method"], int(r["shortlist_size"])): r for r in curves}
+    failure_index = {(r["readout"], r["metric"], r["method"], int(r["shortlist_size"]), float(r["absolute_gap_threshold"])): r for r in failures}
+    labels = {"target_a": "Target A-opt", "second_moment_mmd": "MMD", "random": "Random", "exhaustive": "Exhaustive validation"}
+    selected = [("random", 227), ("target_a", 50), ("second_moment_mmd", 50), ("exhaustive", 455)]
+    output = []
+    for method, size in selected:
+        r = index["logistic", "brier_score", method, size]
+        failure = failure_index["logistic", "brier_score", method, size, .005]
+        output.append(f"{labels[method]} & {size} & {float(r['test_loss']):.6f} & "
+                      f"{100 * float(failure['failure_rate']):.2f} " + r"\\")
+    (generated / "budget_rows.tex").write_text(
+        "\\begin{tabular}{lrrr}\n\\toprule\n"
+        + "Screen & Fits & Test Brier & Gap $>0.005$ (\\%)\\\\\n\\midrule\n"
+        + "\n".join(output) + "\n\\bottomrule\n\\end{tabular}\n")
+    fig, axes = plt.subplots(1, 2, figsize=(6.1, 2.45), layout="constrained")
+    sizes = [10, 25, 50, 100, 227]
+    for ax, readout, scale, unit in zip(axes, ("ridge", "logistic"), (10000, 1000), ("10,000", "1,000")):
+        for method, color in (("target_a", "#167D9A"), ("second_moment_mmd", "#B63855"), ("random", "#555555")):
+            ax.plot(sizes, [scale * float(index[readout, "brier_score", method, s]["gap_to_full"]) for s in sizes],
+                    marker="o", ms=3, color=color, label=labels[method])
+        ax.axhline(0, color="#888888", ls=":", lw=1, label="Exhaustive validation")
+        ax.set(title="Ridge-softmax" if readout == "ridge" else "Logistic regression",
+               xlabel="Candidates evaluated", ylabel=f"Brier gap x {unit}", xticks=[10, 50, 100, 227])
+        ax.grid(axis="y", alpha=.15)
+    axes[1].legend(frameon=False, fontsize=6.5)
+    fig.savefig(figures / "decision_budget.pdf", metadata={"CreationDate": None})
+    plt.close(fig)
+    a = index["logistic", "brier_score", "target_a", 50]
+    m = index["logistic", "brier_score", "second_moment_mmd", 50]
+    return {"BudgetAFifty": float(a["test_loss"]), "BudgetMMDFifty": float(m["test_loss"]),
+            "BudgetFull": float(index["logistic", "brier_score", "exhaustive", 455]["test_loss"]),
+            "BudgetRandomPrimary": float(index["logistic", "brier_score", "random", 227]["test_loss"]),
+            "BudgetFailureFifty": 100 * float(failure_index["logistic", "brier_score", "target_a", 50, .005]["failure_rate"])}
+
+
+def challenge_assets(generated: Path) -> None:
+    for directory in (CHALLENGE, DOMAIN_TIES):
+        path = directory / "summary.json"
+        INPUTS[str(path.relative_to(ROOT))] = digest(path)
+        summary = json.loads(path.read_text())
+        assert summary["status"] == "complete"
+        for name, expected in summary["input_sha256"].items():
+            source = ROOT / name
+            assert digest(source) == expected, name
+            INPUTS[str(source.relative_to(ROOT))] = expected
+    curves = rows(CHALLENGE / "curves.csv") + rows(DOMAIN_TIES / "curves.csv")
+    conditional = rows(CHALLENGE / "within_composition.csv")
+    index = {(r["construction"], r["readout"], r["metric"], r["method"], int(r["shortlist_size"])): r for r in curves}
+    inside = {(r["construction"], r["readout"], r["metric"], r["method"]): r for r in conditional}
+    labels = {"target_a": "Target A-opt", "second_moment_mmd": "MMD",
+              "mean_matching": "Mean matching", "domain_moment_ties": "Domain moment (random ties)",
+              "random": "Random"}
+    output = []
+    for method, label in labels.items():
+        loss = [float(index[c, "logistic", "brier_score", method, 50]["test_loss"])
+                for c in ("original", "hash_partition")]
+        if method == "domain_moment_ties":
+            # Twenty size-9 and ten size-27 strata per target; uniform tie retention.
+            within = [100 * (20 * (4 / 9) + 10 * (13 / 27)) / 30] * 2
+        else:
+            within = [100 * float(inside[c, "logistic", "brier_score", method]["oracle_retained"])
+                      for c in ("original", "hash_partition")]
+        output.append(f"{label} & {loss[0]:.6f} & {loss[1]:.6f} & {within[0]:.2f} & {within[1]:.2f} " + r"\\")
+    (generated / "construction_rows.tex").write_text(
+        "\\begin{tabular}{lrrrr}\n\\toprule\n"
+        + " & \\multicolumn{2}{c}{Final Brier ($s=50$)} & \\multicolumn{2}{c}{Within-composition (\\%)}\\\\\n"
+        + "Screen & Original & Hash & Original & Hash\\\\\n\\midrule\n"
+        + "\n".join(output) + "\n\\bottomrule\n\\end{tabular}\n")
+
+
+def cost_assets(generated: Path, figures: Path) -> dict[str, float]:
+    path = COST / "summary.json"
+    INPUTS[str(path.relative_to(ROOT))] = digest(path)
+    summary = json.loads(path.read_text())
+    assert summary["status"] == "complete"
+    for name, expected in summary["input_sha256"].items():
+        source = ROOT / name
+        assert digest(source) == expected, name
+        INPUTS[str(source.relative_to(ROOT))] = expected
+    times = rows(COST / "curves.csv")
+    ti = {(r["readout"], r["method"], int(r["shortlist_size"])): r for r in times}
+    labels = {"target_a": "A-opt", "second_moment_mmd": "MMD", "random": "Random", "exhaustive": "Full validation"}
+    selections = [("target_a", 50), ("second_moment_mmd", 50), ("random", 227), ("exhaustive", 455)]
+    output = []
+    for readout, label in (("ridge", "Ridge"), ("logistic", "Logistic")):
+        for method, size in selections:
+            t = ti[readout, method, size]
+            output.append(f"{label} & {labels[method]} & {size} & {float(t['test_brier_score']):.6f} & "
+                          f"{float(t['resident_seconds']):.2f} & {float(t['raw_additive_seconds']):.2f} " + r"\\")
+    (generated / "cost_rows.tex").write_text(
+        "\\begin{tabular}{llrrrr}\n\\toprule\n"
+        + "Readout & Screen & Fits & Brier & Resident (s) & Images (s)\\\\\n\\midrule\n"
+        + "\n".join(output) + "\n\\bottomrule\n\\end{tabular}\n")
+    output = []
+    for readout in ("ridge", "logistic"):
+        values = [float(ti[readout, method, size]["cached_two_encoder_batch_seconds"])
+                  for method, size in selections]
+        output.append(readout.title() + " & " + " & ".join(f"{v:.2f}" for v in values) + r"\\")
+    (generated / "cache_batch_rows.tex").write_text(
+        "\\begin{tabular}{lrrrr}\n\\toprule\n"
+        + "Readout & A-opt (50) & MMD (50) & Random (227) & Full (455)\\\\\n\\midrule\n"
+        + "\n".join(output) + "\n\\bottomrule\n\\end{tabular}\n")
+    fig, axes = plt.subplots(2, 2, figsize=(7, 4.5), layout="constrained")
+    colors = {"target_a": "#167D9A", "second_moment_mmd": "#B63855", "random": "#67735B"}
+    for i, readout in enumerate(("ridge", "logistic")):
+        for j, (field, title) in enumerate((("resident_seconds", "Resident features"),
+                                          ("raw_additive_seconds", "Image-cost accounting"))):
+            ax = axes[i, j]
+            for method in colors:
+                budgets = [10, 25, 50, 100, 227]
+                ax.plot([float(ti[readout, method, s][field]) for s in budgets],
+                        [float(ti[readout, method, s]["test_brier_score"]) for s in budgets],
+                        "o-", markersize=3, linewidth=1.1, color=colors[method], label=labels[method])
+            ax.plot(float(ti[readout, "exhaustive", 455][field]),
+                    float(ti[readout, "exhaustive", 455]["test_brier_score"]),
+                    "kx", markersize=5, label="Full (455)")
+            ax.set(title=f"{readout.title()}: {title}", xlabel="Mean seconds", ylabel="Final test Brier")
+            ax.grid(alpha=.2)
+            ax.tick_params(labelsize=8)
+            ax.ticklabel_format(axis="y", useOffset=False)
+    handles, labels_text = axes[0, 0].get_legend_handles_labels()
+    fig.legend(handles, labels_text, loc="outside lower center", ncol=4, frameon=False, fontsize=8)
+    fig.savefig(figures / "quality_cost.pdf", metadata={"CreationDate": None})
+    plt.close(fig)
+    values = {}
+    for readout, prefix in (("ridge", "Ridge"), ("logistic", "Logistic")):
+        for method, name in (("target_a", "A"), ("second_moment_mmd", "MMD")):
+            for field, scope in (("resident_seconds", "Resident"), ("raw_additive_seconds", "Images")):
+                values[f"Cost{prefix}{name}{scope}Ratio"] = (
+                    float(ti[readout, method, 50][field]) / float(ti[readout, "exhaustive", 455][field]))
+    return values
+
+
 def main() -> None:
     generated, figures = HERE / "generated", HERE / "figures"
     generated.mkdir(exist_ok=True)
@@ -245,6 +393,9 @@ def main() -> None:
     plt.close(fig)
     supplemental = supplement_numbers()
     readout = readout_assets(generated)
+    budget = budget_assets(generated, figures)
+    challenge_assets(generated)
+    cost = cost_assets(generated, figures)
     readout_precision = {
         "WorstErrorRecall": 0, "WorstErrorGap": 2,
         "ReadoutRidgeA": 2, "ReadoutRidgeMMD": 2,
@@ -260,7 +411,11 @@ def main() -> None:
         + "".join(f"\\newcommand{{\\{name}}}{{{value:.2f}}}\n" for name, value in supplemental.items())
         + "% Exploratory projection/readout follow-up, 2026-09-17.\n"
         + "".join(f"\\newcommand{{\\{name}}}{{{value:.{readout_precision.get(name, 3)}f}}}\n"
-                  for name, value in readout.items()))
+                  for name, value in readout.items())
+        + "% Exploratory decision-budget reanalysis, 2026-09-22.\n"
+        + "".join(f"\\newcommand{{\\{name}}}{{{value:.6f}}}\n" for name, value in budget.items())
+        + "% Independent matched decision timing and additive image-cost profiles.\n"
+        + "".join(f"\\newcommand{{\\{name}}}{{{value:.4f}}}\n" for name, value in cost.items()))
     abstracts = {}
     for lang in ("en", "zh"):
         path = HERE / f"abstract_{lang}.txt"
@@ -293,9 +448,11 @@ def main() -> None:
         "## 中文关键词\n\n" + "、".join(metadata["keywords_zh"]) + "\n\n"
         f"英文摘要词数（按空白分词）：{len(abstracts['en'].split())}。\n", encoding="utf-8")
     report = {"input_sha256": INPUTS, "e2b_summary_id": summary["summary_id"],
-              "diagnostic_status": "post-hoc description; no changed gates or new experiments",
+              "diagnostic_status": "original gates unchanged; exploratory budget and candidate-construction follow-ups reported separately",
               "supplemental_diagnostics_percent": supplemental,
               "readout_followup_percent": readout,
+              "decision_budget": budget,
+              "decision_cost_ratios": cost,
               "domainnet_brier_spans": spans,
               "primary_metrics": summary["primary_result"]}
     (generated / "asset_manifest.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")

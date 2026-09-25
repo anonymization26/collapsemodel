@@ -1,5 +1,12 @@
 \section{证明与数学主张的适用范围}
 \label{app:proofs}
+\begin{proposition}[方向分配影响合并结果]
+存在行归一化的矩阵对 $(A,B_1)$ 与 $(A,B_2)$，它们具有相同的边际奇异值谱和行空间主角度，但拼接后的有效秩不同。
+\end{proposition}
+\begin{proof}
+令 $A$ 包含四行 $e_1^\top$ 和一行 $e_2^\top$；$B_1$ 包含四行 $e_1^\top$ 和一行 $e_3^\top$；$B_2$ 包含一行 $e_1^\top$ 和四行 $e_3^\top$。三者非零奇异值谱均为 $(2,1)$，两组行空间主角度均为 $(0,\pi/2)$。合并 Gram 谱分别为 $(8,1,1)$ 与 $(5,4,1)$，有效秩约为 $2.6260$ 与 $2.8495$。尽管边际摘要相同，共享方向得到的能量却不同。
+\end{proof}
+
 设 $u,v$ 为单位方向，$u^\top v=c\in[0,1]$。在正交基 $u,z$ 中写成 $v=cu+\sqrt{1-c^2}z$，算子 $a^2uu^\top+b^2vv^\top$ 表示为
 \begin{equation}
  \begin{pmatrix}
@@ -84,6 +91,20 @@ PACS/Office-Home、$K=3$ 时，A-opt 平均 Brier 为 $0.826769$，DPP 为 $0.82
 
 表\ref{app:readout-table} 给出主规模下完整的 Brier 召回比较。A-opt 和 MMD 平均相对选择遗憾相同：岭回归为 $\RidgeSelectedRegret\%$，逻辑回归为 $\LogisticSelectedRegret\%$。两者全部新种子主设置 Brier 短名单均包含经验 oracle。
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{shortlist_recall.pdf}
+\caption{图中展示原 DomainNet 实验的测试 Brier 前十名平均召回率如何随短名单规模变化。虚线为预设召回门槛。全部曲线使用相同候选组合，各规则按其对应权限读取特征。}
+\label{fig:recall}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{探索性 DomainNet 补实验评价大小为 $s=227$ 的短名单。测试前十名召回率（\%）先在每个目标域内平均两个编码器和四个新投影种子，再对六个域平均。Ridge 指 ridge-softmax；NLL 和错误率分别使用对应验证损失作最终选择。}
+\label{tab:readout}
+\input{generated/readout_rows}
+\end{table}
+
 \begin{table}[ht]
 \centering
 \caption{表中报告全部补实验评分规则在 $s=227$ 时的 Brier 前十名召回率（\%）。平均方式与表\ref{tab:readout} 相同，不包括原种子对照。}
@@ -98,3 +119,82 @@ A-opt 最低分类错误率召回出现在 DINOv2、Quickdraw、逻辑回归、�
 独立 E5 研究将草图载荷与紧凑对称 float64 Gram 比较，而非与更大的稠密存储比较。在覆盖完整网格、平均字节比不超过 $25\%$ 的策略中，与 Full-Gram 贪心的最佳所选集合一致率为 $15.42\%$，由自适应秩上限 2 获得，平均字节比为 $14.91\%$。其成对证书率为 $3.91\%$，完整选择认证率为零。自适应回退能够实现完全所选集合一致，但计入此前传输后，平均成本约为紧凑 Gram 字节的 $160\%$，未达到决策与通信的联合要求。参照是 Full-Gram 贪心，而非穷举全局最小解。
 
 另一项早期实验在 21 个来源上训练源监督 bottleneck adapter，使用四个编码器、五个 adapter 种子审计七个目标。目标训练内验证采用三个分层五折划分，选择冻结后独立读取 held-out 目标测试集。冻结 identity 平均准确率为 $0.83654$，未训练随机 adapter 为 $0.77144$，验证 oracle 源监督 adapter 为 $0.76951$。后者比 identity 低 $0.06703$，目标聚类 95\% 区间为 $[-0.09771,-0.04400]$。相对该 adapter 族的小短名单遗憾因而不代表下游收益。这不是 DomainNet 实验，也不是对所有适应方法的否定。结果位于 \path{results/two_stage_repeated_cv_utility_corrected_v3/}。
+
+\subsection{决策预算重分析}
+\label{app:budget}
+事后预算审计使用四个新投影种子和两种读出器，不挑选有利种子。对每个任务和终点，穷举验证仅按验证损失选择组合，再将其测试损失作为已冻结短名单选择的配对参照。经验测试 oracle 仍是用于审计的下界参照，与该可部署参照不同。保留全部五个原始预算。
+
+\begin{table}[ht]
+\centering
+\caption{表中报告逻辑回归的最终 Brier 及超过穷举验证参照 $0.005$ 的比例。先平均随机重复，再在域内平均编码器和种子，最后对六域平均。容忍值属于探索性分析，不是新成功门槛。}
+\label{app:budget-table}
+\input{generated/budget_rows}
+\end{table}
+
+绝对差敏感性网格为：Brier 的 $0.001,0.005,0.01$，NLL 的 $0.01,0.05,0.1$，错误率的 $0.5,1,2$ 个百分点。超差指示量在平均随机重复之前计算；对平均损失再应用阈值会回答不同问题。描述性配对 bootstrap 对六个域均值进行2,000次重采样，不涵盖共享源池引起的依赖、验证重采样或独立数据集。全部终点曲线、配对域差和阈值比例见 \path{results/target_conditioned/revision_20260922/budget_audit/}。脚本 \path{scripts/analyze_e2b_decision_budget.py} 核验已记录损失的哈希，并从验证文件构造穷举参照。
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{headroom_diagnostics.pdf}
+\caption{两个面板报告不同候选族的事后诊断。左图展示各 PACS/Office-Home 目标内平均编码器后，oracle 相对 DPP 的 Brier 改善空间。右图展示原 DomainNet 任务的相对 Brier 最好到最坏跨度。原评价门槛保持不变。}
+\label{fig:diagnostics}
+\end{figure}
+
+\subsection{损失分辨能力与测试样本稳定性}
+附录图\ref{fig:diagnostics} 的事后损失跨度诊断为理解原遗憾判据提供了参照。所有候选的相对 Brier 遗憾都低于 $5\%$，因此该门槛无法在本实验中区分筛选是否成功。召回率提供了更有信息量的比较，但也引出另一个问题：测试前十名对测试样本的抽取有多敏感？
+
+
+
+CUDA 重建首先复现了原实验的全部 Brier 前十名集合。随后固定拟合模型和验证选择，对测试样本进行配对 bootstrap。重采样与原前十名集合平均仅重叠 $\BootstrapOverlap\%$，但 A-opt 和 MMD 仍分别保留重采样前十名的 $\BootstrapRecall\%$ 和 $\BootstrapMMDRecall\%$。在这些测试样本变化下，较宽短名单比精确排名成员更稳定。
+
+改变指标对“哪些组合算好”的影响更大：原实验 Brier 与分类错误率前十名平均仅重叠 $\BrierErrorOverlap\%$。因此，即使预筛选在若干指标上都有较高平均召回，仍应按预期部署指标评价。重采样协议与其他指标比较见附录\ref{app:protocol}。
+
+
+\subsection{候选构造与域级对照}
+\label{app:construction}
+固定挑战使用投影种子 $20260917$、两种编码器和两种读出器。每域原有1536张源图像按照固定种子、域标识与样本标识拼接后的 SHA-256 排序，再分成三个512样本块。成员确定不使用标签、特征值或结果；目标选择集、验证集和测试集保持不变。原构造同时重跑作为控制：65520个验证与测试损失值均与此前对应种子的记录完全一致。重分块不再使用 CLIP 分层标签，但仍以原来选出的源图像集合为条件；它不是独立数据集，也没有新增测试样本。
+
+均值匹配最小化 $\|\bar h_S-\bar h_T\|_2^2$，即线性核 MMD 评分。域级匹配额外使用源域标识，以整个源域的矩替代各块的矩，按候选的域样本比例加权，再最小化与目标矩的 Frobenius 距离平方。原挑战按字典序打破平局。由于域级匹配产生大量结构性平局，额外的事后审计使用20个固定种子，在每个同域组成组内随机排列。它在读取测试损失前冻结全部新验证选择，不重新拟合或改变分类器参数。发布的曲线仍保留原平局协议结果。
+
+\begin{table}[ht]
+\centering
+\caption{构造挑战使用逻辑回归 Brier。最终损失由规模 $s=50$ 的名单内验证选择得到。后两列是每个非单例同域组成组保留一半候选时，对一个经验最优候选的保留率，不是最终选择准确率。先在目标内平均组成组与编码器，再平均六个目标。域级匹配的最终损失使用20次随机平局处理；其组内项为均匀平局的精确期望。}
+\label{app:construction-table}
+\input{generated/construction_rows}
+\end{table}
+
+每个目标有20个含九候选的组成组和十个含27候选的组成组，排除五个单候选组。组内候选具有完全相同的域重数与总样本数。先平均随机重复，再平均组成组、编码器与目标域。域级评分在组内恒定，因此均匀平局下的最优候选保留期望为 $(20\cdot4/9+10\cdot13/27)/30=45.68\%$。字典序的组内结果仍有记录，但不解释为域级方法的区分能力。
+
+哈希重分块后，A-opt 与 MMD 对逻辑回归分类错误率最优候选的保留率分别为 $41.94\%$、$35.28\%$，随机选择为 $45.75\%$。两者的平均 Brier 遗漏仍低于随机，但优势小于原分块。这些依赖指标的观察描述条件性排序表现，既不构成人群保证，也未从特定分块的其他属性中分离出异质性的因果贡献。
+
+完整曲线和同域组成审计见 \path{results/target_conditioned/revision_20260922/challenge_summary/}，域级随机平局结果见 \path{results/target_conditioned/revision_20260922/domain_tie_audit/}。原始三阶段记录通过哈希绑定候选成员、源特征、配置、上游选择与数值文件。本地汇总核验全部数值哈希与上游签名；服务器在访问测试数据前已检查冻结模型哈希。
+
+
+\subsection{配对质量与计算成本}
+\label{app:cost}
+计时研究使用原候选构造与投影种子 $20260917$。每个编码器--目标--读出任务独立执行 A-opt、MMD、随机筛选与穷举验证，重复三次，并用固定种子确定方法顺序。BLAS 使用单线程。各短名单检查点测量一次排序后的累计时间，不跨方法复用拟合模型。岭回归按需缓存已使用块的 float64 Gram 与标签右端项，穷举也使用这一实现。首版 float32 Gram 的岭回归时间保留在归档中，但不进入任何表格。
+
+每次计时的验证损失与选择均与冻结科学审计核对。图\ref{fig:cost} 的质量来自同样三次运行实际选中的模型，Brier、NLL 与错误率分别使用对应验证指标。因此，这里的随机质量坐标平均三次计时排名，而不是主科学审计中的20次排名。先在任务内平均重复，再在目标内平均编码器，最后六目标等权平均；时间中位数作为诊断保留。
+
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{quality_cost.pdf}
+\caption{最终测试 Brier 分别相对于配对决策时间和图像成本分项核算作图。每条曲线包括预算 $10,25,50,100,227$，叉号为455候选的穷举验证。两行纵轴尺度不同。均值使用两编码器、六目标，以及每方法三次独立执行。原始图像成本不包括候选构造、下载、缓存写盘和测试审计。}
+\label{fig:cost}
+\end{figure}
+
+内存计时不包括阶段包加载、完整性校验和缓存特征投影。表\ref{app:cache-table} 为两个各含六目标的编码器批次单独核算这些操作。目标感知方法加载选择包与验证包，随机和穷举只需要验证包。共享准备成本在每个编码器批次内只计一次，不折算成虚构的单任务时间。
+
+\begin{table}[ht]
+\centering
+\caption{磁盘缓存批次成本以秒计，包括输入加载、完整性检查、投影和全部十二个编码器--目标决策。这里是两个六目标批次的总时间，而表\ref{tab:cost} 是单任务均值；选择及损失不变。}
+\label{app:cache-table}
+\input{generated/cache_batch_rows}
+\end{table}
+
+原始图像测量包括模型初始化、图像读取与哈希检查、解码、预处理、推理、CPU 特征传输，以及归一化和投影。各源块独立计时；随机筛选只收取实际前缀中块并集的成本，几何评分与穷举验证则使用全部15个可用源块。所有方法还需要目标验证特征，仅目标感知评分需要目标选择样本。不处理测试图像。测量以固定候选池清单为输入，因此不含基于 CLIP 的候选构造。
+
+服务器采用 Intel Xeon Platinum 8352V CPU 和 NVIDIA vGPU-32GB。特征提取使用 CUDA 12.4、PyTorch 2.5.1、不启用 TF32 的 float32 推理、批大小64，以及四个数据加载进程。读出环境为 NumPy 1.26.4、SciPy 1.16.1 和 scikit-learn 1.7.1。特征分项只测量一遍，不清空操作系统磁盘缓存，并计入块级加载进程启动成本。因此，加总结果描述的是这一实现和复用情形，不是与硬件无关的加速比。
+
+全部32条质量时间曲线记录、三种损失终点、配对差异和384条任务级预算记录见 \path{results/target_conditioned/revision_20260922/cost_summary/}，并附有独立计时记录及逐块特征测量。论文核验脚本从这些记录独立重算配对质量坐标、随机块并集和全部加法总成本。
