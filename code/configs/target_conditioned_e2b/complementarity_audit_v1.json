@@ -1,0 +1,22 @@
+{
+  "schema_version": "e2b-aopt-mmd-complementarity-v1",
+  "declared_date": "2026-09-26",
+  "status": "exploratory-post-hoc-original-outcomes-known-not-preregistered",
+  "input_root": "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1",
+  "shortlist_sizes": [10, 25, 50, 100, 227],
+  "top_q": 10,
+  "primary_metric": "brier_score",
+  "metrics": ["brier_score", "nll", "error_rate"],
+  "readouts": ["ridge", "logistic"],
+  "methods": ["mmd", "a_opt", "union", "mmd_matched_union_size", "interleave_mmd_first", "interleave_a_first", "mmd_2s_then_a"],
+  "cascade_multiplier": 2,
+  "selection_rule": "minimum-validation-loss-with-lexicographic-candidate-ties",
+  "top_q_ties": "lexicographic-primary-plus-fractional-boundary-tie-sensitivity",
+  "oracle_ties": "any-candidate-at-the-exact-minimum-recorded-test-loss",
+  "comparison_absolute_tolerance": 1e-12,
+  "scope": "four-new-seeds-and-original-seed-control-reported-separately",
+  "aggregation": "equal-target-domain-weight-after-averaging-encoder-and-seed-repeats",
+  "cost_scope": "unique-candidate-evaluation-count-only-no-timing-no-retraining",
+  "parameter_selection": "fixed-rules-at-all-listed-budgets-no-test-selected-rule-or-budget",
+  "interpretation": "diagnostic-of-complementarity-not-independent-confirmation-or-a-new-risk-guarantee"
+}
