@@ -1,5 +1,22 @@
 \section{证明与数学主张的适用范围}
 \label{app:proofs}
+奇异值分解 $H=U\Sigma V^\top$ 将特征方向与其强度分开。对于固定非负权重 $w_i$，堆叠缩放后的源矩阵得到
+\begin{equation}
+ G_S=H_S^\top H_S=\sum_{i\in S}w_iG_i.
+ \label{eq:gram}
+\end{equation}
+该矩阵和的特征值是合并特征奇异值的平方。只要预处理坐标保持固定，它就保留了方向强度及其跨数据池的对应关系。实验中权重均为一。
+
+有效秩将奇异值归一化为概率向量，再对其熵取指数\citep{roy2007}：
+\begin{equation}
+ \reff(H)=\exp\!\left(-\sum_j p_j\log p_j\right),\qquad
+ p_j=\frac{\sigma_j(H)}{\sum_k\sigma_k(H)}.
+ \label{eq:rank}
+\end{equation}
+对于非零矩阵，约定 $0\log0=0$，且 $1\leq\reff(H)\leq\operatorname{rank}(H)$，正奇异值相等时取得上端点。两个奇异值之比为 $9:1$ 时，有效秩约为 $1.38$，相等时则为二。Gram 特征值须先取平方根再归一化；直接归一化会定义另一个评分。重复整个矩阵不改变有效秩，它衡量的是谱形状，而不是样本证据数量。它是目标无关对照，不是目标感知评分所需的步骤。
+
+仅凭边际谱和主角度，不一定能够确定这一合并统计量：相同强度可能被分配给不同的共享或非共享方向。以下反例与局部公式说明所缺失的方向信息。
+
 \begin{proposition}[方向分配影响合并结果]
 存在行归一化的矩阵对 $(A,B_1)$ 与 $(A,B_2)$，它们具有相同的边际奇异值谱和行空间主角度，但拼接后的有效秩不同。
 \end{proposition}

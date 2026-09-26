@@ -1,5 +1,22 @@
 \section{Proofs and Scope of the Mathematical Claims}
 \label{app:proofs}
+The singular value decomposition $H=U\Sigma V^\top$ separates feature directions from their strengths. For fixed nonnegative weights $w_i$, stacking the scaled source matrices gives
+\begin{equation}
+ G_S=H_S^\top H_S=\sum_{i\in S}w_iG_i.
+ \label{eq:gram}
+\end{equation}
+The eigenvalues of this sum are the squared singular values of the pooled features. It preserves the strength and cross-pool alignment of directions, provided preprocessing coordinates remain fixed. The experiments use unit weights.
+
+Effective rank normalizes the singular values into a probability vector and exponentiates its entropy \citep{roy2007}:
+\begin{equation}
+ \reff(H)=\exp\!\left(-\sum_j p_j\log p_j\right),\qquad
+ p_j=\frac{\sigma_j(H)}{\sum_k\sigma_k(H)}.
+ \label{eq:rank}
+\end{equation}
+For a nonzero matrix, $0\log0=0$ and $1\leq\reff(H)\leq\operatorname{rank}(H)$, with the upper endpoint attained by equal positive singular values. Two values in ratio $9:1$ give about $1.38$, versus two for equal strengths. Gram eigenvalues must be square-rooted before normalization; normalizing them directly defines another score. Repeating the entire matrix leaves effective rank unchanged: it measures spectral shape, not sample evidence. It is a target-blind comparator, not a step required by the target-aware scores.
+
+Marginal spectra and principal angles alone need not determine this pooled statistic: the same strengths can be assigned differently to shared and unshared directions. The following counterexample and local formula identify the missing directional information.
+
 \begin{proposition}[Directional assignment matters]
 There exist row-normalized pairs $(A,B_1)$ and $(A,B_2)$ with identical marginal singular spectra and principal angles between their row spaces, but different effective ranks after concatenation.
 \end{proposition}

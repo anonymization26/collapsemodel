@@ -3,11 +3,11 @@ Adapting a predictor to a target domain often starts with several source-data po
 
 Frozen pretrained encoders provide a common comparison space. Their feature vectors can be reused across source combinations; CLIP and DINOv2 support this setting \citep{radford2021,oquab2024}. A classifier trained on these features is called a readout. Comparing feature geometry before fitting readouts provides a way to narrow the candidate set.
 
-The relevant geometry must reflect the target task. Effective rank exponentiates the entropy of normalized singular values to summarize how evenly variation spans directions \citep{roy2007,garrido2023rankme}. Yet diverse source pools may overlap, or cover directions rarely encountered in the target. Preserving their directional structure and weighting it by target features addresses a different question from maximizing source diversity.
+Source diversity alone does not identify target usefulness. Effective rank summarizes how evenly variation spans feature directions \citep{roy2007,garrido2023rankme}. For intuition, if target feature energy lies mainly in shape-related directions, adding source coverage of background variation may matter less. Shape and background illustrate directions here; the screen does not identify these semantics.
 
-We propose a geometry-guided framework for data-pool pre-screening, with Target A-opt as its core scoring method. We apply target-weighted experimental design \citep{yu2006,hubotter2024transductive} to candidate unions of source pools. Pooled Gram matrices record which directions a combination covers; the target second moment weights those directions by their importance at prediction time. A-opt favors combinations that reduce target-weighted uncertainty. The framework retains a shortlist using unlabeled features, then trains readouts on source labels and chooses one using separate target validation. Geometry reduces the combinations that need fitting; validation supplies the label evidence for the final choice.
+We propose a geometry-guided framework for data-pool pre-screening, with Target A-opt as its core scoring method. We apply target-weighted experimental design \citep{yu2006,hubotter2024transductive} to candidate unions of source pools. Pooled Gram matrices record source directional coverage; the target second moment measures energy in those directions. Algorithm~\ref{alg:target-a} gives the complete procedure: unlabeled features determine a shortlist, source labels train its readouts, and separate target validation chooses one. Geometry reduces fitting work; validation supplies label evidence for the final choice.
 
-A shared linear model explains the A-opt score as target prediction risk up to an irreducible noise term. An error decomposition then separates losses due to candidate omission from losses due to validation selection. These analyses motivate the score and the evaluation: candidate retention explains what survives screening, while final test loss and measured computation determine its practical value.
+Under a shared Bayesian linear model, source coverage reduces uncertainty about the coefficients linking features to predictions. A-opt weights the remaining uncertainty by target energy, estimating risk beyond irreducible noise. This explains the score, not a classification guarantee. Separately, an error decomposition distinguishes good candidates lost during screening from quality lost when validation chooses among retained candidates. Retaining a good candidate does not ensure it will be selected, so we measure both retention and final loss.
 
 Experiments on equal-sample-cost DomainNet combinations test this framework against random screening, target-blind diversity, and second-moment matching (MMD). With logistic regression, exploratory budget analyses show lower mean test Brier, a probability-prediction loss, for shorter A-opt lists than longer random lists. MMD remains competitive, and domain controls examine the value of block-level geometry. Independent timing finds savings with cached features; adding measured feature work preserves the logistic-regression saving but reverses it for ridge. The benefit is fewer supervised evaluations yielding a competitive final predictor, with actual savings depending on readout and feature costs.
 
@@ -23,63 +23,70 @@ TSDS optimizes a sampling distribution using transport-based target alignment an
 \subsection{Geometry and computation budgets}
 RankMe assesses representations through effective rank without downstream labels \citep{garrido2023rankme}, and determinantal point processes favor complementary subsets \citep{kulesza2012}. They motivate target-blind comparators. Compute-constrained selection charges scoring against the same budget as training \citep{yin2025}: a better subset need not justify its selection cost. We apply this accounting principle to evaluating pool combinations, measuring both final quality and the work needed to obtain it.
 
-\section{Geometry-Guided Screening}
+\section{Target A-opt Data-Pool Screening}
 \label{sec:problem}
 \label{sec:theory}
-\subsection{Problem and two-stage procedure}
-A pool is a fixed block of examples; a candidate is a feasible union of blocks. A shortlist contains these combinations, not individual images. Screening and supervised evaluation produce one predictor, using separate target data for screening, validation, and testing.
+\subsection{Problem and complete procedure}
+A pool is a fixed block of examples; a candidate $S\in\cC$ is a feasible union of blocks. The shortlist contains combinations, not individual images. A fixed feature map $h$ comprises the frozen encoder and shared label-independent preprocessing. Let $H_i\in\R^{n_i\times d}$ contain pool $i$'s features, and let $H_S,y_S$ stack the features and labels in $S$. All candidates share a readout fitting rule $\mathcal A$ and a validation loss $L$, fixed before selection.
 
-Let $H_i\in\R^{n_i\times d}$ contain the features of pool $i$, using a fixed encoder and shared label-independent preprocessing. Its Gram matrix $G_i=H_i^\top H_i$ records feature-direction strengths and their relationships. For $S$ in the candidate family $\cC$, $G_S=\sum_{i\in S}G_i$ and $n_S=\sum_{i\in S}n_i$. Unlabeled target-selection features estimate the uncentered second moment $C_T=\E_T[hh^\top]$, which describes target directional energy.
+Algorithm~\ref{alg:target-a} uses the experimental setting $P_0^{-1}=I$, $\sigma^2=1$. The screen reads source features and an unlabeled target-selection set $T_{\rm sel}$, but no labels or validation/test data. Only after freezing the shortlist does supervised evaluation read source labels and the separate target-validation set $T_{\rm val}$; the records call these stages U0 and U2.
 
-The screen ranks $\cC$ and retains its first $s$ combinations as $\cQ_s$. Predictors trained on their source labels then compete on a separate target-validation set, which chooses $\widehat S\in\cQ_s$. Target-test data audit this frozen choice and candidate retention. Screening sees source and target-selection features but no labels or validation/test data; target-blind rules use only source information. The supervised stage reads source labels and target-validation data. These stages are recorded as U0 and U2. All combinations share the encoder, classifier, and validation procedure.
+\begin{algorithm}[H]
+\caption{Target A-opt screening and validation}
+\label{alg:target-a}
+\begin{algorithmic}[1]
+\Require Source pools $\{D_i\}$, candidate family $\cC$, target sets $T_{\rm sel},T_{\rm val}$.
+\Require Fixed feature map $h$, fitting rule $\mathcal A$, loss $L$, shortlist size $1\leq s\leq|\cC|$.
+\Ensure Shortlist $\cQ_s$, selected combination $\widehat S$, and fitted readout $q_{\widehat S}$.
+\State Form $H_i$ and $H_{\rm sel}$ using $h$, without reading labels.
+\State Cache $G_i=H_i^\top H_i$; estimate $\widehat C_T=H_{\rm sel}^\top H_{\rm sel}/|T_{\rm sel}|$.
+\For{each $S\in\cC$}
+  \State $G_S\gets\sum_{i\in S}G_i$; $f_A(S)\gets\tr\!\left[\widehat C_T(I+G_S)^{-1}\right]$.
+\EndFor
+\State Retain the first $s$ candidates ordered by $(f_A(S),\operatorname{id}(S))$ as $\cQ_s$.
+\For{each $S\in\cQ_s$}
+  \State Fit $q_S\gets\mathcal A(H_S,y_S)$ using source labels.
+  \State $v(S)\gets |T_{\rm val}|^{-1}\sum_{(x,y)\in T_{\rm val}}L(q_S(h(x)),y)$.
+\EndFor
+\State Choose $\widehat S$ minimizing $(v(S),\operatorname{id}(S))$ over $\cQ_s$.
+\State \Return $\cQ_s,\widehat S,q_{\widehat S}$.
+\end{algorithmic}
+\end{algorithm}
 
-\subsection{Shared geometry and spectral diversity}
-The singular value decomposition $H=U\Sigma V^\top$ separates feature directions from their strengths. For fixed nonnegative weights $w_i$, stacking the scaled source matrices gives
-\begin{equation}
- G_S=H_S^\top H_S=\sum_{i\in S}w_iG_i.
- \label{eq:gram}
-\end{equation}
-The eigenvalues of this sum are the squared singular values of the pooled features. It preserves the strength and cross-pool alignment of directions, provided preprocessing coordinates remain fixed. The experiments use unit weights.
+Both orderings are ascending, with combination identifiers breaking ties lexicographically. All candidates receive geometric scores, but only the $s$ retained candidates require supervised fitting and validation. Summed Grams preserve source directional coverage; the target moment weights its relevance. Validation reuses frozen features and supplies label evidence for the final choice. Test data evaluate this frozen output and candidate retention, not any step of the algorithm.
 
-Effective rank normalizes the singular values into a probability vector and exponentiates its entropy \citep{roy2007}:
-\begin{equation}
- \reff(H)=\exp\!\left(-\sum_j p_j\log p_j\right),\qquad
- p_j=\frac{\sigma_j(H)}{\sum_k\sigma_k(H)}.
- \label{eq:rank}
-\end{equation}
-For a nonzero matrix, $0\log0=0$ and $1\leq\reff(H)\leq\operatorname{rank}(H)$, with the upper endpoint attained by equal positive singular values. Two values in ratio $9:1$ give about $1.38$, versus two for equal strengths. Gram eigenvalues must be square-rooted before normalization; normalizing them directly defines another score. Repeating the entire matrix leaves effective rank unchanged: it measures spectral shape, not sample evidence. It is a target-blind comparator, not a step required by the target-aware scores.
-
-Marginal spectra and principal angles alone need not determine even this pooled statistic: the same strengths can be assigned differently to shared and unshared directions. Appendix~\ref{app:proofs} gives a counterexample and conditions for a local spectral formula. Retaining Gram operators preserves these directions. Using the target moment is a separate step: it tells the score which preserved directions matter to the target.
-
-\subsection{Target weighting and moment matching}
-Target weighting asks which source combination reduces uncertainty where the target needs coverage. A shared linear model makes this question precise. Consider scalar Bayesian regression with $\theta\sim N(0,P_0)$, $P_0\succ0$, and $y=h^\top\theta+\epsilon$, where independent noise satisfies $\epsilon\sim N(0,\sigma^2)$ and $\sigma^2>0$. Sources and target share $\theta$ and the noise model; target covariates reveal no further information about $\theta$. Conditional on the source design, the posterior covariance and posterior-mean target risk are
+\subsection{Why target-weighted uncertainty guides screening}
+Uncertainty here concerns how feature changes affect predictions, not image clarity or disorder. We formalize it through scalar Bayesian regression with $\theta\sim N(0,P_0)$, $P_0\succ0$, and $y=h^\top\theta+\epsilon$, where independent noise satisfies $\epsilon\sim N(0,\sigma^2)$ and $\sigma^2>0$. Sources and target share $\theta$ and the noise model; target covariates reveal no further information about $\theta$. With target second moment $C_T=\E_T[hh^\top]$, the posterior covariance and posterior-mean target risk conditional on the source design are
 \begin{equation}
  P_S=\left(P_0^{-1}+\sigma^{-2}G_S\right)^{-1},\qquad
  R_T(S)=\sigma^2+\tr(C_TP_S).
  \label{eq:risk}
 \end{equation}
-The expectation averages posterior uncertainty and a new target observation. The derivation is recalled in Appendix~\ref{app:proofs}.
+The risk is irreducible noise plus target-weighted parameter uncertainty, averaging the posterior and a new target observation. Appendix~\ref{app:proofs} gives the derivation.
 
-Equation~\eqref{eq:risk} motivates the score $f_A(S)=\tr(\widehat C_TP_S)$, minimized with fixed hyperparameters. With an isotropic prior, it is the regularized target-variance criterion of transductive experimental design \citep{yu2006,hubotter2024transductive}; we retain the recorded name Target A-opt. Source observations reduce uncertainty along covered directions, and target moments weight what remains by prediction-time energy. A pool can thus be useful without high overall diversity when it covers uncertain target-relevant directions. Adding a positive-semidefinite source Gram cannot increase this score.
+The score $f_A(S)=\tr(\widehat C_TP_S)$ estimates the second term using unlabeled target features and is minimized with fixed hyperparameters. With an isotropic prior, it is the regularized target-variance criterion of transductive experimental design \citep{yu2006,hubotter2024transductive}; we retain the recorded name Target A-opt. Adding a positive-semidefinite source Gram cannot increase this score.
 
 For the experimental choice $P_0^{-1}=I$ and $\sigma^2=1$, write $G_S=U\operatorname{diag}(\lambda_j)U^\top$, including zero eigenvalues. Then
 \begin{equation}
  f_A(S)=\sum_j\frac{u_j^\top\widehat C_Tu_j}{1+\lambda_j}.
  \label{eq:target-directions}
 \end{equation}
-The denominator reflects source coverage of $u_j$; the numerator measures its target importance. Combinations with identical eigenvalues can receive different scores when their directions align differently with the target. Effective rank treats their spectra identically; target weighting distinguishes where coverage is useful.
+The reciprocal denominator is the remaining coefficient uncertainty along $u_j$; the numerator weights it by target feature energy. Source coverage reduces the former, while the latter is not known label importance. Combinations with identical spectra can thus receive different scores through their alignment with the target. The implementation evaluates this eigendecomposition form rather than explicitly forming the inverse in Algorithm~\ref{alg:target-a}.
 
-Second-moment matching asks a different question: how close is the source's average directional energy to the target's? It minimizes
+The shared conditional model supplies the risk interpretation of A-opt. Its assumption is substantive: if all features equal $1$, source pools labeled constantly $+1$ and $-1$ produce predictors whose risk ordering reverses between two target worlds with opposite constant labels. The feature geometry is unchanged. In classification, we therefore evaluate the scores using trained ridge-softmax and logistic-regression readouts rather than identify Equation~\eqref{eq:risk} with their losses.
+
+\subsection{Moment matching and spectral comparators}
+Second-moment matching asks a different question: how close is the source's average directional energy to the target's? With $n_S=\sum_{i\in S}n_i$, it minimizes
 \begin{equation}
  f_M(S)=\norm{G_S/n_S-\widehat C_T}_F^2.
  \label{eq:mmd}
 \end{equation}
 This is empirical squared MMD with kernel $k(h,h')=(h^\top h')^2$, including diagonal terms. It matches average directional energy rather than weighting posterior uncertainty. Both criteria read the same features, testing whether inverse-covariance weighting adds value beyond direct moment matching.
 
-The shared conditional model supplies the risk interpretation of A-opt. Its assumption is substantive: if all features equal $1$, source pools labeled constantly $+1$ and $-1$ produce predictors whose risk ordering reverses between two target worlds with opposite constant labels. The feature geometry is unchanged. In classification, we therefore evaluate the scores using trained ridge-softmax and logistic-regression readouts rather than identify Equation~\eqref{eq:risk} with their losses.
+Effective rank instead summarizes the evenness of singular values without target information \citep{roy2007}. It measures spectral shape rather than sample evidence and is a comparator, not a step in Algorithm~\ref{alg:target-a}. Appendix~\ref{app:proofs} gives its definition, a numerical example, and why marginal spectra alone cannot replace the pooled Gram. These comparisons distinguish source diversity, target moment matching, and target-weighted uncertainty within the same selection procedure.
 
 \subsection{Separating retention from final selection}
-The final choice can lose quality in two ways: screening discards a good candidate, or validation chooses a worse member of the retained set. Let $\ell(S)$ be target risk for a fixed trained predictor and $v(S)$ its validation loss. If $|v(S)-\ell(S)|\leq\varepsilon$ throughout $\cQ_s$, the validation minimizer satisfies
+Screening can discard a good candidate; validation can also fail to choose the best retained one. Let $\ell(S)$ be target risk for a fixed trained predictor and $v(S)$ its validation loss. If $|v(S)-\ell(S)|\leq\varepsilon$ throughout $\cQ_s$, the validation minimizer satisfies
 \begin{equation}
  \ell(\widehat S)-\min_{S\in\cC}\ell(S)
  \leq
@@ -87,7 +94,7 @@ The final choice can lose quality in two ways: screening discards a good candida
  +2\varepsilon.
  \label{eq:decomposition}
 \end{equation}
-The bound, proved in Appendix~\ref{app:proofs}, motivates two separate measurements. Candidate retention checks what screening leaves available; final test loss evaluates the choice made from that set. High recall need not give a good final choice if validation selects poorly. Conversely, a low-loss choice need not retain every top-ten candidate. We audit finite-test counterparts of omission and selection error alongside recall. The deviation condition explains their distinction; it is not estimated as a population guarantee.
+Omission compares the best retained risk with the best full-family risk. The validation-selection gap is the risk difference between the chosen and best retained candidates, not the validation loss itself. The deviation condition bounds this gap by $2\varepsilon$. The argument needs no shared linear model (Appendix~\ref{app:proofs}). High recall need not yield a good final choice, nor does low final loss require retaining every top-ten candidate. We audit both gaps on finite test data alongside recall, without estimating a population guarantee.
 
 \subsection{Decision budgets and cost accounting}
 The full-search reference trains all candidates and chooses $S_{\mathrm{full}}=\arg\min_{S\in\cC}v(S)$. This is a deployable procedure. The test oracle, in contrast, is the candidate with lowest observed test loss and is used only for auditing. Let $b(S)$ be test Brier, the mean squared distance between predicted class probabilities and the one-hot label; lower is better. We report $b(\widehat S_s)-b(S_{\mathrm{full}})$ and the fraction of repeated tasks exceeding a declared absolute tolerance. The gap can be negative because the validation and test rankings can differ.
@@ -202,4 +209,4 @@ The derivation concerns shared linear regression; classification evaluates the s
 
 \section{Conclusion}
 \label{sec:conclusion}
-We evaluated target-aware geometry as a way to reduce supervised data-pool evaluations while retaining a competitive final choice. The analysis explains the design score under shared linear risk and distinguishes candidate omission from validation error. On equal-sample-cost DomainNet combinations, evaluating 50 A-opt or MMD candidates gives lower mean test Brier than evaluating 227 random candidates. Simple moment matching remains competitive. Fewer evaluations save time with cached features; adding measured feature costs preserves the logistic-regression saving but reverses it for ridge. Screening is therefore best assessed through the final loss and the actual work required to obtain that choice, with candidate retention explaining rather than replacing those outcomes.
+We evaluated target-aware geometry as a way to reduce supervised data-pool evaluations while retaining a competitive final choice. The analysis explains the design score under shared linear risk and separates candidate omission from the quality gap due to validation selection. On equal-sample-cost DomainNet combinations, evaluating 50 A-opt or MMD candidates gives lower mean test Brier than evaluating 227 random candidates. Simple moment matching remains competitive. Fewer evaluations save time with cached features; adding measured feature costs preserves the logistic-regression saving but reverses it for ridge. Screening is therefore best assessed through the final loss and the actual work required to obtain that choice, with candidate retention explaining rather than replacing those outcomes.

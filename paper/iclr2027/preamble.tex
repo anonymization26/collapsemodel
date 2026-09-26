@@ -1,5 +1,6 @@
 \usepackage{amsmath,amssymb,amsthm,mathtools}
 \usepackage{graphicx,booktabs,tabularx,array}
+\usepackage{algorithm,algpseudocode}
 \usepackage{xcolor}
 \usepackage{xurl}
 \usepackage[colorlinks=true,linkcolor=blue!55!black,citecolor=blue!55!black,urlcolor=blue!55!black]{hyperref}
@@ -18,6 +19,13 @@
 \newcommand{\cQ}{\mathcal{Q}}
 \newcommand{\norm}[1]{\left\lVert#1\right\rVert}
 \ifdefined\ChineseDraft
+\floatname{algorithm}{算法}
+\algrenewcommand{\algorithmicrequire}{输入：}
+\algrenewcommand{\algorithmicensure}{输出：}
+\algrenewcommand{\algorithmicfor}{遍历}
+\algrenewcommand{\algorithmicdo}{执行}
+\algrenewtext{EndFor}{结束遍历}
+\algrenewcommand{\algorithmicreturn}{返回}
 \newtheorem{proposition}{命题}
 \newtheorem{lemma}{引理}
 \else

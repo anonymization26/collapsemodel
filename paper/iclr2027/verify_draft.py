@@ -344,6 +344,11 @@ def main() -> None:
         assert r"\begin{itemize}" not in introduction
         assert r"\begin{enumerate}" not in introduction
         assert r"\label{sec:limitations}" in body
+        assert body.count(r"\begin{algorithm}[H]") == 1
+        assert body.index(r"\label{alg:target-a}") < body.index(r"\label{eq:risk}")
+        algorithm = body.split(r"\begin{algorithm}[H]", 1)[1].split(r"\end{algorithm}", 1)[0]
+        assert r"\widehat C_T(I+G_S)^{-1}" in algorithm
+        assert not re.search(r"\\(?:small|footnotesize|scriptsize|tiny)\b", algorithm)
         tex = (HERE / f"generated/abstract_{lang}.tex").read_text(encoding="utf-8").strip()
         assert tex.replace(r"\%", "%") == abstract
         log = (HERE / f"{stem}.log").read_text(errors="replace")
@@ -367,7 +372,7 @@ def main() -> None:
             assert sum("\u4e00" <= c <= "\u9fff" for c in full_text) > 7000
         aux = (HERE / f"{stem}.aux").read_text(encoding="utf-8")
         end_page = int(re.search(r"\\newlabel\{main-text-end\}\{\{[^}]*\}\{(\d+)\}", aux).group(1))
-        main_labels = set(re.findall(r"\\label\{((?:fig|tab):[^}]+)\}", body))
+        main_labels = set(re.findall(r"\\label\{((?:fig|tab|alg):[^}]+)\}", body))
         main_pages = [int(page) for label, page in re.findall(
             r"\\newlabel\{([^}]+)\}\{\{[^}]*\}\{(\d+)\}", aux) if label in main_labels]
         assert len(main_pages) == len(main_labels)
