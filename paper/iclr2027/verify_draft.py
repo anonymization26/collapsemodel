@@ -43,6 +43,10 @@ def text_from_pdf(path: Path, first_page: bool = False) -> str:
 
 
 def verify_format(stem: str, log: str, full_text: str) -> None:
+    # Severe box stretching needs review even when the PDF compiles successfully.
+    assert not re.search(r"Underfull \\[hv]box \(badness 10000\)", log), (
+        stem, "severe spacing warning; inspect pagination and line breaks"
+    )
     recorded_inputs = {
         (HERE / line.removeprefix("INPUT ")).resolve()
         for line in (HERE / f"{stem}.fls").read_text().splitlines()

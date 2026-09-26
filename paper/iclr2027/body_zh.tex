@@ -31,6 +31,8 @@ RankMe 利用有效秩在无需下游标签的条件下评估表示\citep{garrid
 
 算法\ref{alg:target-a} 采用实验设置 $P_0^{-1}=I$、$\sigma^2=1$。预筛选读取源特征和无标签目标选择集 $T_{\rm sel}$，不读取标签或验证、测试数据。只有冻结短名单后，监督评价才读取源标签及独立目标验证集 $T_{\rm val}$；实验记录将两个阶段记作 U0 和 U2。
 
+% Keep the complete procedure together without stretching the preceding page.
+\newpage
 \begin{algorithm}[H]
 \caption{Target A-opt 预筛选与验证}
 \label{alg:target-a}

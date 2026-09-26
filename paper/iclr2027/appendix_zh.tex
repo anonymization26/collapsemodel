@@ -104,7 +104,7 @@ DomainNet 数据 manifest 前缀为 \texttt{1ba25059df70be4d}，候选集 ID 前
 
 \section{补充结果}
 \label{app:diagnostics}
-PACS/Office-Home、$K=3$ 时，A-opt 平均 Brier 为 $0.826769$，DPP 为 $0.829162$，MMD 为 $0.828719$。A-opt 减去基线的配对区间分别为 $[-0.007449,0.000731]$ 和 $[-0.003392,-0.000712]$。事后审计覆盖每个任务全部 220 个组合。Oracle 相对 DPP 的改善空间描述性 95\% 区间为 $[0.162,1.617]\%$；仅 PACS photo 在目标单位层面超过原 $2\%$ 门槛。相对父方法的事后测试最优包络，oracle 平均还能改善 $0.087\%$。该包络是基于结果的参照，不是可用于选择的基线。
+PACS/Office-Home、$K=3$ 时，A-opt 平均 Brier 为 $0.826769$，DPP 为 $0.829162$，MMD 为 $0.828719$。A-opt 减去基线的配对区间分别为 $[-0.007449,\allowbreak 0.000731]$ 和 $[-0.003392,\allowbreak -0.000712]$。事后审计覆盖每个任务全部 220 个组合。Oracle 相对 DPP 的改善空间描述性 95\% 区间为 $[0.162,1.617]\%$；仅 PACS photo 在目标单位层面超过原 $2\%$ 门槛。相对父方法的事后测试最优包络，oracle 平均还能改善 $0.087\%$。该包络是基于结果的参照，不是可用于选择的基线。
 
 表\ref{app:readout-table} 给出主规模下完整的 Brier 召回比较。A-opt 和 MMD 平均相对选择遗憾相同：岭回归为 $\RidgeSelectedRegret\%$，逻辑回归为 $\LogisticSelectedRegret\%$。两者全部新种子主设置 Brier 短名单均包含经验 oracle。
 
