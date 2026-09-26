@@ -24,6 +24,7 @@ CHALLENGE = ROOT / "results/target_conditioned/revision_20260922/challenge_summa
 DOMAIN_TIES = ROOT / "results/target_conditioned/revision_20260922/domain_tie_audit"
 COST = ROOT / "results/target_conditioned/revision_20260922/cost_summary"
 INPUTS: dict[str, str] = {}
+METHOD_NAME = "Target A-opt"
 
 
 def digest(path: Path) -> str:
@@ -109,7 +110,7 @@ def readout_assets(generated: Path) -> dict[str, float]:
         for field in ("recall_at_top_q", "relative_candidate_span", "relative_regret", "absolute_omission"):
             assert np.isclose(float(row[field]), recorded[k][field], rtol=1e-12, atol=1e-15)
     labels = {
-        "target_a": "Target A-opt", "second_moment_mmd": "Second-moment MMD",
+        "target_a": METHOD_NAME, "second_moment_mmd": "Second-moment MMD",
         "bayesian_d": "Bayesian D-opt", "merged_effective_rank": "Merged effective rank",
         "random": "Random (20 repeats)", "target_energy": "Target energy",
         "dpp_subspace": "DPP subspace", "domain_balance": "Domain balance",
@@ -122,7 +123,7 @@ def readout_assets(generated: Path) -> dict[str, float]:
             output.append(f"{label} & {metric_label} & " + " & ".join(f"{v:.2f}" for v in values) + r"\\")
     (generated / "readout_rows.tex").write_text(
         "\\begin{tabular}{llrrr}\n\\toprule\n"
-        + "Readout & Metric & A-opt & MMD & Random\\\\\n\\midrule\n"
+        + "Readout & Metric & " + METHOD_NAME + " & MMD & Random\\\\\n\\midrule\n"
         + "\n".join(output) + "\n\\bottomrule\n\\end{tabular}\n")
     output = []
     for method, label in labels.items():
@@ -171,7 +172,7 @@ def budget_assets(generated: Path, figures: Path) -> dict[str, float]:
         INPUTS[str(source.relative_to(ROOT))] = expected
     index = {(r["readout"], r["metric"], r["method"], int(r["shortlist_size"])): r for r in curves}
     failure_index = {(r["readout"], r["metric"], r["method"], int(r["shortlist_size"]), float(r["absolute_gap_threshold"])): r for r in failures}
-    labels = {"target_a": "Target A-opt", "second_moment_mmd": "MMD", "random": "Random", "exhaustive": "Exhaustive validation"}
+    labels = {"target_a": METHOD_NAME, "second_moment_mmd": "MMD", "random": "Random", "exhaustive": "Exhaustive validation"}
     selected = [("random", 227), ("target_a", 50), ("second_moment_mmd", 50), ("exhaustive", 455)]
     output = []
     for method, size in selected:
@@ -218,7 +219,7 @@ def challenge_assets(generated: Path) -> None:
     conditional = rows(CHALLENGE / "within_composition.csv")
     index = {(r["construction"], r["readout"], r["metric"], r["method"], int(r["shortlist_size"])): r for r in curves}
     inside = {(r["construction"], r["readout"], r["metric"], r["method"]): r for r in conditional}
-    labels = {"target_a": "Target A-opt", "second_moment_mmd": "MMD",
+    labels = {"target_a": METHOD_NAME, "second_moment_mmd": "MMD",
               "mean_matching": "Mean matching", "domain_moment_ties": "Domain moment (random ties)",
               "random": "Random"}
     output = []
@@ -250,7 +251,7 @@ def cost_assets(generated: Path, figures: Path) -> dict[str, float]:
         INPUTS[str(source.relative_to(ROOT))] = expected
     times = rows(COST / "curves.csv")
     ti = {(r["readout"], r["method"], int(r["shortlist_size"])): r for r in times}
-    labels = {"target_a": "A-opt", "second_moment_mmd": "MMD", "random": "Random", "exhaustive": "Full validation"}
+    labels = {"target_a": METHOD_NAME, "second_moment_mmd": "MMD", "random": "Random", "exhaustive": "Full validation"}
     selections = [("target_a", 50), ("second_moment_mmd", 50), ("random", 227), ("exhaustive", 455)]
     output = []
     for readout, label in (("ridge", "Ridge"), ("logistic", "Logistic")):
@@ -269,7 +270,7 @@ def cost_assets(generated: Path, figures: Path) -> dict[str, float]:
         output.append(readout.title() + " & " + " & ".join(f"{v:.2f}" for v in values) + r"\\")
     (generated / "cache_batch_rows.tex").write_text(
         "\\begin{tabular}{lrrrr}\n\\toprule\n"
-        + "Readout & A-opt (50) & MMD (50) & Random (227) & Full (455)\\\\\n\\midrule\n"
+        + "Readout & " + METHOD_NAME + " (50) & MMD (50) & Random (227) & Full (455)\\\\\n\\midrule\n"
         + "\n".join(output) + "\n\\bottomrule\n\\end{tabular}\n")
     fig, axes = plt.subplots(2, 2, figsize=(7, 4.5), layout="constrained")
     colors = {"target_a": "#167D9A", "second_moment_mmd": "#B63855", "random": "#67735B"}
@@ -320,7 +321,7 @@ def main() -> None:
         assert float(a[field]) == float(m[field])
     assert summary["same_information_selection_comparison"]["matching_validation_selected_combinations"] == 12
     labels = {
-        "target_a": "Target A-opt", "second_moment_mmd": "Second-moment MMD",
+        "target_a": METHOD_NAME, "second_moment_mmd": "Second-moment MMD",
         "bayesian_d": "Bayesian D-opt", "merged_effective_rank": "Merged effective rank",
         "random": "Random (20 repeats)", "target_energy": "Target energy",
         "dpp_subspace": "DPP subspace", "domain_balance": "Domain balance",
@@ -456,7 +457,7 @@ def main() -> None:
               "domainnet_brier_spans": spans,
               "primary_metrics": summary["primary_result"]}
     (generated / "asset_manifest.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
-    print("Verified 40 summary rows, 12 complete 455-combination tasks, and equal primary A-opt/MMD metrics.")
+    print(f"Verified 40 summary rows, 12 complete 455-combination tasks, and equal primary {METHOD_NAME}/MMD metrics.")
 
 
 if __name__ == "__main__":

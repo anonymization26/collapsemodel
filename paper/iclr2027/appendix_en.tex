@@ -104,9 +104,9 @@ The three original feature matrices are not duplicated in Git. Metadata record t
 
 \section{Supplementary Results}
 \label{app:diagnostics}
-At $K=3$ on PACS/Office-Home, mean Brier is $0.826769$ for A-opt, $0.829162$ for DPP, and $0.828719$ for MMD. The paired A-opt-minus-baseline intervals are $[-0.007449,0.000731]$ and $[-0.003392,-0.000712]$, respectively. The post-hoc audit covers all 220 combinations per task. Oracle headroom over DPP has descriptive 95\% interval $[0.162,1.617]\%$; only PACS photo exceeds the original $2\%$ threshold at the target-unit level. The oracle improves on the post-hoc test-best envelope of parent methods by $0.087\%$ on average. This envelope is an outcome-based reference, not a selectable baseline.
+At $K=3$ on PACS/Office-Home, mean Brier is $0.826769$ for Target A-opt, $0.829162$ for DPP, and $0.828719$ for MMD. The paired Target A-opt-minus-baseline intervals are $[-0.007449,0.000731]$ and $[-0.003392,-0.000712]$, respectively. The post-hoc audit covers all 220 combinations per task. Oracle headroom over DPP has descriptive 95\% interval $[0.162,1.617]\%$; only PACS photo exceeds the original $2\%$ threshold at the target-unit level. The oracle improves on the post-hoc test-best envelope of parent methods by $0.087\%$ on average. This envelope is an outcome-based reference, not a selectable baseline.
 
-Table~\ref{app:readout-table} gives the complete Brier recall comparison at the primary size. A-opt and MMD have the same mean relative selected regret: $\RidgeSelectedRegret\%$ for ridge and $\LogisticSelectedRegret\%$ for logistic regression. All their new-seed primary Brier shortlists contain an empirical oracle.
+Table~\ref{app:readout-table} gives the complete Brier recall comparison at the primary size. Target A-opt and MMD have the same mean relative selected regret: $\RidgeSelectedRegret\%$ for ridge and $\LogisticSelectedRegret\%$ for logistic regression. All their new-seed primary Brier shortlists contain an empirical oracle.
 
 \begin{figure}[t]
 \centering
@@ -129,7 +129,7 @@ Table~\ref{app:readout-table} gives the complete Brier recall comparison at the 
 \input{generated/readout_all_rows}
 \end{table}
 
-The lowest A-opt classification-error recall occurs for DINOv2, Quickdraw, logistic regression, and projection seed $20260918$. The test-error oracle is $85.9863\%$, compared with $87.6465\%$ for the validation choice. Its oracle remains in the shortlist despite the $\WorstErrorRecall\%$ top-ten recall. Thus retaining the best member and retaining the best ten answer different questions, and both are distinct from the absolute quality of the available models.
+The lowest Target A-opt classification-error recall occurs for DINOv2, Quickdraw, logistic regression, and projection seed $20260918$. The test-error oracle is $85.9863\%$, compared with $87.6465\%$ for the validation choice. Its oracle remains in the shortlist despite the $\WorstErrorRecall\%$ top-ten recall. Thus retaining the best member and retaining the best ten answer different questions, and both are distinct from the absolute quality of the available models.
 
 The four-encoder, ten-construction-seed spectral sweep uses six overlap settings and four budgets, with 960 configurations per sketch rank. At ranks $10,20,50$, relative exact merged-effective-rank gains over rank-only are respectively $2.09,3.81,4.94\%$ for the Gram sketch and $4.90,5.48,5.68\%$ for DPP. These gains are in the geometry objective, not classification accuracy. Its entropy-continuity bounds follow the type of bound in \citet{audenaert2007}; all 2,880 selected-prefix intervals cover, but none of 7,200 evaluated greedy steps is certified. The archived source is \path{results/two_stage_controlled_rank_sweep_corrected_v3/}. These observations do not imply that every low-rank sketch must fail.
 
@@ -162,7 +162,7 @@ The post-hoc loss-span diagnostic in Appendix Figure~\ref{fig:diagnostics} puts 
 
 
 
-A CUDA reconstruction first reproduces all original Brier top-ten sets. We then apply paired test-example bootstrap resampling while fixing fitted models and validation choices. Although resampled and original top-ten sets overlap by only $\BootstrapOverlap\%$ on average, A-opt and MMD retain $\BootstrapRecall\%$ and $\BootstrapMMDRecall\%$ of the resampled top tens. Broad shortlists are less sensitive than exact rank membership to these test-sample changes.
+A CUDA reconstruction first reproduces all original Brier top-ten sets. We then apply paired test-example bootstrap resampling while fixing fitted models and validation choices. Although resampled and original top-ten sets overlap by only $\BootstrapOverlap\%$ on average, Target A-opt and MMD retain $\BootstrapRecall\%$ and $\BootstrapMMDRecall\%$ of the resampled top tens. Broad shortlists are less sensitive than exact rank membership to these test-sample changes.
 
 Changing the metric has a larger effect on which combinations count as good: the original Brier and classification-error top tens overlap by only $\BrierErrorOverlap\%$ on average. A screen should therefore be evaluated against the intended deployment metric, even when its average recall is high for several metrics. The resampling protocol and additional metric comparisons appear in Appendix~\ref{app:protocol}.
 
@@ -182,14 +182,14 @@ Mean matching minimizes $\|\bar h_S-\bar h_T\|_2^2$, the linear-kernel MMD score
 
 There are 20 strata of nine candidates and ten of 27 per target; five singleton strata are excluded. Within a stratum, every candidate uses the same domain multiplicities and total sample count. Random repeats are averaged first, followed by strata, encoders, and target domains. A domain-only score is constant inside a stratum, giving expected optimum retention $(20\cdot4/9+10\cdot13/27)/30=45.68\%$ under uniform ties. Lexicographic within-stratum results are recorded but not interpreted as domain discrimination.
 
-After hash repartitioning, logistic classification-error optimum retention is $41.94\%$ for A-opt and $35.28\%$ for MMD, versus $45.75\%$ for random selection. Mean Brier omission remains lower than random for both scores, but the advantage is smaller than on the original blocks. These metric-dependent observations describe conditional ranking performance; they do not establish a population guarantee or isolate the causal contribution of heterogeneity from the properties of this particular partition.
+After hash repartitioning, logistic classification-error optimum retention is $41.94\%$ for Target A-opt and $35.28\%$ for MMD, versus $45.75\%$ for random selection. Mean Brier omission remains lower than random for both scores, but the advantage is smaller than on the original blocks. These metric-dependent observations describe conditional ranking performance; they do not establish a population guarantee or isolate the causal contribution of heterogeneity from the properties of this particular partition.
 
 The complete curves and domain-conditional audits are in \path{results/target_conditioned/revision_20260922/challenge_summary/}; randomized domain ties are in \path{results/target_conditioned/revision_20260922/domain_tie_audit/}. The raw three-stage records bind candidate membership, source features, configuration, upstream choices, and numerical payloads by hashes. Local summaries verify all numerical hashes and upstream seals; frozen model hashes were checked on the server before test access.
 
 
 \subsection{Matched quality and computation costs}
 \label{app:cost}
-The timing study uses the original candidate construction and projection seed $20260917$. Each encoder--target--readout task runs A-opt, MMD, random screening, and exhaustive validation independently, with three repetitions and a seeded method order. BLAS uses one thread. Shortlist checkpoints measure cumulative elapsed time after a single ranking; no fitted model is shared across methods. Ridge lazily caches each used block's float64 Gram and label right-hand side, including in exhaustive search. Preliminary float32-Gram ridge timings are retained in the archive but excluded from all tables.
+The timing study uses the original candidate construction and projection seed $20260917$. Each encoder--target--readout task runs Target A-opt, MMD, random screening, and exhaustive validation independently, with three repetitions and a seeded method order. BLAS uses one thread. Shortlist checkpoints measure cumulative elapsed time after a single ranking; no fitted model is shared across methods. Ridge lazily caches each used block's float64 Gram and label right-hand side, including in exhaustive search. Preliminary float32-Gram ridge timings are retained in the archive but excluded from all tables.
 
 Every timed validation loss and choice is checked against the frozen scientific audit. Quality in Figure~\ref{fig:cost} uses the actual choices from these same three runs, with Brier, NLL, and error each using its matching validation metric. Thus the random quality coordinates here average three timed rankings, not the 20 rankings in the main scientific audit. We first average repetitions within each task, then encoders within targets and the six targets equally; timing medians are retained as diagnostics.
 

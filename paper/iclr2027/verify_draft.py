@@ -42,6 +42,27 @@ def text_from_pdf(path: Path, first_page: bool = False) -> str:
     return subprocess.check_output(command, text=True)
 
 
+def verify_method_label(text: str, source: str) -> None:
+    text = " ".join(text.split())
+    assert not re.search(r"(?<!Target )\bA-opt\b", text), (source, "use Target A-opt consistently")
+    assert "Target Target A-opt" not in text, (source, "duplicated method prefix")
+
+
+def verify_method_naming() -> None:
+    sources = [HERE / f"{part}_{lang}.{suffix}"
+               for lang in ("en", "zh")
+               for part, suffix in (("body", "tex"), ("appendix", "tex"), ("abstract", "txt"))]
+    sources += [HERE / "abstract.md", HERE / "submission_metadata.md", HERE / "build_assets.py"]
+    sources += list((HERE / "generated").glob("*.tex"))
+    for path in sources:
+        verify_method_label(path.read_text(encoding="utf-8"), path.name)
+    for name in ("decision_budget", "quality_cost", "shortlist_recall"):
+        text = text_from_pdf(HERE / "figures" / f"{name}.pdf")
+        assert "Target A-opt" in " ".join(text.split()), name
+        verify_method_label(text, name)
+    print("PASS: Target A-opt naming in both manuscripts, abstracts, tables, and figure legends")
+
+
 def verify_format(stem: str, log: str, full_text: str) -> None:
     # Severe box stretching needs review even when the PDF compiles successfully.
     assert not re.search(r"Underfull \\[hv]box \(badness 10000\)", log), (
@@ -181,6 +202,7 @@ def verify_cost_results() -> None:
 
 
 def main() -> None:
+    verify_method_naming()
     for name, expected in STYLE_SHA256.items():
         assert hashlib.sha256((STYLE / name).read_bytes()).hexdigest() == expected, name
     print("PASS: unmodified official style bundle")
@@ -210,7 +232,7 @@ def main() -> None:
                                ("selected_normalized_regret", "mean_selected_normalized_regret")):
             mean = np.mean([np.mean([float(r[raw]) for r in task]) for task in domains.values()])
             assert np.isclose(mean, float(summaries[method][aggregate]), rtol=1e-12, atol=1e-15)
-    print("PASS: eight primary method means and twelve A-opt/MMD validation choices")
+    print("PASS: eight primary method means and twelve Target A-opt/MMD validation choices")
 
     eye = np.eye(3)
     a = eye[[0, 0, 0, 0, 1]]
