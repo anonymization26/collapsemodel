@@ -1,0 +1,35 @@
+{
+  "schema_version": "e2b-decision-cost-v1",
+  "registered_date": "2026-09-22",
+  "status": "exploratory-protocol-fixed-after-original-and-readout-results",
+  "projection_seed": 20260917,
+  "constructions": ["original", "hash_partition"],
+  "partition_seed": "domainnet-source-repartition-20260922-v1",
+  "partition_scope": "same-source-images-per-domain-new-label-and-feature-independent-block-membership",
+  "independent_dataset": false,
+  "methods": ["target_a", "second_moment_mmd", "mean_matching", "domain_moment", "random"],
+  "shortlist_sizes": [10, 25, 50, 100, 227],
+  "random_repeats": 20,
+  "metrics": ["brier_score", "nll", "error_rate"],
+  "absolute_gap_thresholds": {
+    "brier_score": [0.001, 0.005, 0.01],
+    "nll": [0.01, 0.05, 0.1],
+    "error_rate": [0.005, 0.01, 0.02]
+  },
+  "threshold_interpretation": "exploratory-sensitivity-grid-not-new-acceptance-gates",
+  "full_reference": "validation-minimizer-over-all-455-not-test-oracle",
+  "domain_control": "condition-on-identical-source-domain-multiset-exclude-singleton-strata",
+  "timing": {
+    "construction": "original",
+    "methods": ["target_a", "second_moment_mmd", "random", "exhaustive"],
+    "repeats": 3,
+    "threads": 1,
+    "execution": "sequential-isolated-method-runs-no-cross-method-model-cache",
+    "budgets": "nested-prefix-elapsed-times-with-one-ranking-per-method-run",
+    "cold_feature_cost": "separately-account-shared-feature-extraction-if-measured-otherwise-unavailable"
+  },
+  "statistics": "random-repeats-first-then-encoder-seed-within-domain-then-six-domains",
+  "selection_rule": "matching-validation-metric-then-lexicographic-id",
+  "test_rule": "verify-frozen-screen-model-and-selection-hashes-before-test-access",
+  "stopping_rule": "abort-on-missing-input-nonconvergence-or-integrity-failure-no-outcome-based-retuning"
+}

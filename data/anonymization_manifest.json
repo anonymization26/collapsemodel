@@ -1,0 +1,628 @@
+{
+  "schema": "anonymous-release-metadata-v1",
+  "scope": "Distribution-only metadata adaptation; no experiments were rerun.",
+  "version_labels": [
+    "anonymous-revision-01",
+    "anonymous-revision-02",
+    "anonymous-revision-03",
+    "anonymous-revision-04",
+    "anonymous-revision-05",
+    "anonymous-revision-06",
+    "anonymous-revision-07"
+  ],
+  "version_label_semantics": "Consistent opaque labels, not Git commits; equal labels preserve original version equality.",
+  "integrity_policy": "Dependent SHA-256 values and canonical JSON seals were recalculated for the distributed objects.",
+  "archived_record_count": 1162,
+  "byte_identical_record_count": 1078,
+  "metadata_adapted_record_count": 84,
+  "all_non_json_records_byte_identical": true,
+  "all_numeric_values_and_experimental_settings_unchanged": true,
+  "public_dataset_revision_and_dataset_model_fingerprints_retained": true,
+  "portable_launcher_files": [
+    "scripts/benchmark_two_stage_encoders_npu.py",
+    "scripts/run_target_conditioned_e2_features_npu.sh",
+    "scripts/run_target_conditioned_e2_manifest_server.sh",
+    "scripts/run_target_conditioned_e2b_server.sh",
+    "scripts/run_target_conditioned_followup_server.sh",
+    "scripts/run_target_conditioned_server.sh"
+  ],
+  "changed_json_fields": {
+    "results/target_conditioned/e1_synthetic/expanded_v3_controlled_rng/manifest.json": [
+      "provenance/git_revision"
+    ],
+    "results/target_conditioned/e1_synthetic/expanded_v3_controlled_rng/summary.json": [
+      "provenance/git_revision"
+    ],
+    "results/target_conditioned/e2_dataset_selection/frozen_features/office_home/dinov2_b14/metadata.json": [
+      "code/git_revision"
+    ],
+    "results/target_conditioned/e2_dataset_selection/frozen_features/office_home/resnet50/metadata.json": [
+      "code/git_revision"
+    ],
+    "results/target_conditioned/e2_dataset_selection/frozen_features/pacs/dinov2_b14/metadata.json": [
+      "code/git_revision"
+    ],
+    "results/target_conditioned/e2_dataset_selection/frozen_features/pacs/resnet50/metadata.json": [
+      "code/git_revision"
+    ],
+    "results/target_conditioned/e2_dataset_selection/method_v1/office_home/dinov2_b14/manifest.json": [
+      "evaluation_id",
+      "feature_revision",
+      "runner_revision",
+      "selection_file_sha256",
+      "selection_id"
+    ],
+    "results/target_conditioned/e2_dataset_selection/method_v1/office_home/dinov2_b14/selection.json": [
+      "input/feature_revision",
+      "runner_revision",
+      "selection_id"
+    ],
+    "results/target_conditioned/e2_dataset_selection/method_v1/office_home/resnet50/manifest.json": [
+      "evaluation_id",
+      "feature_revision",
+      "runner_revision",
+      "selection_file_sha256",
+      "selection_id"
+    ],
+    "results/target_conditioned/e2_dataset_selection/method_v1/office_home/resnet50/selection.json": [
+      "input/feature_revision",
+      "runner_revision",
+      "selection_id"
+    ],
+    "results/target_conditioned/e2_dataset_selection/method_v1/pacs/dinov2_b14/manifest.json": [
+      "evaluation_id",
+      "feature_revision",
+      "runner_revision",
+      "selection_file_sha256",
+      "selection_id"
+    ],
+    "results/target_conditioned/e2_dataset_selection/method_v1/pacs/dinov2_b14/selection.json": [
+      "input/feature_revision",
+      "runner_revision",
+      "selection_id"
+    ],
+    "results/target_conditioned/e2_dataset_selection/method_v1/pacs/resnet50/manifest.json": [
+      "evaluation_id",
+      "feature_revision",
+      "runner_revision",
+      "selection_file_sha256",
+      "selection_id"
+    ],
+    "results/target_conditioned/e2_dataset_selection/method_v1/pacs/resnet50/selection.json": [
+      "input/feature_revision",
+      "runner_revision",
+      "selection_id"
+    ],
+    "results/target_conditioned/e2_dataset_selection/method_v1/summary/summary.json": [
+      "inputs/0/evaluation_id",
+      "inputs/1/evaluation_id",
+      "inputs/2/evaluation_id",
+      "inputs/3/evaluation_id",
+      "runner_revision",
+      "summary_id"
+    ],
+    "results/target_conditioned/e2_dataset_selection/oracle_headroom_v1/office_home/dinov2_b14/manifest.json": [
+      "feature_revision",
+      "oracle_config/parent_evaluation_runner_revision",
+      "oracle_config_file_sha256",
+      "oracle_run_id",
+      "parent_evaluation_id",
+      "parent_evaluation_manifest_sha256",
+      "parent_runner_revision",
+      "parent_selection_file_sha256",
+      "parent_selection_id",
+      "runner_revision"
+    ],
+    "results/target_conditioned/e2_dataset_selection/oracle_headroom_v1/office_home/resnet50/manifest.json": [
+      "feature_revision",
+      "oracle_config/parent_evaluation_runner_revision",
+      "oracle_config_file_sha256",
+      "oracle_run_id",
+      "parent_evaluation_id",
+      "parent_evaluation_manifest_sha256",
+      "parent_runner_revision",
+      "parent_selection_file_sha256",
+      "parent_selection_id",
+      "runner_revision"
+    ],
+    "results/target_conditioned/e2_dataset_selection/oracle_headroom_v1/pacs/dinov2_b14/manifest.json": [
+      "feature_revision",
+      "oracle_config/parent_evaluation_runner_revision",
+      "oracle_config_file_sha256",
+      "oracle_run_id",
+      "parent_evaluation_id",
+      "parent_evaluation_manifest_sha256",
+      "parent_runner_revision",
+      "parent_selection_file_sha256",
+      "parent_selection_id",
+      "runner_revision"
+    ],
+    "results/target_conditioned/e2_dataset_selection/oracle_headroom_v1/pacs/resnet50/manifest.json": [
+      "feature_revision",
+      "oracle_config/parent_evaluation_runner_revision",
+      "oracle_config_file_sha256",
+      "oracle_run_id",
+      "parent_evaluation_id",
+      "parent_evaluation_manifest_sha256",
+      "parent_runner_revision",
+      "parent_selection_file_sha256",
+      "parent_selection_id",
+      "runner_revision"
+    ],
+    "results/target_conditioned/e2_dataset_selection/oracle_headroom_v1/summary/summary.json": [
+      "inputs/0/oracle_run_id",
+      "inputs/0/parent_evaluation_id",
+      "inputs/1/oracle_run_id",
+      "inputs/1/parent_evaluation_id",
+      "inputs/2/oracle_run_id",
+      "inputs/2/parent_evaluation_id",
+      "inputs/3/oracle_run_id",
+      "inputs/3/parent_evaluation_id",
+      "oracle_config_file_sha256",
+      "parent_runner_revision",
+      "runner_revision",
+      "summary_id"
+    ],
+    "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/candidates/candidates.json": [
+      "candidate_set_id",
+      "manifest_id"
+    ],
+    "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/data_manifest/manifest.json": [
+      "builder/git_revision",
+      "manifest_id"
+    ],
+    "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/features/clip_b32/metadata.json": [
+      "code/git_revision",
+      "manifest_id"
+    ],
+    "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/features/dinov2_b14/metadata.json": [
+      "code/git_revision",
+      "manifest_id"
+    ],
+    "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/features/resnet50/metadata.json": [
+      "code/git_revision",
+      "manifest_id"
+    ],
+    "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/screen/dinov2_b14/manifest.json": [
+      "candidate_set_id",
+      "manifest_id",
+      "runner_revision",
+      "screen_id"
+    ],
+    "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/screen/resnet50/manifest.json": [
+      "candidate_set_id",
+      "manifest_id",
+      "runner_revision",
+      "screen_id"
+    ],
+    "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/summary/summary.json": [
+      "inputs/0/manifest_file_sha256",
+      "inputs/1/manifest_file_sha256",
+      "summary_id"
+    ],
+    "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/test_audit/dinov2_b14/manifest.json": [
+      "candidate_set_id",
+      "manifest_id",
+      "runner_revision",
+      "screen_id",
+      "test_audit_id",
+      "validation_id",
+      "validation_manifest_file_sha256"
+    ],
+    "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/test_audit/resnet50/manifest.json": [
+      "candidate_set_id",
+      "manifest_id",
+      "runner_revision",
+      "screen_id",
+      "test_audit_id",
+      "validation_id",
+      "validation_manifest_file_sha256"
+    ],
+    "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/validation/dinov2_b14/manifest.json": [
+      "candidate_set_id",
+      "manifest_id",
+      "runner_revision",
+      "screen_id",
+      "screen_manifest_file_sha256",
+      "validation_id"
+    ],
+    "results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/validation/resnet50/manifest.json": [
+      "candidate_set_id",
+      "manifest_id",
+      "runner_revision",
+      "screen_id",
+      "screen_manifest_file_sha256",
+      "validation_id"
+    ],
+    "results/target_conditioned/e5_sketch_certificate/expanded_v3_controlled_rng/manifest.json": [
+      "provenance/git_revision"
+    ],
+    "results/target_conditioned/e5_sketch_certificate/expanded_v3_controlled_rng/summary.json": [
+      "provenance/git_revision"
+    ],
+    "results/target_conditioned/revision_20260916/revision_results/e2b_loss_diagnostics_v1/dinov2_b14/manifest.json": [
+      "base_git_revision",
+      "diagnostics_id"
+    ],
+    "results/target_conditioned/revision_20260916/revision_results/e2b_loss_diagnostics_v1/pairing_verification.json": [
+      "diagnostics_ids/0",
+      "diagnostics_ids/1"
+    ],
+    "results/target_conditioned/revision_20260916/revision_results/e2b_loss_diagnostics_v1/resnet50/manifest.json": [
+      "base_git_revision",
+      "diagnostics_id"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260911/screen/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260911/test-audit/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen",
+      "upstream/validate"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260911/validate/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260917/screen/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260917/test-audit/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen",
+      "upstream/validate"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260917/validate/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260918/screen/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260918/test-audit/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen",
+      "upstream/validate"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260918/validate/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260919/screen/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260919/test-audit/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen",
+      "upstream/validate"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260919/validate/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260920/screen/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260920/test-audit/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen",
+      "upstream/validate"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260920/validate/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260911/screen/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260911/test-audit/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen",
+      "upstream/validate"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260911/validate/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260917/screen/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260917/test-audit/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen",
+      "upstream/validate"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260917/validate/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260918/screen/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260918/test-audit/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen",
+      "upstream/validate"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260918/validate/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260919/screen/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260919/test-audit/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen",
+      "upstream/validate"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260919/validate/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260920/screen/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260920/test-audit/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen",
+      "upstream/validate"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260920/validate/manifest.json": [
+      "artifact_id",
+      "lineage/candidate_set_id",
+      "lineage/manifest_id",
+      "runner_revision",
+      "upstream/screen"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/status.json": [
+      "runner_revision"
+    ],
+    "results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/summary/summary.json": [
+      "input_sha256/dinov2_b14__20260911/test-audit/manifest.json",
+      "input_sha256/dinov2_b14__20260917/test-audit/manifest.json",
+      "input_sha256/dinov2_b14__20260918/test-audit/manifest.json",
+      "input_sha256/dinov2_b14__20260919/test-audit/manifest.json",
+      "input_sha256/dinov2_b14__20260920/test-audit/manifest.json",
+      "input_sha256/resnet50__20260911/test-audit/manifest.json",
+      "input_sha256/resnet50__20260917/test-audit/manifest.json",
+      "input_sha256/resnet50__20260918/test-audit/manifest.json",
+      "input_sha256/resnet50__20260919/test-audit/manifest.json",
+      "input_sha256/resnet50__20260920/test-audit/manifest.json",
+      "input_sha256/status.json"
+    ],
+    "results/target_conditioned/revision_20260922/budget_audit/summary.json": [
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260917/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260917/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260918/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260918/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260919/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260919/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260920/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260920/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260917/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260917/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260918/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260918/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260919/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260919/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260920/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260920/validate/manifest.json"
+    ],
+    "results/target_conditioned/revision_20260922/challenge_summary/summary.json": [
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/original/screen/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/original/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/original/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/original/screen/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/original/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/original/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/hash_partition/screen/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/hash_partition/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/hash_partition/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/hash_partition/screen/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/hash_partition/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/hash_partition/test-audit/manifest.json"
+    ],
+    "results/target_conditioned/revision_20260922/domain_tie_audit/summary.json": [
+      "input_sha256/results/target_conditioned/revision_20260922/challenge_summary/summary.json"
+    ],
+    "results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/hash_partition/screen/manifest.json": [
+      "artifact_id",
+      "lineage/manifest_id"
+    ],
+    "results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/hash_partition/test-audit/manifest.json": [
+      "artifact_id",
+      "lineage/manifest_id",
+      "upstream/screen",
+      "upstream/validate"
+    ],
+    "results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/hash_partition/validate/manifest.json": [
+      "artifact_id",
+      "lineage/manifest_id",
+      "upstream/screen"
+    ],
+    "results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/original/screen/manifest.json": [
+      "artifact_id",
+      "lineage/manifest_id"
+    ],
+    "results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/original/test-audit/manifest.json": [
+      "artifact_id",
+      "lineage/manifest_id",
+      "upstream/screen",
+      "upstream/validate"
+    ],
+    "results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/original/validate/manifest.json": [
+      "artifact_id",
+      "lineage/manifest_id",
+      "upstream/screen"
+    ],
+    "results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/hash_partition/screen/manifest.json": [
+      "artifact_id",
+      "lineage/manifest_id"
+    ],
+    "results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/hash_partition/test-audit/manifest.json": [
+      "artifact_id",
+      "lineage/manifest_id",
+      "upstream/screen",
+      "upstream/validate"
+    ],
+    "results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/hash_partition/validate/manifest.json": [
+      "artifact_id",
+      "lineage/manifest_id",
+      "upstream/screen"
+    ],
+    "results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/original/screen/manifest.json": [
+      "artifact_id",
+      "lineage/manifest_id"
+    ],
+    "results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/original/test-audit/manifest.json": [
+      "artifact_id",
+      "lineage/manifest_id",
+      "upstream/screen",
+      "upstream/validate"
+    ],
+    "results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/original/validate/manifest.json": [
+      "artifact_id",
+      "lineage/manifest_id",
+      "upstream/screen"
+    ],
+    "code/configs/target_conditioned_e2/oracle_headroom_v1.json": [
+      "parent_evaluation_runner_revision"
+    ],
+    "paper/iclr2027/generated/asset_manifest.json": [
+      "e2b_summary_id",
+      "input_sha256/results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/summary/summary.json",
+      "input_sha256/results/target_conditioned/revision_20260916/revision_results/e2b_loss_diagnostics_v1/dinov2_b14/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260916/revision_results/e2b_loss_diagnostics_v1/pairing_verification.json",
+      "input_sha256/results/target_conditioned/revision_20260916/revision_results/e2b_loss_diagnostics_v1/resnet50/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260911/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260917/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260917/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260918/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260918/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260919/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260919/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260920/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/dinov2_b14__20260920/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260911/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260917/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260917/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260918/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260918/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260919/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260919/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260920/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/resnet50__20260920/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/status.json",
+      "input_sha256/results/target_conditioned/revision_20260917/revision_results/e2b_readout_projection_v1/summary/summary.json",
+      "input_sha256/results/target_conditioned/revision_20260922/budget_audit/summary.json",
+      "input_sha256/results/target_conditioned/revision_20260922/challenge_summary/summary.json",
+      "input_sha256/results/target_conditioned/revision_20260922/domain_tie_audit/summary.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/hash_partition/screen/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/hash_partition/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/hash_partition/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/original/screen/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/original/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/dinov2_b14/original/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/hash_partition/screen/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/hash_partition/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/hash_partition/validate/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/original/screen/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/original/test-audit/manifest.json",
+      "input_sha256/results/target_conditioned/revision_20260922/e2b_decision_cost_v1/resnet50/original/validate/manifest.json"
+    ]
+  },
+  "ai_use_statement": "Retained unchanged.",
+  "original_records": "Retained privately in the development repository, not distributed.",
+  "not_validated": [
+    "New accelerator training or feature extraction",
+    "Remote repository history or provider caches"
+  ]
+}

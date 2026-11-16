@@ -1,0 +1,3 @@
+# Clipart ResNet-50 ridge temperature pilot
+Base seed 20260911. Freeze archived ranks, 455 candidates and budgets 10/25/50/100/227. Full validation uses all 455. Ridge lambda is 1. Require maximum absolute T=1 Brier error no greater than 0.0001 against archived validation and test losses. Use test only for numerical verification and final scoring, never for temperature or model selection.
+Keep original winners and calibrate them on all 1,024 validation rows. Separately hash-split validation 512/512 for fitting candidate temperatures and choosing winners. Compare calibrated and T=1 winners on that same selection half. Minimize calibration Brier over 81 log-spaced temperatures from 0.01 to 100 including 1. Freeze all decisions before computing calibrated test outcomes.

@@ -16,6 +16,8 @@ GrassmannLoss corresponds to the domain adaptation experiment (stage 4):
 import numpy as np
 from typing import List, Tuple, Dict
 
+from .collapse_core import split_numerical_singular_values, stable_singular_values_and_vh
+
 
 # ─────────────────────────────────────────────────────────────
 # 1. Numpy utilities (no gradients, for metric computation)
@@ -76,9 +78,9 @@ def subspace_from_matrix(H: np.ndarray, k: int) -> np.ndarray:
     Returns:
         V_k: (d, k) orthonormal matrix (columns are principal directions)
     """
-    k_eff = max(1, min(k, min(H.shape)))
-    _, _, Vt = np.linalg.svd(H, full_matrices=False)
-    return Vt[:k_eff, :].T
+    from .subspace_alignment import top_k_basis
+
+    return top_k_basis(H, k)
 
 
 def karcher_mean(subspaces: List[np.ndarray], n_iter: int = 10) -> np.ndarray:
@@ -235,11 +237,8 @@ def spectral_wasserstein_distance(H_A: np.ndarray, H_B: np.ndarray) -> float:
     in the auxiliary lemma.
     """
     def _singular_probs(H):
-        N, d = H.shape
-        G = (H @ H.T) / N if N <= d else (H.T @ H) / N
-        eigvals = np.maximum(np.linalg.eigvalsh(G)[::-1], 0)
-        eigvals = eigvals[eigvals > 1e-10]
-        sigma = np.sqrt(eigvals)
+        sigma, _ = stable_singular_values_and_vh(H)
+        sigma, _ = split_numerical_singular_values(sigma, H.shape)
         return sigma / (sigma.sum() + 1e-12)
 
     p_A = _singular_probs(H_A)

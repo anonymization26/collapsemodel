@@ -1,0 +1,5 @@
+# DomainNet pooled-query feedback ablation
+
+Compare the frozen sequential policy with a fixed second batch. Use the same four additional projection seeds, six domains, two encoders and 455 candidates as the earlier replay. Share the first 15 full-rank queries. Fit the additive loss model to those 15 validation scores. Rank unqueried candidates once using the original least-squares score, leverage weight of 0.001, rounding to 12 decimals and candidate-ID ties. Query the first 10 or 35 from that order at budgets 25 or 50. Choose the lowest observed validation Brier with the original tie rule. The sequential counterpart keeps its original frozen trajectory.
+
+Freeze query trajectories and winners before audit. The primary contrast is test Brier of the fixed second batch minus sequential querying at 25. Also compare both with fixed MMD 50 and the 455-fit validation choice. Average the two encoders within each seed and domain. Report mean differences, signed gaps above +0.005, and winner agreement. Report 50 as a sensitivity check. This is a replay of archived logistic fits on shared data and pools.

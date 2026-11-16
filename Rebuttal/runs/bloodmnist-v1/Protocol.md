@@ -1,0 +1,7 @@
+# BloodMNIST fixed protocol
+
+Frozen 2026-11-07 before reading evaluation outcomes. BloodMNIST does not appear in the submitted manuscript or its experiment configuration. Use the server's verified ResNet-50 train and val caches. This is a new dataset with a constructed source-pool protocol and an internal holdout from the cached validation split, rather than an official test split or natural domain shift.
+
+L2 normalize, project with a shared 128-dimensional Rademacher matrix (seed 20261107), then L2 normalize again. Sort source IDs by SHA-256 of `bloodmnist-v1:<id>`. Use the first 3,840 samples, sort them by the first projected coordinate with ID as the tie breaker, and partition into 15 consecutive blocks of 256. Freeze all 455 triples, each with 768 training examples. Sort cached val IDs by the same hash and distribute rows cyclically to unlabeled screen, labeled validation, and held-out evaluation.
+
+Compare A-opt (unit prior and noise variance), linear target energy, squared Frobenius second-moment MMD, and 20 random permutations using seeds 20261107–20261126. Budget 50 per method or repeat. Break ties by candidate ID. Freeze rankings and membership before any fitting. Use L2 logistic regression with C=1, intercept, lbfgs, max_iter=1000. Select the minimum validation Brier within each shortlist. Main endpoint is held-out multiclass Brier (sum over classes, then average over examples). Random averages 20 repeats. Preset practical difference is 0.005 Brier. Measure observed fitting counts and local screen time separately from feature extraction.

@@ -1,0 +1,371 @@
+\section{Proofs and Scope of the Mathematical Claims}
+\label{app:proofs}
+The singular value decomposition $H=U\Sigma V^\top$ separates feature directions from their strengths. For fixed nonnegative weights $w_i$, stacking the scaled source matrices gives
+\begin{equation}
+ G_S=H_S^\top H_S=\sum_{i\in S}w_iG_i.
+ \label{eq:gram}
+\end{equation}
+The eigenvalues of this sum are the squared singular values of the pooled features. It preserves the strength and cross-pool alignment of directions, provided preprocessing coordinates remain fixed. The experiments use unit weights.
+
+Effective rank normalizes the singular values into a probability vector and exponentiates its entropy \citep{roy2007}:
+\begin{equation}
+ \reff(H)=\exp\!\left(-\sum_j p_j\log p_j\right),\qquad
+ p_j=\frac{\sigma_j(H)}{\sum_k\sigma_k(H)}.
+ \label{eq:rank}
+\end{equation}
+For a nonzero matrix, $0\log0=0$ and $1\leq\reff(H)\leq\operatorname{rank}(H)$, with the upper endpoint attained by equal positive singular values. Two values in ratio $9:1$ give about $1.38$, versus two for equal strengths. Gram eigenvalues must be square-rooted before normalization; normalizing them directly defines another score. Repeating the entire matrix leaves effective rank unchanged: it measures spectral shape, not sample evidence. It is a target-blind comparator, not a step required by the target-aware scores.
+
+Marginal spectra and principal angles alone need not determine this pooled statistic: the same strengths can be assigned differently to shared and unshared directions. The following counterexample and local formula identify the missing directional information.
+
+\begin{proposition}[Directional assignment matters]
+There exist row-normalized pairs $(A,B_1)$ and $(A,B_2)$ with identical marginal singular spectra and principal angles between their row spaces, but different effective ranks after concatenation.
+\end{proposition}
+\begin{proof}
+Take $A$ with four rows $e_1^\top$ and one row $e_2^\top$. Let $B_1$ have four rows $e_1^\top$ and one $e_3^\top$, and let $B_2$ have one row $e_1^\top$ and four $e_3^\top$. All three nonzero singular spectra are $(2,1)$; both row-space pairs have principal angles $(0,\pi/2)$. Their merged Gram spectra are $(8,1,1)$ and $(5,4,1)$, giving effective ranks approximately $2.6260$ and $2.8495$. The shared direction receives different energy despite the identical marginal summaries.
+\end{proof}
+
+Let $u,v$ be unit directions with $u^\top v=c\in[0,1]$. In the orthonormal basis $u,z$, where $v=cu+\sqrt{1-c^2}z$, the operator $a^2uu^\top+b^2vv^\top$ is
+\begin{equation}
+ \begin{pmatrix}
+ a^2+b^2c^2 & b^2c\sqrt{1-c^2}\\
+ b^2c\sqrt{1-c^2} & b^2(1-c^2)
+ \end{pmatrix}.
+\end{equation}
+Its trace is $a^2+b^2$ and determinant $a^2b^2(1-c^2)$, so its eigenvalues are
+\begin{equation}
+ \lambda_{\pm}=\frac{a^2+b^2\pm\sqrt{(a^2-b^2)^2+4a^2b^2c^2}}{2}.
+ \label{eq:local}
+\end{equation}
+At $c=1$, the second branch is zero. These pairs give a full spectrum when the associated blocks are mutually orthogonal and invariant for both source Grams; unpaired directions contribute their own eigenvalues. This compatibility condition matters because principal vectors need not be singular vectors.
+
+For fixed $H_S$ and Gaussian likelihood, completing the square in the prior times likelihood gives posterior precision $P_0^{-1}+\sigma^{-2}H_S^\top H_S$ and mean $\mu_S=P_S\sigma^{-2}H_S^\top y_S$. For an independent target observation $y=h^\top\theta+\epsilon$, conditional on the training data and $h$,
+\begin{equation}
+ \E[(y-h^\top\mu_S)^2\mid H_S,y_S,h]=\sigma^2+h^\top P_Sh.
+\end{equation}
+Integrating $h$ gives Equation~\eqref{eq:risk}. We assume the target covariate distribution does not reveal additional information about $\theta$ beyond this model. If a source has a different regression function, or labels are multiclass with softmax readout, this derivation no longer identifies the evaluated loss. The proof does not bound this misspecification error. Replacing $C_T$ by a finite-sample estimate adds another discrepancy not removed by the identity.
+
+If $G\succeq\widetilde G\succeq0$, inverse order implies $(P_0^{-1}+\sigma^{-2}G)^{-1}\preceq(P_0^{-1}+\sigma^{-2}\widetilde G)^{-1}$. Taking a trace against a PSD target moment preserves this order. More generally, suppose the sum of omitted sketch tails satisfies $0\preceq G-\widetilde G\preceq\delta I$. Define $B=P_0^{-1}+\sigma^{-2}\widetilde G$. Then
+\begin{equation}
+ \tr\!\left(\widehat C_T(B+\sigma^{-2}\delta I)^{-1}\right)
+ \leq f_A(G)\leq\tr(\widehat C_TB^{-1}).
+ \label{eq:interval}
+\end{equation}
+One admissible $\delta$ is the sum of valid spectral-norm bounds on each PSD tail. A candidate's proxy ordering is certified when its upper bound is below every competing lower bound. Thus interval width, as well as coverage, determines whether a sketch can resolve the next choice. The archived sweep evaluates this type of proxy comparison with its documented byte accounting.
+
+Let $S_Q$ minimize $\ell$ over $\cQ_s$. Uniform deviation on that shortlist gives
+\begin{equation}
+ \ell(\widehat S)\leq v(\widehat S)+\varepsilon
+ \leq v(S_Q)+\varepsilon\leq\ell(S_Q)+2\varepsilon.
+\end{equation}
+Subtracting $\min_{S\in\cC}\ell(S)$ proves Equation~\eqref{eq:decomposition}. No probability is asserted by this algebra. For population generalization, one must additionally justify the deviation event using the actual dependence and selection scheme. Exhaustive finite-test scores alone do not supply that justification.
+
+The feature map $\phi(h)=hh^\top$, equipped with Frobenius inner product, satisfies $\langle\phi(h),\phi(h')\rangle_F=(h^\top h')^2$. The squared distance between source and target empirical feature means is therefore Equation~\eqref{eq:mmd}. This is the biased empirical squared MMD (a V-statistic), not the diagonal-excluded unbiased estimator. It depends on uncentered second moments and cannot distinguish all distributions sharing those moments. We use it as a computationally simple same-information comparator, not a complete discrepancy measure.
+
+\section{Implementation and Audit Details}
+\label{app:protocol}
+The original DomainNet study fits a ridge readout and transforms its scores into class probabilities. Its weights and Brier loss are
+\begin{equation}
+ \begin{aligned}
+ W_S&=(I+G_S)^{-1}\sum_{i\in S}H_i^\top Y_i,\qquad
+ p(x)=\operatorname{softmax}(h(x)^\top W_S),\\
+ b(S)&=\frac1{n_T}\sum_t\norm{p(x_t)-e_{y_t}}_2^2.
+ \end{aligned}
+\end{equation}
+$Y_i$ is the one-hot source-label matrix over the fixed 100-class vocabulary. There is no intercept or temperature tuning. Linear algebra uses float64 after loading float32 features. For effective rank obtained through a Gram eigendecomposition, negative roundoff eigenvalues are clipped to zero, square roots form singular values, and only $\sigma_j>\sigma_{\max}\sqrt{8\epsilon_{64}\max(n_S,d,1)}$ are retained. The zero matrix returns rank zero in code. This tolerance concerns numerical rank; the entropy definition itself is unchanged. The shared projection uses seed $20260911$ and $d=128$; no outcome-dependent dimension choice is used within the frozen DomainNet protocol.
+
+Bayesian D-opt maximizes $\log\det(I+G_S)$. Subspace DPP takes each block's top 16 Gram eigenvectors $U_i$, defines $K_{ij}=\norm{U_i^\top U_j}_F^2/16$ with $K_{ii}=1$, numerically projects the matrix to a PSD correlation matrix, and maximizes $\log\det(K_{S,S}+10^{-8}I)$. Its kernel describes block subspaces, not individual-image features. Domain balance maximizes the number of represented domains minus $10^{-3}$ times the sum of squared domain block counts. Deterministic scores break ties lexicographically by combination identifier. These choices are fixed comparators; poor performance of this DPP construction is not a result about all determinantal selection methods.
+
+DomainNet records image content hashes, sample identifiers, official split membership, role assignments, and class vocabulary. Archive and split checksums are validated before feature extraction. Disjoint role membership and duplicate-content checks address overlap within the materialized benchmark; they do not rule out semantic near-duplicates or pretraining contamination. All screen methods use the same source blocks, projection, target-selection rows, and candidate family. Feature extraction ignores labels, while benchmark materialization uses taxonomy metadata and stores labels for later authorized stages.
+
+Screen, validation, and audit manifests bind configuration and upstream artifact hashes. Stage-specific loaders enforce label and split permissions. In the original protocol, validation evaluates each method or random repeat separately. The test audit covers all $6\times455$ combinations per encoder after choices are frozen; its exhaustive oracle serves as a research reference. The follow-up caching policy is described below.
+
+The CUDA reconstruction retains the original sample identifiers, candidate membership, preprocessing, and hyperparameters. All twelve Brier top-ten sets agree with the original study. Per-example loss means reproduce the reconstructed aggregate audit within $1.78\times10^{-15}$. For each target domain, 2,000 paired bootstrap draws resample its 2,048 test examples, sharing weights across combinations, encoders, and four losses. Fitted models and validation choices stay fixed; combination identifiers resolve ties. These draws measure sensitivity to test-example sampling. The original Brier top ten overlaps with NLL by $\BrierNLLOverlap\%$, raw squared loss by $\BrierSquaredOverlap\%$, and classification error by $\BrierErrorOverlap\%$ on average.
+
+Seeds $20260917$, $20260918$, $20260919$, and $20260920$ generate new 128-dimensional Rademacher projections with the same pre/post row normalization. Seed $20260911$ is an implementation control, excluded from new-seed means. Logistic regression uses L2 regularization, $C=1$, no intercept, LBFGS, tolerance $10^{-6}$, and at most 1,000 iterations. A convergence warning aborts a task; no such warning occurred, and the largest iteration count was 24. The class vocabulary is fixed, with zero probability assigned to source-absent classes.
+
+All methods retain their screening rules, candidate combinations, and five shortlist sizes. Separate processes screen, fit and validate, then test frozen models. The audit checks source, configuration, lineage, model, and selection hashes before reading test features. The follow-up fits every combination once per readout and reuses these fits across methods. This cached exhaustive evaluation supports counterfactual comparisons of shortlists. Brier, NLL, and error use their own validation losses for final selection. Original-seed ridge reproduces 5,460 reconstructed test combinations with maximum loss difference $1.78\times10^{-15}$ and all 1,620 Brier validation choices exactly.
+
+The two encoders and five seeds produce 54,600 fits across both readouts. New-seed summaries first average random repeats within a task, then encoders and seeds within each target domain, and finally the six domains. Each readout contributes 48 repeated encoder--seed--domain measurements. They remain six domain units sharing the same source pools.
+
+The archive retains historical experiment IDs to identify results without confusing them with the paper's scientific questions. The following paths are relative to the anonymous code repository:
+\begin{itemize}
+\item Shared-model and shift studies (E1): \path{results/target_conditioned/e1_synthetic/expanded_v3_controlled_rng/}.
+\item PACS/Office-Home comparison (E2): \path{results/target_conditioned/e2_dataset_selection/method_v1/}.
+\item Post-hoc headroom (E2a): \path{results/target_conditioned/e2_dataset_selection/oracle_headroom_v1/}.
+\item Equal-cost shortlist (E2b): \path{results/target_conditioned/e2b_fixed_cost_shortlist/domainnet_v1/}.
+\item Risk sketch sweep (E5): \path{results/target_conditioned/e5_sketch_certificate/expanded_v3_controlled_rng/}.
+\item Reconstruction and test resampling (R1/R2): \path{results/target_conditioned/revision_20260916/}.
+\item Projection and readout follow-up (R3/R4): \path{results/target_conditioned/revision_20260917/}.
+\end{itemize}
+{\raggedright
+The DomainNet data manifest begins \texttt{d99e2a4c637cadc5}, candidate-set ID \texttt{b093ac0926b6a196}, and summary ID \texttt{ad71c79b7d2ad81d}; full SHA-256 identifiers are in the artifacts. The original configuration is \path{code/configs/target_conditioned_e2b/domainnet_v1.json}, implemented in \path{scripts/run_target_conditioned_e2b_shortlist.py}. The follow-up uses \path{code/configs/target_conditioned_e2b/readout_projection_v1.json} and \path{scripts/run_e2b_readout_projection.py}. Its summary tables are in \path{revision_results/e2b_readout_projection_v1/summary/} under the R3/R4 directory. The manuscript's \path{build_assets.py} regenerates tables, figures, numeric macros, and the English abstract from recorded sources, logging input hashes in \path{generated/asset_manifest.json}.\par}
+
+The three original feature matrices are not duplicated in Git. Metadata record their exact file and checkpoint hashes, shapes, preprocessing, extraction code revision, and runtime. Re-extraction requires access to the original public data and model weights; bitwise identity across different hardware is not assumed. The repository contains manifests and sufficient outcome tables to reproduce reported aggregate results without those matrices.
+
+\section{Supplementary Results}
+\label{app:diagnostics}
+At $K=3$ on PACS/Office-Home, mean Brier is $0.826769$ for Target A-opt, $0.829162$ for DPP, and $0.828719$ for MMD. The paired Target A-opt-minus-baseline intervals are $[-0.007449,0.000731]$ and $[-0.003392,-0.000712]$, respectively. The post-hoc audit covers all 220 combinations per task. Oracle headroom over DPP has descriptive 95\% interval $[0.162,1.617]\%$; only PACS photo exceeds the original $2\%$ threshold at the target-unit level. The oracle improves on the post-hoc test-best envelope of parent methods by $0.087\%$ on average. This envelope is an outcome-based reference, not a selectable baseline.
+
+Table~\ref{app:readout-table} gives the complete Brier recall comparison at the primary size. Target A-opt and MMD have the same mean relative selected regret: $\RidgeSelectedRegret\%$ for ridge and $\LogisticSelectedRegret\%$ for logistic regression. All their new-seed primary Brier shortlists contain an empirical oracle.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{shortlist_recall.pdf}
+\caption{Mean test Brier top-ten recall is shown across shortlist sizes in the original DomainNet study. The dotted line marks the prespecified recall threshold. All curves use the same candidate combinations and feature access appropriate to each rule.}
+\label{fig:recall}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{The exploratory DomainNet follow-up evaluates shortlists of size $s=227$. Test top-ten recall (\%) is averaged over two encoders and four new projection seeds within each target domain, then over six domains. Ridge denotes ridge-softmax. NLL and error use matching validation losses for final selection.}
+\label{tab:readout}
+\input{generated/readout_rows}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\caption{Brier top-ten recall (\%) is reported for all follow-up scoring rules at $s=227$. Averages use the same domain-level procedure as Table~\ref{tab:readout}; original-seed controls are excluded.}
+\label{app:readout-table}
+\input{generated/readout_all_rows}
+\end{table}
+
+The lowest Target A-opt classification-error recall occurs for DINOv2, Quickdraw, logistic regression, and projection seed $20260918$. The test-error oracle is $85.9863\%$, compared with $87.6465\%$ for the validation choice. Its oracle remains in the shortlist despite the $\WorstErrorRecall\%$ top-ten recall. Thus retaining the best member and retaining the best ten answer different questions, and both are distinct from the absolute quality of the available models.
+
+The four-encoder, ten-construction-seed spectral sweep uses six overlap settings and four budgets, with 960 configurations per sketch rank. At ranks $10,20,50$, relative exact merged-effective-rank gains over rank-only are respectively $2.09,3.81,4.94\%$ for the Gram sketch and $4.90,5.48,5.68\%$ for DPP. These gains are in the geometry objective, not classification accuracy. Its entropy-continuity bounds follow the type of bound in \citet{audenaert2007}; all 2,880 selected-prefix intervals cover, but none of 7,200 evaluated greedy steps is certified. The archived source is \path{results/two_stage_controlled_rank_sweep_corrected_v3/}. These observations do not imply that every low-rank sketch must fail.
+
+The separate E5 study compares sketch payloads to packed symmetric float64 Grams, not inflated dense storage. Among full-grid strategies whose mean byte ratio is at most $25\%$, the best selected-set match to Full-Gram greedy is $15.42\%$, achieved by adaptive rank cap 2 with mean byte ratio $14.91\%$. Its pairwise certificate rate is $3.91\%$ and fully certified selection rate zero. Adaptive fallback reaches full selected-set agreement but costs approximately $160\%$ of packed-Gram bytes on average when previous transmissions are counted. This fails the joint decision-and-communication requirement. The reference is Full-Gram greedy, not the exhaustive global minimizer.
+
+An earlier, different experiment trains source-supervised bottleneck adapters on 21 sources and audits seven targets with four encoders and five adapter seeds. Target-train validation uses three stratified five-fold partitions, with held-out target test accessed separately after selection freezing. Frozen identity reaches mean accuracy $0.83654$, an untrained random adapter $0.77144$, and the validation-oracle source-supervised adapter $0.76951$. The last trails identity by $0.06703$, with target-cluster 95\% interval $[-0.09771,-0.04400]$. Small shortlist regret relative to this adapter family is therefore not downstream benefit. This is not a DomainNet experiment or evidence against all adaptation methods. Results reside in \path{results/two_stage_repeated_cv_utility_corrected_v3/}.
+
+\subsection{Decision-budget reanalysis}
+\label{app:budget}
+The post-hoc budget audit uses the four new projection seeds and both readouts without selecting a favorable seed. For each task and endpoint, exhaustive validation chooses its combination using validation losses only. Its test loss is then the paired reference for the frozen shortlist choices. In contrast, the empirical test oracle remains a lower audit reference. All five original budgets are retained.
+
+\begin{table}[ht]
+\centering
+\caption{Final logistic-regression Brier and the rate of exceeding the exhaustive-validation reference by more than $0.005$ are reported. Means average random repetitions before encoders and seeds within each domain, then the six domains. The tolerance is exploratory, not a new success gate.}
+\label{app:budget-table}
+\input{generated/budget_rows}
+\end{table}
+
+We report absolute-gap sensitivity grids of $0.001,0.005,0.01$ for Brier, $0.01,0.05,0.1$ for NLL, and $0.5,1,2$ percentage points for error. Exceedance indicators are computed before averaging random repetitions; thresholding an averaged loss would answer a different question. Descriptive paired bootstrap ranges use 2,000 resamples of the six domain averages. They do not account for dependence induced by shared source pools, validation resampling, or independent datasets. All endpoint curves, paired domain differences, and threshold rates are in \path{results/target_conditioned/revision_20260922/budget_audit/}. The script \path{scripts/analyze_e2b_decision_budget.py} verifies recorded loss hashes and constructs the exhaustive reference from validation files.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{headroom_diagnostics.pdf}
+\caption{The panels report post-hoc diagnostics for different candidate families. The left panel shows oracle Brier improvement over DPP, averaging encoders within each PACS/Office-Home target. The right panel shows relative best-to-worst Brier spans for the original DomainNet tasks. The original evaluation thresholds are unchanged.}
+\label{fig:diagnostics}
+\end{figure}
+
+\subsection{Loss resolution and test-sample stability}
+The post-hoc loss-span diagnostic in Appendix Figure~\ref{fig:diagnostics} puts the original regret criterion in context. Every candidate's relative Brier regret lies below the $5\%$ threshold, so that threshold cannot distinguish successful screens in this experiment. Recall provides the more informative comparison, but it raises another question: how sensitive is the test top ten to the sampled test examples?
+
+
+
+A CUDA reconstruction first reproduces all original Brier top-ten sets. We then apply paired test-example bootstrap resampling while fixing fitted models and validation choices. Although resampled and original top-ten sets overlap by only $\BootstrapOverlap\%$ on average, Target A-opt and MMD retain $\BootstrapRecall\%$ and $\BootstrapMMDRecall\%$ of the resampled top tens. Broad shortlists are less sensitive than exact rank membership to these test-sample changes.
+
+Changing the metric has a larger effect on which combinations count as good: the original Brier and classification-error top tens overlap by only $\BrierErrorOverlap\%$ on average. A screen should therefore be evaluated against the intended deployment metric, even when its average recall is high for several metrics. The resampling protocol and additional metric comparisons appear in Appendix~\ref{app:protocol}.
+
+
+\subsection{Candidate construction and domain controls}
+\label{app:construction}
+The fixed challenge uses projection seed $20260917$, both encoders, and both readouts. Each domain's original 1,536 source images are sorted by SHA-256 of a fixed seed, domain identifier, and sample identifier, then partitioned into three blocks of 512. No labels, feature values, or outcomes determine membership. Target-selection, validation, and test sets do not change. The original construction is rerun as a control: all 65,520 recorded validation/test loss values agree exactly with the corresponding earlier seed. Repartitioning does not reuse CLIP stratum labels, but still conditions on the originally selected source images; it is neither an independent dataset nor a new test sample.
+
+Mean matching minimizes $\|\bar h_S-\bar h_T\|_2^2$, the linear-kernel MMD score. Domain matching additionally uses source-domain identifiers: it replaces each block moment by its full source-domain moment, weights these moments by the candidate's domain sample proportions, and minimizes squared Frobenius distance to the target moment. The original challenge breaks ties lexicographically. Because domain matching creates many structural ties, an additional post-hoc audit randomizes the order within each tied domain-composition stratum using 20 fixed seeds. It freezes every new validation choice before reading test losses and does not refit or change classifier parameters. The original tie protocol remains available in the released curves.
+
+\begin{table}[ht]
+\centering
+\caption{The construction challenge uses logistic Brier. Final loss is validation-selected at $s=50$. The last columns measure retention of one empirical optimum when half of each non-singleton domain-composition stratum is kept, not final selection accuracy. Means average strata and encoders within targets, then six targets. Domain matching uses 20 randomized tie orders for final loss; its within-stratum entry is the exact uniform-tie expectation.}
+\label{app:construction-table}
+\input{generated/construction_rows}
+\end{table}
+
+There are 20 strata of nine candidates and ten of 27 per target; five singleton strata are excluded. Within a stratum, every candidate uses the same domain multiplicities and total sample count. Random repeats are averaged first, followed by strata, encoders, and target domains. A domain-only score is constant inside a stratum, giving expected optimum retention $(20\cdot4/9+10\cdot13/27)/30=45.68\%$ under uniform ties. Lexicographic within-stratum results are recorded but not interpreted as domain discrimination.
+
+After hash repartitioning, logistic classification-error optimum retention is $41.94\%$ for Target A-opt and $35.28\%$ for MMD, versus $45.75\%$ for random selection. Mean Brier omission remains lower than random for both scores, but the advantage is smaller than on the original blocks. These metric-dependent observations describe conditional ranking performance; they do not establish a population guarantee or isolate the causal contribution of heterogeneity from the properties of this particular partition.
+
+The complete curves and domain-conditional audits are in \path{results/target_conditioned/revision_20260922/challenge_summary/}; randomized domain ties are in \path{results/target_conditioned/revision_20260922/domain_tie_audit/}. The raw three-stage records bind candidate membership, source features, configuration, upstream choices, and numerical payloads by hashes. Local summaries verify all numerical hashes and upstream seals; frozen model hashes were checked on the server before test access.
+
+
+\subsection{Matched quality and computation costs}
+\label{app:cost}
+The timing study uses the original candidate construction and projection seed $20260917$. Each encoder--target--readout task runs Target A-opt, MMD, random screening, and exhaustive validation independently, with three repetitions and a seeded method order. BLAS uses one thread. Shortlist checkpoints measure cumulative elapsed time after a single ranking; no fitted model is shared across methods. Ridge lazily caches each used block's float64 Gram and label right-hand side, including in exhaustive search. Preliminary float32-Gram ridge timings are retained in the archive but excluded from all tables.
+
+Every timed validation loss and choice is checked against the frozen scientific audit. Quality in Figure~\ref{fig:cost} uses the actual choices from these same three runs, with Brier, NLL, and error each using its matching validation metric. Thus the random quality coordinates here average three timed rankings, not the 20 rankings in the main scientific audit. We first average repetitions within each task, then encoders within targets and the six targets equally; timing medians are retained as diagnostics.
+
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{quality_cost.pdf}
+\caption{Final test Brier is plotted against matched decision time and additive image-cost accounting. Each curve has budgets $10,25,50,100,227$; crosses mark exhaustive validation over 455 candidates. Rows have different vertical scales. Means use two encoders, six targets, and three independent executions per method. Raw-image costs exclude pool construction, downloads, cache serialization, and test auditing.}
+\label{fig:cost}
+\end{figure}
+
+The resident scope excludes loading stage bundles, checking their integrity, and projecting cached features. Table~\ref{app:cache-table} accounts for these operations separately for two six-target encoder batches. Target-aware methods load both selection and validation bundles; random and exhaustive methods need only validation bundles. Shared preparation is charged once per encoder batch, not converted into a fictitious single-task time.
+
+\begin{table}[ht]
+\centering
+\caption{Disk-cache batch costs in seconds include input loading, integrity checks, projection, and all twelve encoder--target decisions. They are totals for two six-target batches, whereas Table~\ref{tab:cost} reports per-task means. The choices and losses do not change.}
+\label{app:cache-table}
+\input{generated/cache_batch_rows}
+\end{table}
+
+Raw-image profiling measures model initialization, image reads and hash checks, decoding, preprocessing, inference, CPU feature transfer, and normalization/projection. Each source block is timed separately; random screening is charged only for the union of blocks in its actual prefix, while geometric scoring and exhaustive validation use all 15 eligible source blocks. Each method also needs target-validation features; only target-aware scores need the target-selection sample. No test images are processed. The fixed candidate inventory is supplied to this measurement, so CLIP-based pool construction is outside its scope.
+
+The machine uses an Intel Xeon Platinum 8352V CPU and an NVIDIA vGPU-32GB. Feature extraction uses CUDA 12.4, PyTorch 2.5.1, float32 inference without TF32, batch size 64, and four data-loading workers. The readout stack uses NumPy 1.26.4, SciPy 1.16.1, and scikit-learn 1.7.1. Feature components are measured in one pass, with operating-system disk caches left unchanged. Block-level loader startup is included. The totals therefore describe this measured implementation and reuse scenario, not a hardware-independent speedup.
+
+All 32 quality/time curve entries, three loss endpoints, paired differences, and 384 task-level budget entries are in \path{results/target_conditioned/revision_20260922/cost_summary/}. Standalone timing runs and per-block feature profiles accompany them. The manuscript verifier independently reconstructs the matched quality coordinates, random block unions, and all additive totals from those records.
+
+\section{Connections to Recent Data-Selection Methods}
+\label{app:related-selection}
+Recent selection methods differ in what they select, which representation describes relevance, and what information selection can access. These distinctions locate the present framework and determine how a future comparison should be constructed. The methods discussed here provide literature context; our measured comparators remain those in Section~\ref{sec:protocol}.
+
+Transductive active learning separates an accessible sampling region from a prediction target region \citep{hubotter2024transductive}. ITL reduces target entropy, whereas VTL reduces the sum of target predictive variances. Their Gaussian-process formulation explains how an observation can be useful for a target without being drawn from that target region. The variance objective is the closest connection to Equation~\eqref{eq:risk}: source geometry matters through the uncertainty remaining at target covariates. We evaluate complete, fixed pool combinations and then validate retained predictors, rather than sequentially acquiring individual observations.
+
+SIFT makes redundancy important to target-specific selection \citep{hubotter2025sift}. It selects fine-tuning sequences by the uncertainty remaining about a prompt after conditioning on previously selected sequences. Consequently, an example's relevance depends on what has already been selected, not just its distance to the prompt. This provides a useful perspective on pooled Gram matrices, whose combined coverage also depends on cross-pool alignment. SIFT's experiments concern prompt-specific language-model fine-tuning; here the encoder remains frozen and the supervised stage compares readouts trained on different pool unions.
+
+SkMM addresses the bias--variance tradeoff of selecting data for high-dimensional fine-tuning \citep{dong2024skmm}. Gradient sketching first identifies a low-dimensional parameter subspace with controlled approximation bias; moment matching then controls variance within that subspace. Its gradient representation comes from model derivatives, so it should not be conflated with label-dependent loss-gradient selection. SkMM matches selected data to the original dataset, whereas our target moment is estimated from a separate target-selection sample. Both use matrix geometry, but our fixed feature projection does not perform SkMM's gradient-space construction.
+
+TSDS balances distribution alignment and diversity by optimizing sampling probabilities with an optimal-transport objective \citep{liu2024tsds}. Its density-aware regularizer reduces concentration on near-duplicate candidates, and its metric space can use semantic embeddings or model-specific representations. TAROT builds transport costs from projected, whitened, normalized loss-gradient features \citep{feng2025tarot}. Whitening reduces the dominance of correlated gradient directions before matching the selected and target distributions. Unlike our unlabeled screen, its supervised loss-gradient construction includes both inputs and labels. These are relevant transport-based comparison methods, but their sample-level outputs must be reconciled with our fixed-block candidate family. A frozen-embedding OT score would be a useful controlled adaptation, not a reproduction of TAROT's loss-gradient method.
+
+The covariance-matching analysis of \citet{rezaei2026synthetic} studies a predictor trained on real data augmented with synthetic data under high-dimensional linear regression. It characterizes test error and establishes covariance-matching optimality under specified conditions. This gives matching a risk-based motivation beyond simple geometric resemblance. The distinction between centered covariance and uncentered second moments matters here: Equation~\eqref{eq:mmd} compares the latter on frozen features. Our classification shortlists address a different training and selection setting from the synthetic-augmentation analysis.
+
+A comparison with these methods would need to hold the candidate family, sample cost, target-data roles, and final validation rule fixed. Extra label access would require a separately identified information setting. Feature or gradient construction, transport optimization, screening, and supervised evaluation would all enter the cost account. This follows the selection-plus-training budget principle of \citet{yin2025} and makes the comparison about the final predictor obtained for the available computation, rather than the screening score alone.
+
+\section{Equal-cost reversal of moment matching and target risk}
+\label{app:equal-cost-reversal}
+Take unit basis vectors $e_1,e_2$ and a target distribution assigning them probabilities $3/4$ and $1/4$. Use a common four-row source block with counts $(3,1)$ of the two basis vectors, and two alternative four-row blocks with counts $(3,1)$ and $(2,2)$. Combining the common block with either alternative gives $G_A=\operatorname{diag}(6,2)$ or $G_B=\operatorname{diag}(5,3)$, each with eight samples and trace eight. Then $G_A/8=C_T$ and $G_B/8-C_T=\operatorname{diag}(-1/8,1/8)$, giving squared MMD $0$ and $1/32$. Under the shared Gaussian linear model with unit prior precision and observation noise variance, the two posterior covariance matrices are $\operatorname{diag}(1/7,1/3)$ and $\operatorname{diag}(1/6,1/4)$. Weighting by $C_T$ yields $4/21$ and $3/16$, respectively. The common irreducible noise cancels, so the predictive risk of $A$ exceeds that of $B$ by $1/336$.
+
+\section{Sequential pool querying}
+\label{app:pool-query}
+
+\begin{proposition}[Identification under exact additivity]
+\label{prop:pool-identification}
+For the complete family of triples from 15 pools, suppose $v(S)=x_S^\top\beta$ for every candidate $S$ and a query reveals $v(S)$ exactly. The 15 scores from any full-rank set of 15 query rows determine every validation score in the family.
+\end{proposition}
+\begin{proof}
+Each pool occurs in $\binom{14}{2}=91$ triples, and each pair occurs in $\binom{13}{1}=13$ triples. Hence the full incidence matrix satisfies $X^\top X=78I+13\mathbf{1}\mathbf{1}^\top\succ0$. A full-rank queried design $X_Q$ gives the unique coefficient vector $X_Q^{-1}v_Q$. Multiplying by $X$ gives the entire loss vector. A separate intercept is redundant because $x_S^\top\mathbf{1}=3$ throughout the family. With fewer than 15 queries, a nonzero direction in the nullspace of $X_Q$ leaves the queried values fixed and changes at least one unqueried value. Thus fewer queries cannot identify the full table in general, even for adaptive queries. One can take an arbitrarily small perturbation about the constant loss vector with all entries equal to one to keep both tables in the Brier range.
+\end{proof}
+
+This proposition concerns the measured validation-loss surface for a fixed fitting and validation protocol. Real losses can depart from additivity, and the coefficients are working-model parameters. Obtaining a fitted readout for an unqueried minimizer requires one further query. Algorithm~\ref{alg:pool-query} can instead allocate its next query to exploration and returns the best observed candidate. Its leverage term is a heuristic with no confidence calibration.
+
+\begin{algorithm}[H]
+\caption{Sequential pool-only querying}
+\label{alg:pool-query}
+\begin{algorithmic}[1]
+\Require Full-column-rank candidate incidence matrix $X$, budget $p\leq B\leq|\cC|$, and access to a fit-and-validate query.
+\State Sort rows by candidate identifier. Use greedy pivoted Gram--Schmidt to pick $p$ rows.
+\State Query those rows to initialize $Q$ and the observed loss vector $v_Q$.
+\While{$|Q|<B$}
+  \State Fit $\widehat\beta\gets\arg\min_\beta\|v_Q-X_Q\beta\|_2^2$.
+  \State Choose the unqueried candidate minimizing Equation~\eqref{eq:pool-acquisition}.
+  \State Query that candidate and append its row and observed loss to $Q$ and $v_Q$.
+\EndWhile
+\State \Return the queried candidate minimizing $(v(S),\operatorname{id}(S))$ and its fitted readout.
+\end{algorithmic}
+\end{algorithm}
+
+Initialization chooses the largest squared row residual after projection onto the span of previously chosen rows. We round these squared residuals and the subsequent acquisition scores to 12 decimal places and break ties by lexicographic identifier. Query budgets 15, 25 and 50 use nested prefixes. The geometry-offset ablation uses the same initialization and query rule, fitting least squares to $v(S)-g(S)$ and adding $g(S)$ to the predicted score. With $N=455$ candidates and zero-based ranks, $g(S)=0.005[\operatorname{rank}_A(S)+\operatorname{rank}_M(S)]/[2(N-1)]$. The pool-only rule sets $g(S)=0$ throughout.
+
+The extension uses all four additional archived projection seeds, the same candidate memberships, and seed-specific rankings and validation/test losses. The fixed A-opt and MMD comparators take their archived prefixes, and the random comparator averages 20 archived orders per seed, encoder and target. Every policy observes only its queried validation scores. We lock all traces before opening test scores, and the full reference minimizes validation loss across all 455 candidates. The six-domain means weight encoders equally within each domain and then weight domains equally. An exceedance is a signed Brier gap strictly above $0.005$, computed separately for each seed and domain. Across the 48 seed--encoder--domain units, pool only at 25 recovers 45 full-validation winners, and MMD at 50 recovers 42. The archive was used for earlier analyses. Projection and readout variation on the shared data supports a within-benchmark sensitivity check. This replay reuses fitted models' validation and test scores. Appendix~\ref{app:server-timing} measures elapsed time in separate runs with fresh fits at the original projection seed.
+
+\section{Calibration and transport under fixed candidate membership}
+\label{app:calibration-transport}
+Both checks use the original DomainNet pool membership, six target domains, two encoders, and projection seed 20260911. We average random orders within each domain and encoder, then average encoders within each domain and weight the six domains equally. Each quality gap subtracts the corresponding 455-fit validation winner's test Brier.
+
+\subsection{Ridge temperature calibration}
+\label{app:ridge-temperature}
+We retain ridge regularization $\lambda=1$. Reconstructing the $T=1$ scores across all candidates gives maximum Brier discrepancies of $1.95\times10^{-9}$ on validation and $1.86\times10^{-9}$ on test across the 12 units. We use the test comparison only to check reconstruction. For candidate scores $z$, we evaluate $\operatorname{softmax}(z/T)$ and choose $T$ by minimum validation Brier on a fixed grid of 81 log-spaced values from $0.01$ to $100$.
+
+First, we fix the original full-validation winner in each unit and fit its temperature on all 1,024 validation examples. Mean test Brier changes from $0.986695$ to $0.743338$, with the same $36.00\%$ top-1 accuracy. The uniform-probability reference is $1-1/100=0.99$. Second, we split validation by a fixed sample-ID hash. We fit each candidate's temperature on 512 examples and select a candidate on the other 512. We freeze temperatures and winners before final test evaluation. Table~\ref{tab:ridge-calibration} reports this reselection arm. At 227 fits, both geometric screens recover the calibrated full-validation winner in all 12 units. The calibration study fixes the feature dimension and ridge regularization. Appendix~\ref{app:server-timing} measures the cost of this split-validation protocol.
+
+\begin{table}[ht]
+\centering
+\caption{Ridge results after temperature fitting and reselection on disjoint halves of validation. The last column counts domains whose signed mean test Brier gap to calibrated full validation exceeds $+0.005$.}
+\label{tab:ridge-calibration}
+\begin{tabular}{rlrrrr}
+\toprule
+Fits & Screen & Test Brier & Top-1 & Brier gap & Domains \\
+\midrule
+50 & Target A-opt & 0.725347 & 37.63\% & $-0.000150$ & 1/6 \\
+50 & MMD          & 0.727958 & 37.61\% & $+0.002461$ & 2/6 \\
+50 & Random       & 0.742038 & 36.35\% & $+0.016541$ & 5/6 \\
+227 & Target A-opt & 0.725498 & 37.78\% & $+0.000000$ & 0/6 \\
+227 & MMD          & 0.725498 & 37.78\% & $+0.000000$ & 0/6 \\
+227 & Random       & 0.730224 & 37.37\% & $+0.004726$ & 2/6 \\
+455 & Full validation & 0.725498 & 37.78\% & $+0.000000$ & 0/6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Sliced Wasserstein on the same candidates}
+\label{app:transport-fixed}
+We score the 455 fixed unions using the same frozen source and unlabeled target screening features as the geometric screens. For each of 32 fixed Gaussian unit directions, we sort the projected values of the 1,536 candidate and 1,536 target examples and compute the mean squared difference between corresponding sorted values. We average those distances. The whitened variant applies an inverse square root of the pooled, centered source covariance with ridge $0.1$ times the mean eigenvalue. It uses one transform per encoder and target, shared across candidates. The comparison tests transport-based alignment under the fixed-pool protocol. TAROT \citep{feng2025tarot} uses supervised loss-gradient features and sample-level selection.
+
+We verify that recalculated Target A-opt and MMD match all top-50 and top-227 sets in the paired readout archive. We freeze rankings before using archived logistic validation loss to select winners and test loss to audit them. Table~\ref{tab:fixed-transport} reports timings for ranking only. Each unit uses the median of three single-thread runs from resident projected features, including whitening when applicable, and the reported times average units. Section~\ref{sec:cost} reports a separate static-screen timing study that includes fitting and validation and accounts for feature extraction. At 227 fits, the absolute mean gap to full validation is below $0.0005$ for all four geometric screens.
+
+\begin{table}[ht]
+\centering
+\caption{Fixed-pool transport comparison with logistic readouts at 50 fits. Gaps are relative to full validation over 455 candidates. Seconds cover ranking from resident projected features.}
+\label{tab:fixed-transport}
+\begin{tabular}{lrrrr}
+\toprule
+Screen & Test Brier & Brier gap & Seconds & Domains $>+0.005$ \\
+\midrule
+Sliced Wasserstein & 0.866406 & $+0.002649$ & 0.2777 & 1/6 \\
+Whitened sliced Wasserstein & 0.865342 & $+0.001585$ & 0.2948 & 0/6 \\
+Target A-opt & 0.864104 & $+0.000347$ & 0.5482 & 0/6 \\
+MMD & 0.863951 & $+0.000194$ & 0.0387 & 0/6 \\
+Random & 0.871557 & $+0.007800$ & \textemdash & 4/6 \\
+Full validation & 0.863757 & $+0.000000$ & \textemdash & 0/6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Other screening checks}
+In a matched DomainNet logistic comparison at 50 fits, Target A-opt gives mean test Brier $0.864104$, versus $0.896467$ for linear target energy, which uses the same moments without inverse weighting. At 227 fits, Target A-opt and MMD both give $0.863757$, versus $0.873177$ for linear target energy. A validation-only stopping rule calibrated on the other five domains saves 2.08 queries on average for MMD relative to fixed 50 and increases queries for Target A-opt. These retrospective checks share source pools across domains. On Office-Home at 50 fits, Target A-opt improves on target energy by $0.030215$ in mean Brier, and MMD is slightly better than Target A-opt. On BloodMNIST, with constructed pools and an internal holdout, all differences against Target A-opt fall below the prespecified $0.005$ threshold.
+
+\section{Server timings with resident features}
+\label{app:server-timing}
+Both timing studies use six DomainNet target domains, two encoders, and the original projection seed 20260911. They start with projected features in memory and end when validation selects a winner. Feature extraction and test evaluation fall outside the timed interval.
+
+\paragraph{Logistic regression.}
+We independently fit each candidate in three runs per policy and thread setting, rotating the policy order. Timing includes candidate preparation, screening or query selection, fitting, and validation. The four-thread setting dispatches independent fits on four threads, with one native library thread per fit and worker initialization outside the timed interval. Both pool policies can fit the first 15 candidates in parallel. Sequential 25 uses each new validation score before choosing the next candidate. Two-batch 25 ranks the remaining candidates once using the first 15 scores and dispatches the next ten together. MMD ranks candidates from the resident features and can dispatch all 50 fits together.
+
+\begin{table}[ht]
+\centering
+\caption{Logistic selection time in seconds. We take the median across three repeats within each encoder--domain unit, then the median across the 12 units. Test Brier weights the units equally.}
+\label{tab:pool-server-timing}
+\begin{tabular}{lrrrr}
+\toprule
+Policy & Fits & One thread & Four threads & Test Brier \\
+\midrule
+Sequential & 25 & 1.384 & 0.793 & 0.863951 \\
+Two-batch & 25 & 1.390 & 0.453 & 0.863951 \\
+MMD & 50 & 2.666 & 0.824 & 0.863951 \\
+Full validation & 455 & 25.702 & 7.554 & 0.863757 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All 288 runs match the archived query order and winner. The median paired speedups over MMD 50 for sequential and two-batch 25 are $1.92\times$ and $1.91\times$ at one thread, and $1.04\times$ and $1.86\times$ at four. The two pool policies select the same winners on this projection. Their mean Brier gaps are $+4.26\times10^{-7}$ to MMD 50 and $+0.000194$ to full validation, with no encoder--domain gap above $+0.005$ against either reference. Replaying two-batch versus sequential at 25 on the four additional projections gives a mean gap of $+0.000254$, with one of 48 encoder--seed--domain units above $+0.005$.
+
+\paragraph{Calibrated ridge regression.}
+From resident features and precomputed rankings, we time block statistics, fitting ridge with $\lambda=1$, validation logits, the temperature grid on one validation half, and selection on the other half. The 360 timed runs across calibrated and uncalibrated settings reproduce the archived outcomes. The table averages the three-run medians across 12 units. Temperature search accounts for about $93$--$94\%$ of calibrated time. These timings condition on the shortlist rankings being available. The image-cost comparison in Section~\ref{sec:cost} uses the original uncalibrated ridge protocol.
+
+\begin{table}[ht]
+\centering
+\caption{Ridge selection time in seconds from resident features and precomputed rankings. Test Brier is for reselection after temperature calibration.}
+\label{tab:ridge-server-timing}
+\begin{tabular}{lrrrr}
+\toprule
+Policy & Fits & Uncalibrated & Calibrated & Test Brier \\
+\midrule
+Target A-opt & 50 & 0.070 & 1.114 & 0.725347 \\
+MMD & 50 & 0.071 & 1.114 & 0.727958 \\
+Target A-opt & 227 & 0.300 & 5.009 & 0.725498 \\
+MMD & 227 & 0.296 & 5.064 & 0.725498 \\
+Full validation & 455 & 0.586 & 10.047 & 0.725498 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,18 @@
+{
+  "schema_version": "e2b-post-selection-diagnostics-v1",
+  "analysis_status": "exploratory-robustness-after-original-test-results-were-known",
+  "registration_date": "2026-09-16",
+  "bootstrap_repeats": 2000,
+  "bootstrap_batch_size": 100,
+  "bootstrap_seed": "e2b-paired-test-bootstrap-v1",
+  "resampling_unit": "target-test-sample",
+  "paired_across_combinations_and_encoders_within_target_domain": true,
+  "confidence_level": 0.95,
+  "metrics": ["brier_score", "squared_loss", "nll", "error_rate"],
+  "top_q": 10,
+  "reference_readout": "unchanged-one-hot-ridge-lambda-1-no-intercept-temperature-1",
+  "refit_within_bootstrap": false,
+  "change_selection_or_hyperparameters": false,
+  "aggregate_sample_bootstrap_as_cross_domain_evidence": false,
+  "interpretation": "Conditional finite-test-sample stability with fixed models, not training uncertainty, fresh-test confirmation, or independent cross-dataset evidence."
+}

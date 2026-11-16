@@ -1,0 +1,13 @@
+# Submission Metadata
+
+## Title
+
+Feature Geometry for Data-Pool Screening: Utility, Stability, and Limits
+
+## Abstract
+
+Selecting source-data pools for a target task can require training and validating a predictor for many combinations of pools. We propose a geometry-guided framework that shortlists combinations using unlabeled source and target features from frozen encoders, then trains predictors on source labels and selects one by target validation. Its core method, Target A-opt, applies target-weighted A-optimal design to pooled Gram matrices and the target second moment. Under a shared linear model, it favors combinations that reduce uncertainty about prediction coefficients, weighting feature directions by their energy in target data. A separate error decomposition distinguishes discarding good candidates from losing quality when validation chooses among those retained. On equal-sample-cost DomainNet combinations, an exploratory budget analysis with logistic regression finds lower mean test Brier from evaluating 50 Target A-opt candidates than 227 random candidates. In the original primary study, second-moment matching (MMD) matches Target A-opt on recall and final loss; it has higher mean recall at smaller budgets. Independent timing shows savings with cached features; adding measured feature-extraction costs preserves the logistic-regression saving but reverses it for ridge. These results support using target-aware geometry to reduce supervised data-pool evaluations, with savings depending on readout and feature preparation costs.
+
+## Keywords
+
+data selection, data-pool screening, frozen representations, optimal experimental design, distribution shift, empirical evaluation

@@ -1,0 +1,7 @@
+# DomainNet logistic query efficiency
+
+Use the frozen readout archive at projection seed 20260911. Each fold holds out one target domain, including both encoders. A query is one candidate fit and validation evaluation. Compare A-opt, second-moment MMD and 20 archived random orders, each with adaptive stopping and fixed 50.
+
+At checkpoints 25, 50, 100, 227, stop when the improvement in incumbent validation Brier since the preceding checkpoint is at most a threshold. Use checkpoints 10 and 25 for the first improvement comparison. Stop at 227 regardless. Calibrate one threshold per fold, shared by all methods, on the other five domains using only validation loss. Try 0, 0.00025, 0.0005, 0.001 and 0.002. Choose the threshold with the fewest mean queries among thresholds whose mean validation gap to the 455-query validation winner is at most 0.005 for each method. If none qualifies, minimize the largest method gap, then mean queries. Break remaining ties by lower threshold. Within a method, weight the random repeats within an encoder and domain before averaging. Break candidate ties by ID.
+
+Lock fold thresholds, query counts and winners before reading test files. Report held-out test Brier minus test Brier of the 455-query validation winner. Average random repeats and then both encoders within each target domain. Count domains whose signed average gap exceeds 0.005. Report per-domain and equal-domain means. This is retrospective replay at one projection seed with shared source pools across domains.

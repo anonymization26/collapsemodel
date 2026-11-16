@@ -1,0 +1,3 @@
+# Candidate-size stress test
+
+This is a follow-up to the original 455-candidate pilot. Reuse the 15 frozen source blocks and 1,536 unlabeled clipart target rows. Split each source block into two contiguous halves of 256 rows in its stored membership order. Build nested inventories of 15, 20, 25 and 30 half-blocks in lexicographic ID order and enumerate all triples. Each candidate uses 768 rows across the four inventories. The original pilot uses 1,536 rows per candidate, so compare wall times within each inventory only. Audit exact A-opt top-50 and top-227, three repetitions, one BLAS thread. Record same-budget exhaustive matches, solve counts and total ranking time. This is a geometry-only stress test using related inventories, with no logistic outcome claims.

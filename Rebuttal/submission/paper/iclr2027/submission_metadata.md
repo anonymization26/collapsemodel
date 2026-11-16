@@ -1,0 +1,13 @@
+# Submission Metadata
+
+## Title
+
+Feature Geometry for Data-Pool Screening: Utility, Stability, and Limits
+
+## Abstract
+
+Selecting source-data pools for a target task can require training and validating a predictor for many combinations. We propose sequential pool-only querying, which uses the overlap between fixed pool combinations to choose supervised evaluations. The policy fits an additive model to queried validation losses, refits it after each new observation, and returns the best evaluated candidate. For the complete family of triples from 15 pools, 15 linearly independent queries identify the full validation-loss surface under exact additivity. Across four additional archived DomainNet projections, 25 pool-only queries yield mean logistic test Brier of 0.864174, compared with 0.864365 for 50 fixed second-moment matching evaluations. Adding a geometry offset yields little change. We also analyze static geometry screens. Target A-opt measures target-weighted coefficient uncertainty under a shared linear model, and second-moment matching remains competitive in classification. Separate timing of static screening finds that adding measured image feature costs preserves savings for logistic regression and reverses them for ridge. The sequential replay measures query budgets using existing fits.
+
+## Keywords
+
+data selection, data-pool screening, frozen representations, optimal experimental design, distribution shift, empirical evaluation
