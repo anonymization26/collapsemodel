@@ -1,0 +1,97 @@
+{
+  "unit": "domainnet_clipart_hash_d128_20261117",
+  "code_sha256": "c2f2dfd9129fee39114780aa6727e1dc5e37a257cce03b5c2f2a9a04c254e689",
+  "timed_implementation_sha256": "dd61cbb8017e6c5bd9717486089c6e4b8616210b067beca406dd145b2ad6a7be",
+  "rows": [
+    {
+      "method": "sequential25",
+      "workers": 1,
+      "fits": 25,
+      "seconds": 3.3492992480751127,
+      "worker_sum_seconds": 3.337490070029162,
+      "winner": 445,
+      "validation_brier": 0.9222380494912499,
+      "fit_seconds": 3.2238051268504933,
+      "validation_seconds": 0.1000226465985179,
+      "ranking_acquisition_dispatch_seconds": 0.025471474626101553
+    },
+    {
+      "method": "batch25",
+      "workers": 1,
+      "fits": 25,
+      "seconds": 3.3645455029327422,
+      "worker_sum_seconds": 3.358519649715163,
+      "winner": 445,
+      "validation_brier": 0.9222380494912499,
+      "fit_seconds": 3.2520286202197894,
+      "validation_seconds": 0.09041208040434867,
+      "ranking_acquisition_dispatch_seconds": 0.02210480230860412
+    },
+    {
+      "method": "mmd25",
+      "workers": 1,
+      "fits": 25,
+      "seconds": 3.399265047046356,
+      "worker_sum_seconds": 3.3291838029399514,
+      "winner": 448,
+      "validation_brier": 0.9298466182943503,
+      "fit_seconds": 3.2244362035999075,
+      "validation_seconds": 0.0864129081601277,
+      "ranking_acquisition_dispatch_seconds": 0.08841593528632075
+    },
+    {
+      "method": "mmd50",
+      "workers": 1,
+      "fits": 50,
+      "seconds": 6.604665998020209,
+      "worker_sum_seconds": 6.534218443441205,
+      "winner": 449,
+      "validation_brier": 0.9293291533085566,
+      "fit_seconds": 6.3211937717860565,
+      "validation_seconds": 0.18045940215233713,
+      "ranking_acquisition_dispatch_seconds": 0.10301282408181578
+    },
+    {
+      "method": "aopt25",
+      "workers": 1,
+      "fits": 25,
+      "seconds": 3.206517663085833,
+      "worker_sum_seconds": 2.8154908678261563,
+      "winner": 445,
+      "validation_brier": 0.9222380494912499,
+      "fit_seconds": 2.7222620740067214,
+      "validation_seconds": 0.08237991842906922,
+      "ranking_acquisition_dispatch_seconds": 0.4018756706500426
+    },
+    {
+      "method": "full455",
+      "workers": 1,
+      "fits": 455,
+      "seconds": 60.303337624063715,
+      "worker_sum_seconds": 60.277701398706995,
+      "winner": 445,
+      "validation_brier": 0.9222380494912499,
+      "fit_seconds": 58.498131842468865,
+      "validation_seconds": 1.5091872997581959,
+      "ranking_acquisition_dispatch_seconds": 0.29601848183665425
+    }
+  ],
+  "loading": [
+    {
+      "repeat": 0,
+      "cache_decode_seconds": 0.13522451999597251,
+      "integrity_hash_seconds": 0.028180290013551712
+    },
+    {
+      "repeat": 1,
+      "cache_decode_seconds": 0.13548443198669702,
+      "integrity_hash_seconds": 0.02737670496571809
+    },
+    {
+      "repeat": 2,
+      "cache_decode_seconds": 0.1357447359478101,
+      "integrity_hash_seconds": 0.02732198394369334
+    }
+  ],
+  "note": "One extra serial execution per method; component measurement only. OS file cache uncontrolled. Not primary 3-repeat speedup estimates."
+}
