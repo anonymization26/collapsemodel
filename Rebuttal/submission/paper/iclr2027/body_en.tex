@@ -1,20 +1,30 @@
 \section{Introduction}
-Adapting a predictor to a target domain often starts with source-data pools that differ in acquisition conditions, image style, or example coverage. Choosing a combination can require many supervised evaluations, each comprising one fit and target-validation score. We ask how pool overlap and feature geometry can reduce those evaluations while preserving a competitive final choice.
+Selecting three of 15 existing source-data pools gives 455 candidate training sets. The pools might contain data collected at different sites or under different conditions. Even when a frozen encoder lets all candidates reuse the same features \citep{radford2021,oquab2024}, checking a candidate still takes a supervised fit and a score on labeled target validation data. When only a fraction of those fits is affordable, which combinations should we try?
 
-Frozen encoders such as CLIP and DINOv2 provide reusable features \citep{radford2021,oquab2024}. We fit a classifier on these features for each evaluated combination. Figure~\ref{fig:pool-query-framework} shows two routes to a fitted model. With no target labels, Target A-opt \citep{yu2006,hubotter2024transductive} and second-moment maximum mean discrepancy (MMD) rank candidates by feature geometry. With early validation scores, our pool-query policy estimates additive pool effects and allocates the remaining fits.
+One way to save fits is to rank the combinations before training. Target A-opt ranks them by the remaining prediction uncertainty averaged over target features under a shared linear model \citep{yu2006,hubotter2024transductive}. Maximum mean discrepancy (MMD) with a quadratic kernel ranks them by how closely the source and target second moments match \citep{gretton2012}. Both use unlabeled target features to fix a shortlist. The validation scores decide which fitted model to keep, and the remaining fits follow the original ranking even when the early scores are poor.
+
+Validation losses can guide further fits when combinations share pools (Figure~\ref{fig:pool-query-framework}). Suppose we fit $A+B+C$ and $A+B+D$. If validation loss is approximately additive across pools, the difference between those scores estimates what happens when $C$ replaces $D$ in other combinations as well.
 
 \begin{figure}[!t]
 \centering
 \includegraphics[width=\linewidth]{pool_query_framework.pdf}
-\caption{Two routes for selecting from fixed source-pool combinations. Static screening ranks candidates from unlabeled features before fitting a shortlist. Pool querying fits 15 linearly independent combinations, estimates pool effects from their validation losses, and spends 10 additional fits. Triples sharing two pools inform the effect of swapping the third under the additive approximation. Both routes lock their validation winner before test evaluation.}
+\caption{Static screening fixes a shortlist before fitting. At a budget of 25, pool querying fits 15 triples chosen by membership pivots, then uses predicted loss and leverage to choose the remaining ten. The feedback arrow applies to sequential queries. Both routes choose the best validation model among all models they fit before testing.}
 \label{fig:pool-query-framework}
 \end{figure}
 
-Under a shared Bayesian linear model, Target A-opt weights remaining coefficient uncertainty by target feature energy. An error decomposition separates losing good candidates during screening from choosing among retained candidates. We measure both retention and the cost and quality of the final choice.
+We use this overlap to allocate the remaining fits and compare the resulting policy with screening based on a fixed ranking.
 
-In fresh DomainNet evaluations, 25 fits yield mean logistic test Brier of $0.916072$, versus $0.916078$ for full validation at 455 fits. Shared-initialization controls isolate how validation feedback changes subsequent trials. Optdigits shows how repartitioning the same source examples can undermine the additive approximation.
+\begin{enumerate}
+\interlinepenalty=10000 % Keep each contribution intact across page breaks.
+\item \textbf{Choosing later fits from validation feedback.} We fit an initial set of combinations with linearly independent membership vectors and estimate additive pool effects from the observed losses. We score untried combinations by predicted loss and how well earlier fits cover them. We query one at a time or in a second batch and keep the model with the lowest observed loss. Under exact additivity and exact observations, 15 independent queries identify the losses of all triples from 15 pools.
+
+\item \textbf{Explaining what geometric screening captures.} We link Target A-opt to prediction risk in a shared Bayesian linear model and show that closer moment matching can raise risk at equal sample cost. We distinguish screening omissions from selection error within the shortlist.
+
+\item \textbf{Evaluating selection under a fitting budget.} We compare querying with fixed rankings, matched-budget linear designs, and full validation on DomainNet and Optdigits. We hold initial fits fixed to isolate the effect of feedback, repartition the same examples to probe the additive model, and time selection in independent runs.
+\end{enumerate}
 
 \section{Related Work}
+\label{sec:related}
 \subsection{Target-aware experimental design}
 A-optimal design measures parameter uncertainty through a covariance trace \citep{fontaine2021}. Transductive design instead weights prediction variance by target covariates \citep{yu2006}. ITL and VTL distinguish where observations can be acquired from where predictions are needed, selecting observations to reduce target entropy or total variance \citep{hubotter2024transductive}. SIFT applies conditional uncertainty reduction to prompt-specific fine-tuning, accounting for redundancy among retrieved examples \citep{hubotter2025sift}. Target A-opt follows the target-variance principle, but ranks fixed pool unions for subsequent supervised evaluation. Separate labeled validation then chooses among the retained combinations.
 
@@ -36,21 +46,25 @@ A pool is a fixed block of examples; a candidate $S\in\cC$ is a feasible union o
 
 The static screen uses source features and an unlabeled target-selection set $T_{\rm sel}$ to freeze its shortlist. Each retained candidate fits on source labels and is scored on the separate target-validation set $T_{\rm val}$. Algorithm~\ref{alg:target-a} uses $P_0^{-1}=I$, $\sigma^2=1$ and breaks ties lexicographically.
 
-\subsection{Sequential pool-only querying}
+\subsection{Pool querying with validation feedback}
 \label{sec:pool-query}
-A query evaluates one candidate on the fixed fitting and validation protocol. Let $x_S\in\{0,1\}^p$ indicate which of $p$ pools occur in $S$. We model the validation Brier as
+A query fits a readout on labeled source data from $S$ and returns its Brier loss $v(S)$ on the target validation set. Let $x_S\in\{0,1\}^p$ indicate which of the $p$ pools belong to $S$. Overlap lets us predict validation loss using one effect per pool
 \begin{equation}
  v(S)=x_S^\top\beta+r(S),
  \label{eq:pool-additive}
 \end{equation}
-where $\beta$ captures additive pool effects and $r(S)$ captures departures from additivity. The policy begins with $p$ linearly independent rows selected using membership alone. It refits $\widehat\beta$ by least squares on the revealed scores before each new query. With $X_Q$ the queried design, it chooses the unqueried $S$ minimizing
+Here $\beta$ gives the pool effects and $r(S)$ captures departures from additivity.
+
+\noindent\textbf{Choose the first 15 combinations.}
+Stack the rows $x_S^\top$ in $X$. Before observing losses, use pivoted Gram--Schmidt to pick the row farthest from the span of selected rows at each step. With alphabetical pool IDs, $\mathrm{ABC}$ comes first and $\mathrm{DEF}$ is the first disjoint triple. The full design has rank 15, so 15 pivots give a unique least-squares estimate. At lower rank, the same queried losses can yield different predictions for untried combinations. Under exact additivity and exact observations, the 15 scores determine all 455 losses (Proposition~\ref{prop:pool-identification}).
+
+\noindent\textbf{Use each new score to choose the next fit.}
+For queried rows $Q$, fit $\widehat\beta$ by least squares on $X_Q$ and the observed losses $v_Q$. Choose the unqueried $S$ with the smallest score
 \begin{equation}
  x_S^\top\widehat\beta-0.001\sqrt{x_S^\top(X_Q^\top X_Q)^{-1}x_S}.
  \label{eq:pool-acquisition}
 \end{equation}
-The leverage term favors poorly covered combinations. The two-batch variant fits the additive model once after initialization and dispatches the remaining queries together. Both variants return the fitted candidate with lowest observed $v(S)$ (Algorithm~\ref{alg:pool-query}).
-
-For all three-pool combinations of $p=15$ pools, the full incidence matrix has rank 15. If $r(S)=0$ throughout the candidate family and the revealed scores equal $v(S)$ exactly, any 15 independent queries identify the full validation-loss surface (Proposition~\ref{prop:pool-identification}). If its predicted minimizer is unqueried, obtaining that readout still requires fitting it. The implemented policy uses the search heuristic above and selects from observed fits.
+The first term predicts loss. Leverage rewards directions poorly covered by $X_Q$. Fit and score the chosen candidate, then add its row and loss before rescoring. Ten iterations give 25 fits in total. The two-batch variant picks all ten from the ranking computed after the first 15 fits. Both keep the fitted model with lowest observed validation loss (Figure~\ref{fig:pool-query-framework}, Algorithm~\ref{alg:pool-query}).
 
 \subsection{Why target-weighted uncertainty guides screening}
 Uncertainty here concerns how feature changes affect predictions, not image clarity or disorder. We formalize it through scalar Bayesian regression with $\theta\sim N(0,P_0)$, $P_0\succ0$, and $y=h^\top\theta+\epsilon$, where independent noise satisfies $\epsilon\sim N(0,\sigma^2)$ and $\sigma^2>0$. Sources and target share $\theta$ and the noise model; target covariates reveal no further information about $\theta$. With target second moment $C_T=\E_T[hh^\top]$, the posterior covariance and posterior-mean target risk conditional on the source design are
@@ -167,7 +181,7 @@ Full validation              & 455 & 0.916078 & 0.001451 & 0/48 \\
 
 Holding the first 15 fits fixed, ten queries guided by the fitted pool effects reduce mean test Brier by $0.003599$ relative to ten additions from the MMD ranking. Dropping the leverage term preserves 47 of 48 sequential winners, and the two-batch variant is within $0.000016$ in mean Brier. The closest linear-design baselines differ by less than $0.001$ in mean test Brier. Appendix~\ref{app:fresh-linear} gives all design baselines, four LinGapE coefficients, and recommendation rules.
 
-Figure~\ref{fig:pool-query-results}b tests the effect of repartitioning the same Optdigits source examples. On hash pools, sequential 25 and full validation both score $0.299730$. On PC1 pools, sequential 25 gives $0.406669$, full validation and MMD 25 give $0.339867$, and XY-design gives $0.345173$. An all-candidate additive fit explains about $85\%$ of the validation-loss variation on hash pools and $17\%$ on PC1 pools. This retrospective diagnostic uses all candidate scores. Pool overlap alone does not establish that validation loss is predictable from additive effects.
+Figure~\ref{fig:pool-query-results}b tests the effect of repartitioning the same Optdigits source examples. On hash pools, sequential 25 and full validation both score $0.299730$. On PC1 pools, sequential 25 gives $0.406669$, full validation and MMD 25 give $0.339867$, and XY-design gives $0.345173$. An all-candidate additive fit explains about $85\%$ of the validation-loss variation on hash pools and $17\%$ on PC1 pools. This retrospective diagnostic uses all candidate scores. Under PC1, $169$--$267$ of 455 candidates per seed omit at least one training class. All hash candidates cover all classes. Class coverage and pool interactions may both contribute to the observed gap.
 
 On new DomainNet resident features, the single-worker median is $3.337$ s for sequential 25 and $6.228$ s for MMD 50. With four fitting workers, sequential 25 takes $1.922$ s, two-batch 25 takes $1.154$ s and MMD 50 takes $2.069$ s. For one Clipart configuration timed directly from images once per policy, sequential 25, MMD 50 and full validation take $19.60$, $23.89$ and $76.48$ s. Appendix~\ref{app:fresh-timing} separates these timing settings.
 
@@ -221,6 +235,7 @@ PACS and Office-Home test whether the score can directly choose a better source 
 The post-hoc exhaustive audit measures headroom: the loss reduction available from the test-best candidate over the reference. Mean headroom over DPP is only $0.781\%$, limiting average gains without changing the failed prespecified test. This motivates distinguishing better predictions from less evaluation work. These studies provide context, not independent equal-cost screening replications.
 
 \section{Discussion}
+\label{sec:discussion}
 \subsection{What makes screening useful?}
 Screening should be evaluated within the selection procedure. Final loss determines whether fewer evaluations leave an acceptable choice; omission and validation diagnostics explain quality losses. Timing establishes whether work is saved. The readout-dependent cost reversal is central: a useful shortlist need not be economical when fitting is already cheap.
 MMD and domain matching show why detailed geometry needs simple matching baselines. Good global choices need not distinguish individual blocks, although block information can help within fixed domain mixtures. Operating points should reflect the target metric, acceptable loss gap, and measured cost together, not recall or full-ranking correlation alone.

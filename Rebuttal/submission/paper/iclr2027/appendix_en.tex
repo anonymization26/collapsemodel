@@ -118,22 +118,30 @@ Each pool occurs in $\binom{14}{2}=91$ triples, and each pair occurs in $\binom{
 This proposition concerns the measured validation-loss surface for a fixed fitting and validation protocol. Real losses can depart from additivity, and the coefficients are working-model parameters. Obtaining a fitted readout for an unqueried minimizer requires one further query. Algorithm~\ref{alg:pool-query} can instead allocate its next query to exploration and returns the best observed candidate. Its leverage term is a heuristic with no confidence calibration.
 
 \begin{algorithm}[H]
-\caption{Sequential pool-only querying}
+\caption{Pool querying with validation feedback}
 \label{alg:pool-query}
 \begin{algorithmic}[1]
-\Require Full-column-rank candidate incidence matrix $X$, budget $p\leq B\leq|\cC|$, and access to a fit-and-validate query.
-\State Sort rows by candidate identifier. Use greedy pivoted Gram--Schmidt to pick $p$ rows.
-\State Query those rows to initialize $Q$ and the observed loss vector $v_Q$.
+\Require Candidate incidence matrix $X$ of rank $p$, budget $p\leq B\leq|\cC|$, query mode, and a fit-and-validate query.
+\State Select $p$ rows by greedy pivoted Gram--Schmidt on $X$.
+\State Fit and validate those candidates to initialize $Q$ and $v_Q$.
 \While{$|Q|<B$}
   \State Fit $\widehat\beta\gets\arg\min_\beta\|v_Q-X_Q\beta\|_2^2$.
-  \State Choose the unqueried candidate minimizing Equation~\eqref{eq:pool-acquisition}.
-  \State Query that candidate and append its row and observed loss to $Q$ and $v_Q$.
+  \State Rank unqueried candidates by increasing score in Equation~\eqref{eq:pool-acquisition}.
+  \State Take the first candidate (sequential) or the first $B-|Q|$ candidates (two-batch).
+  \State Fit and validate those candidates and append their rows and losses to $Q$ and $v_Q$.
 \EndWhile
 \State \Return the queried candidate minimizing $(v(S),\operatorname{id}(S))$ and its fitted readout.
 \end{algorithmic}
 \end{algorithm}
 
-Initialization chooses the largest squared row residual after projection onto the span of previously chosen rows. We round these squared residuals and the subsequent acquisition scores to 12 decimal places and break ties by lexicographic identifier. Query budgets 15, 25 and 50 use nested prefixes. The geometry-offset ablation uses the same initialization and query rule, fitting least squares to $v(S)-g(S)$ and adding $g(S)$ to the predicted score. With $N=455$ candidates and zero-based ranks, $g(S)=0.005[\operatorname{rank}_A(S)+\operatorname{rank}_M(S)]/[2(N-1)]$. The pool-only rule sets $g(S)=0$ throughout.
+Initialization repeatedly projects each unchosen row onto the span of the selected rows and chooses the row with the largest squared residual. We round the squared residuals and query scores to 12 decimal places and break ties by lexicographic candidate ID. For 15 pools labeled $A$ through $O$, each row starts with squared norm $3$, so $\mathrm{ABC}$ comes first. After that pivot, $\mathrm{ABD}$ has squared residual $3-2^2/3=5/3$, whereas $\mathrm{DEF}$ retains squared norm $3$. The full order is
+\[
+\begin{gathered}
+ \mathrm{ABC,\ DEF,\ GHI,\ JKL,\ MNO,\ ADG,\ AEH,\ AFI,}\\
+ \mathrm{BJM,\ BKN,\ BLO,\ DEI,\ DHJ,\ DKM,\ JKO}.
+\end{gathered}
+\]
+The first five triples cover all pools but provide only five independent sums. The remaining pivots add ten independent directions. Full column rank makes $X_Q^\top X_Q$ invertible, and adding queried rows preserves that rank. Query budgets 15, 25 and 50 use nested prefixes. The geometry-offset ablation uses the same initialization and query rule, fitting least squares to $v(S)-g(S)$ and adding $g(S)$ to the predicted score. With $N=455$ candidates and zero-based ranks, $g(S)=0.005[\operatorname{rank}_A(S)+\operatorname{rank}_M(S)]/[2(N-1)]$. The pool-only rule sets $g(S)=0$ throughout.
 
 In the archived replay, we lock the query trajectories before test auditing. The four additional projections reuse losses of fitted models on six targets and two encoders. Mean test Brier is $0.864174$ for sequential 25, $0.864365$ for fixed MMD 50 and $0.864118$ for full validation. The 24 paired seed--domain means stay within $+0.005$ of both references. At 25 fits, the geometry-offset ablation changes two of 48 winners and increases mean Brier by $0.000007$.
 

@@ -69,18 +69,18 @@ def draw(output: Path) -> None:
 
     ax.text(1.21, 1.314, "Validation-guided pool querying", weight="bold",
             va="center", color=blue, fontsize=9.0)
-    box(1.21, 0.79, 0.86, 0.42, "Fit and score 15", "Full-rank start", blue, light_blue)
+    box(1.21, 0.79, 0.86, 0.42, "Fit and score 15", "Pivoted basis", blue, light_blue)
     arrow(2.07, 1.00, 2.23, 1.00, color=blue)
     box(2.23, 0.79, 1.01, 0.42, "Estimate effects", "From validation loss", blue, light_blue)
     arrow(3.24, 1.00, 3.40, 1.00, color=blue)
-    box(3.40, 0.79, 0.90, 0.42, "Fit and score 10", "Sequential or batch", blue, light_blue)
+    box(3.40, 0.79, 0.90, 0.42, "Choose and fit", "Loss and leverage", blue, light_blue)
 
     line(4.30, 1.86, 4.45, 1.86)
     line(4.30, 1.00, 4.45, 1.00, color=blue)
     line(4.45, 1.00, 4.45, 1.43, color=blue)
     line(4.45, 1.43, 4.45, 1.86)
     arrow(4.45, 1.43, 4.60, 1.43, color=ink)
-    box(4.60, 1.22, 0.86, 0.42, "Select fitted", "validation winner", ink)
+    box(4.60, 1.22, 0.86, 0.42, "Keep best fitted", "by validation loss", ink)
     arrow(5.03, 1.22, 5.03, 0.93, style="--")
     ax.text(5.03, 0.80, "Held-out test", ha="center", va="center", fontsize=8.1)
 
@@ -88,12 +88,12 @@ def draw(output: Path) -> None:
     line(3.92, 0.79, 3.92, 0.705, color=blue)
     line(3.92, 0.705, 2.97, 0.705, color=blue)
     arrow(2.97, 0.705, 2.97, 0.79, color=blue)
-    ax.text(3.92, 0.595, "Update if sequential", ha="center", va="center",
+    ax.text(3.92, 0.595, "Refit if sequential", ha="center", va="center",
             fontsize=7.7, color=blue)
     line(2.425, 0.79, 2.425, 0.674, color=blue)
     ax.text(2.42, 0.557, r"$A+B+C$  vs.  $A+B+D$", ha="center",
             va="center", color=blue, fontsize=9.4)
-    ax.text(2.42, 0.392, r"Loss change estimates the effect of swapping $C$ for $D$",
+    ax.text(2.42, 0.392, r"Loss difference estimates the effect of exchanging $C$ and $D$",
             ha="center", va="center", fontsize=8.1)
     line(0.06, 0.249, 5.44, 0.249, color="#adb3b7")
     ax.text(2.75, 0.125, "Fit on labeled source pools; score on labeled target validation data.",
