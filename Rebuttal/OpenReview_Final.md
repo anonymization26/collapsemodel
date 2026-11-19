@@ -1,0 +1,29 @@
+**ICLR 2027 Author Response**
+
+# **Response to Reviewer HauM**
+
+**Contribution.** We have narrowed the claim to how a limited fitting budget is allocated over fixed source-pool combinations. Because candidates share pools, the validation loss of one fitted model can inform which other combinations are worth trying. We estimate additive pool effects from early losses and use them to choose the remaining fits. The revision develops this selection procedure and tests when the approximation preserves model quality with fewer fits and when it fails.
+
+**Inverse weighting and MMD.** We agree that MMD is a strong, cheaper baseline. At the primary DomainNet budget, it selected the same models as Target A-opt. Holding the candidates, features and 50-fit budget fixed, mean test Brier was 0.864104 for Target A-opt, 0.896467 after removing inverse weighting, and 0.863951 for MMD. Inverse weighting therefore helped relative to target energy alone. The clearest case for preferring A-opt was calibrated ridge at 50 fits, where its mean Brier gap to full validation was −0.000150, compared with +0.002461 for MMD.
+
+**Ridge calibration and robustness.** As you noted, every original ridge candidate met the 5% regret threshold. We now report absolute scores: calibrating the same ridge models reduced test Brier from 0.986695 to 0.743338, against 0.99 for uniform prediction. The feedback results were sensitive to readout settings. With fixed regularization, the 25-fit policy exceeded a +0.005 gap in 0/6 domains at 128 dimensions and 3/6 at 256. Tuning regularization changed those counts to 1/6 and 2/6 and required 75 fits.
+
+**Independent data and budget.** On the independent Optdigits dataset, we fixed the 25-fit budget in advance. With hash pools, mean test Brier across four seeds was 0.304332 for A-opt versus 0.299730 for full validation. For one hash-seed configuration with one fitting worker, median decision time over three runs was 0.614 versus 9.632 seconds from in-memory features. With PC1 pools, both scored 0.339867. Appendix E also reports exact top-50 recovery among 4,060 candidates. A retrospective stopping rule saved fits for MMD but used more for A-opt, so choosing the budget prospectively remains open.
+
+# **Response to Reviewer wsqf**
+
+**Contribution and prior work.** We have narrowed the contribution to using pool overlap and observed validation losses to allocate subsequent fits. A fixed shortlist commits the remaining trials before those scores are available. Our policy models each candidate by its pool membership, estimates pool effects from the first fits, and uses them to decide what to fit next. Target A-opt applies Yu et al.'s transductive design criterion, and the query formulation builds on linear experimental design and best-arm identification. We evaluate the value of this formulation through shared initialization, matched fitting budgets and failure cases.
+
+**Evidence for feedback.** On DomainNet, 25 sequential fits give mean test Brier of 0.916072, close to 0.916078 from full validation with 455 fits. With the first 15 fits held fixed, choosing the last ten by estimated pool effects lowers mean test Brier by 0.003599 relative to continuing the MMD ranking.
+
+**Baselines and presentation.** At 25 fits, mean DomainNet test Brier was 0.916072 for sequential querying, 0.916716 for D-design and 0.916678 for adapted LinGapE. These differences are small, and XY-design performed better on Optdigits with PC1 pools. For static screening, raw and whitened sliced Wasserstein gave 0.866406 and 0.865342 at 50 fits, compared with 0.863951 for MMD. Direct comparisons with TSDS, TAROT, SkMM and SIFT remain open. Table 1 now reports the standard deviation across four seed means and highlights the lowest mean at the shared budget. We also distinguish archived replays, newly fitted models and independent timing runs in the text, and revised the layout on page 2 to address the gap you identified.
+
+# **Response to Reviewer hbbQ**
+
+**Problem and idea.** We have narrowed the task to selecting a model from fixed batches under a fitting budget. Choosing three of 15 batches gives 455 possible training sets. Our idea is to let early trials guide the rest. Shared pools allow the loss of a fitted combination to inform predictions for untried combinations, so the same evaluation can guide several later choices. The query policy uses these predictions to allocate the remaining fits.
+
+**Role of geometry.** Before any model is fitted, the source Gram matrix tells us which feature directions a candidate covers, and the target second moment tells us how much target feature energy lies in those directions. Appendix A gives an example with equal sample counts and equal Gram traces in which exact moment matching selects the candidate with higher target prediction risk under a shared linear model.
+
+**How feedback works.** Once models have been fitted, validation losses offer another way to guide selection. If two triples share two pools, their loss difference helps estimate the effect of swapping the third. We begin with 15 combinations whose pool-membership vectors have full rank. This makes the estimated pool effects unique. Under exact additivity and exact observations, these scores identify all candidate losses. We tested the practical value of feedback by holding the first 15 fits fixed. Using validation feedback to choose the final ten lowered mean DomainNet test Brier by 0.003599 relative to following the MMD ranking. Removing the exploration bonus preserved 47 of 48 winners. Appendix E compares D-design, XY-design and adapted LinGapE at the same budget.
+
+**Boundary of the claim.** The limitation is visible on Optdigits. With PC1 pools, MMD matched full validation at 25 fits, while sequential querying scored 0.066802 worse. That partition changes class coverage as well as possible interactions between pools, so the gap cannot be attributed to either factor alone.
